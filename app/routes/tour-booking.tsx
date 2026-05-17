@@ -4,10 +4,10 @@ import { Stepper } from '~/components/stepper.js';
 import { tours } from '~/lib/mock-data';
 
 export default function Tour() {
-  const tour = tours[3]; // Food tour
+  const tour = tours[3];
 
   return (
-    <main className='mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-14'>
+    <main className='mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8'>
       {/* Header */}
       <div className='mb-10 flex flex-wrap items-end justify-between gap-4'>
         <div>
