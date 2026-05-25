@@ -1,13 +1,16 @@
 import { Star, Users, Clock, Check } from 'lucide-react';
 
-import { Stepper } from '~/components/stepper.js';
-import { tours } from '~/lib/mock-data';
+import { Stepper } from '~/components/stepper';
+import { StepperProvider } from '~/components/stepper/stepper-context';
 
-export default function Tour() {
-  const tour = tours[3];
+import { tours } from '~/lib/mock-data';
+import type { Route } from './+types/tour-booking';
+
+export default function Tour({ loaderData }: Route.ComponentProps) {
+  const { tour } = loaderData;
 
   return (
-    <main className='mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8'>
+    <main className='mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8'>
       {/* Header */}
       <div className='mb-10 flex flex-wrap items-end justify-between gap-4'>
         <div>
@@ -67,13 +70,14 @@ export default function Tour() {
           </ul>
         </div>
 
-        <Stepper
-          tourStartTimes={tour.startTimes}
-          tourPrice={tour.price}
-          tourMaxGuests={tour.maxGuests}
-          tourName={tour.name}
-        />
+        <StepperProvider>
+          <Stepper />
+        </StepperProvider>
       </div>
     </main>
   );
+}
+
+export async function loader() {
+  return { tour: tours[3] };
 }
