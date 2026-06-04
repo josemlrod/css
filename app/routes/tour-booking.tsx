@@ -3,7 +3,7 @@ import { Star, Users, Clock, Check } from 'lucide-react';
 
 import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
-import { isDateOnOrAfterToday } from '~/lib/dates';
+import { BookingValidation } from '~/lib/booking-validation';
 import { sendBookingCommunication } from '~/lib/email';
 
 import { tours } from '~/lib/mock-data';
@@ -100,28 +100,26 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   const tour = getTour(params.tourId);
-  const date = String(formData.get('date') ?? '');
-  const time = String(formData.get('time') ?? '');
-  const guests = Number(formData.get('guests'));
-  const bookerName = String(formData.get('name') ?? '').trim();
-  const bookerEmail = String(formData.get('email') ?? '').trim();
-  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail);
+  const booking = BookingValidation.safeParse({
+    date: String(formData.get('date') ?? ''),
+    time: String(formData.get('time') ?? ''),
+    guests: Number(formData.get('guests')),
+    bookerName: String(formData.get('name') ?? ''),
+    bookerEmail: String(formData.get('email') ?? ''),
+  });
 
   if (
-    !date ||
-    !isDateOnOrAfterToday(date) ||
-    !tour.startTimes.includes(time) ||
-    !Number.isInteger(guests) ||
-    guests < 1 ||
-    guests > tour.maxGuests ||
-    !bookerName ||
-    !validEmail
+    !booking.success ||
+    !tour.startTimes.includes(booking.data.time) ||
+    booking.data.guests > tour.maxGuests
   ) {
     return data(
       { ok: false, error: 'Invalid booking details' },
       { status: 400 },
     );
   }
+
+  const { date, time, guests, bookerName, bookerEmail } = booking.data;
 
   const origin = process.env.APP_ORIGIN;
 
