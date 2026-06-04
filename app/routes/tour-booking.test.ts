@@ -80,7 +80,11 @@ describe('tour booking action', () => {
 
   it('returns an error when booking communication fails', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
-    sendBookingCommunicationMock.mockRejectedValueOnce(new Error('boom'));
+    const error = new Error('boom');
+    const consoleErrorMock = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    sendBookingCommunicationMock.mockRejectedValueOnce(error);
 
     const response = await action({
       request: bookingRequest(),
@@ -95,5 +99,6 @@ describe('tour booking action', () => {
       init: { status: 500 },
     });
     expect(sendBookingCommunicationMock).toHaveBeenCalledOnce();
+    expect(consoleErrorMock).toHaveBeenCalledWith(error);
   });
 });
