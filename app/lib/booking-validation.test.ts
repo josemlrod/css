@@ -18,6 +18,8 @@ describe('BookingValidation', () => {
 
   it.each([
     ['date', { date: '2000-01-01' }],
+    ['malformed date', { date: 'not-a-date' }],
+    ['impossible date', { date: '2026-99-99' }],
     ['time', { time: '' }],
     ['guests', { guests: 0 }],
     ['booker name', { bookerName: '   ' }],

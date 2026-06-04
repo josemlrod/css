@@ -77,4 +77,23 @@ describe('tour booking action', () => {
       cancelUrl: 'https://example.com/bookings/placeholder/cancel',
     });
   });
+
+  it('returns an error when booking communication fails', async () => {
+    vi.stubEnv('APP_ORIGIN', 'https://example.com');
+    sendBookingCommunicationMock.mockRejectedValueOnce(new Error('boom'));
+
+    const response = await action({
+      request: bookingRequest(),
+      params: { tourId: 'southern-flavors-food' },
+      context: {},
+      url: new URL('https://example.com/tours/southern-flavors-food'),
+      pattern: '/tours/:tourId',
+    });
+
+    expect(response).toMatchObject({
+      data: { ok: false, error: 'Unable to send booking communication' },
+      init: { status: 500 },
+    });
+    expect(sendBookingCommunicationMock).toHaveBeenCalledOnce();
+  });
 });
