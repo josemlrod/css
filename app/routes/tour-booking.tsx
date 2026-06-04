@@ -1,3 +1,4 @@
+import { data } from 'react-router';
 import { Star, Users, Clock, Check } from 'lucide-react';
 
 import { Stepper } from '~/components/stepper';
@@ -7,15 +8,10 @@ import { sendBookingCommunication } from '~/lib/email';
 
 import { tours } from '~/lib/mock-data';
 import type { Route } from './+types/tour-booking';
-import { data } from 'react-router';
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { saveBooking } from '~/lib/bookings';
 
 export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
-
-  const tasks = useQuery(api.tasks.get);
-  console.log('tasks', tasks);
 
   return (
     <main className='mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8'>
@@ -138,6 +134,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   try {
+    const bookingId = await saveBooking({
+      date,
+      time,
+      guests,
+      bookerName,
+      bookerEmail,
+    });
     await sendBookingCommunication({
       to: bookerEmail,
       bookerName,
@@ -147,8 +150,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       guests,
       total: guests * tour.price,
       meetingPoint: tour.meetingPoint,
-      editUrl: new URL('/bookings/placeholder/edit', origin).toString(),
-      cancelUrl: new URL('/bookings/placeholder/cancel', origin).toString(),
+      editUrl: new URL(`/bookings/${bookingId}/edit`, origin).toString(),
+      cancelUrl: new URL(`/bookings/${bookingId}/cancel`, origin).toString(),
     });
   } catch (error) {
     console.error(error);
