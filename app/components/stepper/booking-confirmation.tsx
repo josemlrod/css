@@ -10,7 +10,7 @@ export function BookingConfirmation() {
     date,
     time,
     guests,
-    booker: { name },
+    booker: { name, email },
   } = useStepper();
 
   return (
@@ -51,6 +51,10 @@ export function BookingConfirmation() {
         <div className='flex justify-between'>
           <dt className='text-stone-500'>Guest</dt>
           <dd className='font-medium'>{name || '—'}</dd>
+        </div>
+        <div className='flex justify-between'>
+          <dt className='text-stone-500'>Email</dt>
+          <dd className='font-medium'>{email || '—'}</dd>
         </div>
       </dl>
     </div>

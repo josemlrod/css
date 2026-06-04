@@ -31,7 +31,7 @@ export function BookerDetails() {
           placeholder='Alex Rivera'
         />
         {nameError ? (
-          <FieldDescription className='text-destructive'>
+          <FieldDescription className='text-destructive/80'>
             Please enter your full name
           </FieldDescription>
         ) : null}
@@ -54,7 +54,7 @@ export function BookerDetails() {
           placeholder='alex@example.com'
         />
         {emailError ? (
-          <FieldDescription className='text-destructive'>
+          <FieldDescription className='text-destructive/80'>
             Please enter a valid email address
           </FieldDescription>
         ) : null}

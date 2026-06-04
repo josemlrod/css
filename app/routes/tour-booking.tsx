@@ -2,9 +2,12 @@ import { Star, Users, Clock, Check } from 'lucide-react';
 
 import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
+import { isDateOnOrAfterToday } from '~/lib/dates';
+import { sendBookingCommunication } from '~/lib/email';
 
 import { tours } from '~/lib/mock-data';
 import type { Route } from './+types/tour-booking';
+import { data } from 'react-router';
 
 export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
@@ -78,6 +81,78 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
   );
 }
 
-export async function loader() {
-  return { tour: tours[3] };
+function getTour(tourId: string | undefined) {
+  const tour = tours.find((t) => t.id === tourId || t.slug === tourId);
+
+  if (!tour) {
+    throw data('Tour not found', { status: 404 });
+  }
+
+  return tour;
+}
+
+export async function action({ request, params }: Route.ActionArgs) {
+  const formData = await request.formData();
+
+  if (formData.get('intent') !== 'confirm-booking') {
+    return data({ ok: false, error: 'Invalid intent' }, { status: 400 });
+  }
+
+  const tour = getTour(params.tourId);
+  const date = String(formData.get('date') ?? '');
+  const time = String(formData.get('time') ?? '');
+  const guests = Number(formData.get('guests'));
+  const bookerName = String(formData.get('name') ?? '').trim();
+  const bookerEmail = String(formData.get('email') ?? '').trim();
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail);
+
+  if (
+    !date ||
+    !isDateOnOrAfterToday(date) ||
+    !tour.startTimes.includes(time) ||
+    !Number.isInteger(guests) ||
+    guests < 1 ||
+    guests > tour.maxGuests ||
+    !bookerName ||
+    !validEmail
+  ) {
+    return data({ ok: false, error: 'Invalid booking details' }, { status: 400 });
+  }
+
+  const origin = process.env.APP_ORIGIN;
+
+  if (!origin) {
+    console.error(new Error('APP_ORIGIN is required'));
+    return data(
+      { ok: false, error: 'Unable to send booking communication' },
+      { status: 500 },
+    );
+  }
+
+  try {
+    await sendBookingCommunication({
+      to: bookerEmail,
+      bookerName,
+      tourName: tour.name,
+      date,
+      time,
+      guests,
+      total: guests * tour.price,
+      meetingPoint: tour.meetingPoint,
+      editUrl: new URL('/bookings/placeholder/edit', origin).toString(),
+      cancelUrl: new URL('/bookings/placeholder/cancel', origin).toString(),
+    });
+  } catch (error) {
+    console.error(error);
+    return data(
+      { ok: false, error: 'Unable to send booking communication' },
+      { status: 500 },
+    );
+  }
+
+  return { ok: true };
+}
+
+export async function loader({ params }: Route.LoaderArgs) {
+  return { tour: getTour(params.tourId) };
 }

@@ -38,7 +38,7 @@ export function GuestSelector() {
                 className={`${
                   active
                     ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-stone-200 hover:border-stone-400'
+                    : 'border-stone-200 hover:border-stone-400 aria-invalid:border-destructive/45 aria-invalid:ring-1 aria-invalid:ring-destructive/10'
                 }`}
               >
                 {n}
@@ -47,7 +47,7 @@ export function GuestSelector() {
           })}
         </div>
         {guestError ? (
-          <FieldDescription className='text-destructive'>
+          <FieldDescription className='text-destructive/80'>
             Please select the number of guests
           </FieldDescription>
         ) : null}

@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 
 import { DateSelector } from './date-selector';
-import { useRouteLoaderData } from 'react-router';
+import { useFetcher, useRouteLoaderData } from 'react-router';
 import { useStepper } from './stepper-context';
 import { GuestSelector } from './guest-selector';
 import { BookerDetails } from './booker-details';
@@ -11,11 +11,15 @@ const steps = ['Date', 'Party', 'Details', 'Confirm'] as const;
 
 export function Stepper() {
   const { tour } = useRouteLoaderData('routes/tour-booking');
+  const fetcher = useFetcher<{ ok: boolean; error?: string }>();
 
   const { setStepper, validate, ...stepper } = useStepper();
-  const { step, guests } = stepper;
+  const { step, date, time, guests, booker } = stepper;
 
   const total = tour.price * (guests ?? 1);
+  const submitting = fetcher.state !== 'idle';
+  const confirmed = fetcher.data?.ok === true;
+  const error = fetcher.data?.ok === false ? fetcher.data.error : null;
 
   return (
     <div className='lg:sticky lg:top-24 lg:self-start'>
@@ -88,21 +92,48 @@ export function Stepper() {
               onClick={() => {
                 const valid = validate();
 
-                if (valid) {
-                  setStepper((prev) => ({
-                    ...prev,
-                    step: Math.min(steps.length - 1, prev.step + 1),
-                  }));
+                if (!valid) {
                   return;
                 }
+
+                if (step === steps.length - 1) {
+                  fetcher.submit(
+                    {
+                      intent: 'confirm-booking',
+                      date,
+                      time,
+                      guests: String(guests),
+                      name: booker.name,
+                      email: booker.email,
+                    },
+                    { method: 'post' },
+                  );
+                  return;
+                }
+
+                setStepper((prev) => ({
+                  ...prev,
+                  step: Math.min(steps.length - 1, prev.step + 1),
+                }));
               }}
-              disabled={step === steps.length - 1}
+              disabled={submitting || confirmed}
               className='group inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-accent disabled:text-accent-foreground'
             >
-              {step === steps.length - 1 ? 'Booking confirmed' : 'Continue'}
+              {confirmed
+                ? 'Booking confirmed'
+                : submitting
+                  ? 'Sending email...'
+                  : step === steps.length - 1
+                    ? 'Confirm booking'
+                    : 'Continue'}
             </button>
           </div>
         </div>
+        {error ? (
+          <p className='px-5 pb-4 text-right text-xs text-destructive/80'>
+            We couldn't send the booking email. Please try again.
+          </p>
+        ) : null}
       </div>
 
       <p className='mt-3 text-center text-[11px] text-stone-500'>

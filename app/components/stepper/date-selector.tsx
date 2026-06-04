@@ -4,18 +4,14 @@ import { Field, FieldDescription, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { useStepper } from './stepper-context';
 import { Button } from '../ui/button';
-
-/*
- * TODO:
- * ensure deleting date component by component does not mess up flow
- * */
+import { getTodayInBookingTimeZone } from '~/lib/dates';
 
 export function DateSelector() {
   const { tour } = useRouteLoaderData('routes/tour-booking');
 
   const { date, time, setStepper, errors } = useStepper();
 
-  const [todaysDate]: string[] = new Date().toISOString().split('T');
+  const todaysDate = getTodayInBookingTimeZone();
 
   const dateError = errors.date;
   const timeError = errors.time;
@@ -48,8 +44,8 @@ export function DateSelector() {
             }}
           />
           {dateError ? (
-            <FieldDescription className='text-destructive'>
-              Ensure all date components are included
+            <FieldDescription className='text-destructive/80'>
+              Choose today or a future date
             </FieldDescription>
           ) : null}
         </Field>
@@ -71,7 +67,7 @@ export function DateSelector() {
                   errors: { ...prev.errors, time: false },
                 }))
               }
-              className={`rounded-full ${t === time ? 'bg-primary text-primary-foreground hover:bg-primary/70' : ''}`}
+              className={`rounded-full aria-invalid:ring-1 aria-invalid:ring-destructive/10 ${t === time ? 'bg-primary text-primary-foreground hover:bg-primary/70' : ''}`}
             >
               {t}
             </Button>
@@ -79,7 +75,7 @@ export function DateSelector() {
         </div>
 
         {timeError ? (
-          <FieldDescription className='text-destructive'>
+          <FieldDescription className='text-destructive/80'>
             Please select a time{' '}
           </FieldDescription>
         ) : null}

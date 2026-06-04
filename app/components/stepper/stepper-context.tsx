@@ -5,6 +5,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 import * as z from 'zod';
+import { isDateOnOrAfterToday } from '~/lib/dates';
 
 const Booker = z.object({
   name: z.string().trim().min(1),
@@ -13,7 +14,7 @@ const Booker = z.object({
 type Booker = z.infer<typeof Booker>;
 
 const BookingDetails = z.object({
-  date: z.string().min(1),
+  date: z.string().min(1).refine(isDateOnOrAfterToday),
   time: z.string().min(1),
   guests: z.number().int().min(1),
 });
@@ -124,6 +125,7 @@ export function StepperProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
+    3: () => true,
   };
   const validate = stepValidation[stepper.step as keyof typeof stepValidation];
 
