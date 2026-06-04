@@ -8,9 +8,14 @@ import { sendBookingCommunication } from '~/lib/email';
 import { tours } from '~/lib/mock-data';
 import type { Route } from './+types/tour-booking';
 import { data } from 'react-router';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
+
+  const tasks = useQuery(api.tasks.get);
+  console.log('tasks', tasks);
 
   return (
     <main className='mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8'>
@@ -116,7 +121,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     !bookerName ||
     !validEmail
   ) {
-    return data({ ok: false, error: 'Invalid booking details' }, { status: 400 });
+    return data(
+      { ok: false, error: 'Invalid booking details' },
+      { status: 400 },
+    );
   }
 
   const origin = process.env.APP_ORIGIN;
