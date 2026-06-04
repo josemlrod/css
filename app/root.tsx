@@ -25,11 +25,6 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
-export async function loader() {
-  const CONVEX_URL = process.env['VITE_CONVEX_URL']!;
-  return { ENV: { CONVEX_URL } };
-}
-
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang='en'>
@@ -48,10 +43,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App({ loaderData }: Route.ComponentProps) {
-  const { ENV } = loaderData;
-
-  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
+export default function App() {
+  const [convex] = useState(
+    () => new ConvexReactClient(import.meta.env.VITE_CONVEX_URL),
+  );
 
   return <ConvexProvider client={convex}>{<Outlet />}</ConvexProvider>;
 }
