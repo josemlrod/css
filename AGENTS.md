@@ -1,0 +1,82 @@
+# Agent Workflow
+
+Use this workflow when assigned one or more GitHub issues.
+
+## 1. Intake
+
+- Read assigned issue(s) fully.
+- Inspect current branch, git status, and recent commits.
+- Confirm issue scope before editing.
+- Identify exact files likely to change.
+- If issue conflicts with another active workstream, stop and ask.
+
+## 2. Branch + Worktree Discipline
+
+- Work only in assigned worktree/branch.
+- Branch name format: `agent/issue-<number>-short-slug` or `agent/issues-<numbers>-short-slug`.
+- Do not modify unrelated files.
+- Do not revert user or other-agent changes.
+- Keep commits scoped to assigned issue(s).
+
+## 3. Implementation
+
+- Make minimal changes that satisfy acceptance criteria.
+- Prefer existing patterns.
+- Avoid speculative refactors.
+- Preserve domain language from `CONTEXT.md`: Booker, Booking, Booking Communication.
+- If new behavior needs cross-workstream dependency, isolate behind a small seam or note the blocker.
+
+## 4. Verification
+
+Use Bun for checks when available:
+
+- `bun run typecheck`
+- `bun test` if tests exist or the issue adds tests
+- `bun run build` if route, server, config, or deployment behavior changes
+
+If a check cannot run, document the exact reason in the PR.
+
+## 5. Commit
+
+- Inspect `git status` and `git diff`.
+- Stage only intended files.
+- Commit with a concise message, for example:
+  - `Add shared booking validation schema`
+  - `Polish booking communication email`
+  - `Add Convex booking persistence`
+  - `Cover booking validation behavior`
+
+## 6. Pull Request
+
+Create a PR when implementation and verification are complete.
+
+PR title:
+
+- `Issue #<number>: <issue title>`
+- For multiple issues: `Issues #<n>, #<n>: <short summary>`
+
+PR body must include:
+
+- Issues closed: `Closes #<number>`
+- Summary of changes
+- Verification commands and results
+- Risks or assumptions
+- Follow-ups, if any
+
+## 7. Final Handoff
+
+After PR publish, report:
+
+- PR URL
+- Issues covered
+- Verification status
+- Any blocked items or follow-up issues needed
+
+## Parallel Workstream Guidance
+
+Assign issue groups with low overlap:
+
+- Email: #4
+- Convex foundation: #3, #5
+- Convex persistence/read: #6, #7 after #5 or same agent
+- Testing: #8, #9 after #3 ideally
