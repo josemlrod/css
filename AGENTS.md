@@ -63,6 +63,39 @@ PR body must include:
 - Risks or assumptions
 - Follow-ups, if any
 
+PR body must be written as readable GitHub-flavored Markdown, not escaped text. Use real newlines, headings, and bullet lists.
+
+Required structure:
+
+```md
+## Summary
+
+- Briefly describe the main changes.
+- Keep bullets specific and user-readable.
+
+## Verification
+
+- `bun run typecheck` - pass
+- `bun test` - pass
+
+## Risks or Assumptions
+
+- Note any relevant risk, assumption, or `None`.
+
+## Follow-ups
+
+- Note any follow-up work or `None`.
+
+Closes #<number>
+```
+
+Rules:
+
+- Do not include literal escaped newline sequences like `\n`.
+- Do not pass a single quoted string with embedded `\n` as the PR body.
+- Prefer writing the body from a Markdown file or heredoc so GitHub renders headings and lists correctly.
+- Include command results, not just command names.
+
 ## 7. Final Handoff
 
 After PR publish, report:
