@@ -32,6 +32,10 @@ export const createBooking = mutation({
     bookerEmail: v.string(),
     tourId: v.id('tours'),
     cancelled: v.union(v.null(), v.number()),
+    checkoutAttemptId: v.optional(v.id('checkoutAttempts')),
+    accessTokenHash: v.optional(v.string()),
+    stripePaymentIntentId: v.optional(v.string()),
+    paymentStatus: v.optional(v.literal('paid')),
   },
   handler: async (ctx, args) => {
     const time = new Date().getTime();

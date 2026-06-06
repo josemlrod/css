@@ -92,3 +92,24 @@ export async function updateCheckoutAttempt(
   );
   return checkoutAttemptId;
 }
+
+export async function completeCheckoutAttempt(input: {
+  stripeCheckoutSessionId: string;
+  amountTotal: number;
+  currency: string;
+  stripePaymentIntentId: string;
+}) {
+  const bookingId = await getConvex().mutation(
+    api.checkoutAttempts.completeCheckoutAttempt,
+    input,
+  );
+  return bookingId;
+}
+
+export async function expireCheckoutAttempt(stripeCheckoutSessionId: string) {
+  const checkoutAttemptId = await getConvex().mutation(
+    api.checkoutAttempts.expireCheckoutAttempt,
+    { stripeCheckoutSessionId },
+  );
+  return checkoutAttemptId;
+}

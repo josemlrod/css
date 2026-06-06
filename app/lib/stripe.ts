@@ -24,6 +24,16 @@ function getStripe() {
   return new Stripe(secretKey);
 }
 
+export function constructStripeWebhookEvent(payload: string, signature: string) {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET is required');
+  }
+
+  return getStripe().webhooks.constructEvent(payload, signature, webhookSecret);
+}
+
 export async function createCheckoutSession({
   checkoutAttemptId,
   accessToken,

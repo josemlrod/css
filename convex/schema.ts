@@ -28,6 +28,10 @@ export default defineSchema({
     bookerName: v.string(),
     bookerEmail: v.string(),
     tourId: v.id('tours'),
+    checkoutAttemptId: v.optional(v.id('checkoutAttempts')),
+    accessTokenHash: v.optional(v.string()),
+    stripePaymentIntentId: v.optional(v.string()),
+    paymentStatus: v.optional(v.literal('paid')),
     updatedAt: v.number(),
   }),
 
