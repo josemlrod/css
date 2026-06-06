@@ -71,3 +71,119 @@ export const updateCheckoutAttempt = mutation({
     return id;
   },
 });
+
+export const completeCheckoutAttempt = mutation({
+  args: {
+    stripeCheckoutSessionId: v.string(),
+    amountTotal: v.number(),
+    currency: v.string(),
+    stripePaymentIntentId: v.string(),
+  },
+  handler: async (
+    ctx,
+    { stripeCheckoutSessionId, amountTotal, currency, stripePaymentIntentId },
+  ) => {
+    const checkoutAttempt = await ctx.db
+      .query('checkoutAttempts')
+      .filter((q) =>
+        q.eq(q.field('stripeCheckoutSessionId'), stripeCheckoutSessionId),
+      )
+      .first();
+
+    if (!checkoutAttempt) {
+      throw new Error('Checkout Attempt not found');
+    }
+
+    const existingBooking = await ctx.db
+      .query('bookings')
+      .filter((q) => q.eq(q.field('checkoutAttemptId'), checkoutAttempt._id))
+      .first();
+
+    if (existingBooking) {
+      return existingBooking._id;
+    }
+
+    if (checkoutAttempt.paymentStatus !== 'pending') {
+      throw new Error('Checkout Attempt is not pending');
+    }
+
+    if (amountTotal !== checkoutAttempt.total * 100) {
+      throw new Error('Checkout amount mismatch');
+    }
+
+    if (currency !== checkoutAttempt.currency) {
+      throw new Error('Checkout currency mismatch');
+    }
+
+    const tour = await ctx.db.get(checkoutAttempt.tourId);
+
+    if (!tour) {
+      throw new Error('Tour not found');
+    }
+
+    const bookings = await ctx.db
+      .query('bookings')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('tourId'), checkoutAttempt.tourId),
+          q.eq(q.field('date'), checkoutAttempt.date),
+          q.eq(q.field('time'), checkoutAttempt.time),
+          q.eq(q.field('cancelled'), null),
+        ),
+      )
+      .collect();
+    const bookedGuests = bookings.reduce((sum, booking) => sum + booking.guests, 0);
+
+    if (bookedGuests + checkoutAttempt.guests > tour.maxGuests) {
+      throw new Error('Tour capacity unavailable');
+    }
+
+    const now = new Date().getTime();
+    const bookingId = await ctx.db.insert('bookings', {
+      cancelled: null,
+      date: checkoutAttempt.date,
+      time: checkoutAttempt.time,
+      guests: checkoutAttempt.guests,
+      bookerName: checkoutAttempt.bookerName,
+      bookerEmail: checkoutAttempt.bookerEmail,
+      tourId: checkoutAttempt.tourId,
+      checkoutAttemptId: checkoutAttempt._id,
+      accessTokenHash: checkoutAttempt.accessTokenHash,
+      stripePaymentIntentId,
+      paymentStatus: 'paid',
+      updatedAt: now,
+    });
+
+    await ctx.db.patch(checkoutAttempt._id, {
+      paymentStatus: 'paid',
+      updatedAt: now,
+    });
+
+    return bookingId;
+  },
+});
+
+export const expireCheckoutAttempt = mutation({
+  args: { stripeCheckoutSessionId: v.string() },
+  handler: async (ctx, { stripeCheckoutSessionId }) => {
+    const checkoutAttempt = await ctx.db
+      .query('checkoutAttempts')
+      .filter((q) =>
+        q.eq(q.field('stripeCheckoutSessionId'), stripeCheckoutSessionId),
+      )
+      .first();
+
+    if (!checkoutAttempt) {
+      throw new Error('Checkout Attempt not found');
+    }
+
+    if (checkoutAttempt.paymentStatus === 'pending') {
+      await ctx.db.patch(checkoutAttempt._id, {
+        paymentStatus: 'expired',
+        updatedAt: new Date().getTime(),
+      });
+    }
+
+    return checkoutAttempt._id;
+  },
+});
