@@ -1,26 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { saveBooking } from '~/lib/bookings';
+import {
+  saveCheckoutAttempt,
+  updateCheckoutAttempt,
+} from '~/lib/checkout-attempts';
 import { getTodayInBookingTimeZone } from '~/lib/dates';
-import { sendBookingCommunication } from '~/lib/email';
+import { createCheckoutSession } from '~/lib/stripe';
 import { getTourById } from '~/lib/tours';
 
 import { action } from './tour-booking';
 
-vi.mock('~/lib/email', () => ({
-  sendBookingCommunication: vi.fn(),
-}));
-
-vi.mock('~/lib/bookings', () => ({
-  saveBooking: vi.fn(),
+vi.mock('~/lib/checkout-attempts', () => ({
+  saveCheckoutAttempt: vi.fn(),
+  updateCheckoutAttempt: vi.fn(),
 }));
 
 vi.mock('~/lib/tours', () => ({
   getTourById: vi.fn(),
 }));
 
-const sendBookingCommunicationMock = vi.mocked(sendBookingCommunication);
-const saveBookingMock = vi.mocked(saveBooking);
+vi.mock('~/lib/stripe', () => ({
+  createCheckoutSession: vi.fn(),
+}));
+
+const saveCheckoutAttemptMock = vi.mocked(saveCheckoutAttempt);
+const updateCheckoutAttemptMock = vi.mocked(updateCheckoutAttempt);
+const createCheckoutSessionMock = vi.mocked(createCheckoutSession);
 const getTourByIdMock = vi.mocked(getTourById);
 
 const tour = {
@@ -82,57 +87,80 @@ describe('tour booking action', () => {
       data: { ok: false, error: 'Invalid booking details' },
       init: { status: 400 },
     });
-    expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
-    expect(saveBookingMock).not.toHaveBeenCalled();
+    expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
+    expect(createCheckoutSessionMock).not.toHaveBeenCalled();
   });
 
-  it('persists booking and sends booking communication for valid input', async () => {
+  it('persists checkout attempt and redirects to Stripe Checkout for valid input', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
     getTourByIdMock.mockResolvedValueOnce(tour as never);
-    saveBookingMock.mockResolvedValueOnce('booking-123' as never);
+    saveCheckoutAttemptMock.mockResolvedValueOnce({
+      checkoutAttemptId: 'checkout-attempt-123' as never,
+      accessToken: 'raw-token',
+      expiresAt: 1767227400000,
+    });
+    createCheckoutSessionMock.mockResolvedValueOnce({
+      id: 'cs_test_123',
+      url: 'https://checkout.stripe.com/c/pay/cs_test_123',
+    } as never);
 
-    const response = await action({
-      request: bookingRequest(),
-      params: { tourId: 'southern-flavors-food' },
-      context: {},
-      url: new URL('https://example.com/tours/southern-flavors-food'),
-      pattern: '/tours/:tourId',
+    await expect(
+      action({
+        request: bookingRequest(),
+        params: { tourId: 'southern-flavors-food' },
+        context: {},
+        url: new URL('https://example.com/tours/southern-flavors-food'),
+        pattern: '/tours/:tourId',
+      }),
+    ).rejects.toMatchObject({
+      status: 302,
+      headers: expect.objectContaining({
+        get: expect.any(Function),
+      }),
     });
 
-    expect(response).toEqual({ ok: true });
-    expect(saveBookingMock).toHaveBeenCalledOnce();
-    expect(saveBookingMock).toHaveBeenCalledWith({
+    expect(saveCheckoutAttemptMock).toHaveBeenCalledOnce();
+    expect(saveCheckoutAttemptMock).toHaveBeenCalledWith({
       date: getTodayInBookingTimeZone(),
       time: '11:30 AM',
       guests: 2,
       bookerName: 'Ada Lovelace',
       bookerEmail: 'ada@example.com',
       tourId: 'southern-flavors-food',
-      cancelled: null,
+      unitPrice: 79,
+      total: 158,
+      currency: 'usd',
     });
-    expect(sendBookingCommunicationMock).toHaveBeenCalledWith({
-      to: 'ada@example.com',
-      bookerName: 'Ada Lovelace',
-      tourName: 'Southern Flavors Food Tour',
+    expect(createCheckoutSessionMock).toHaveBeenCalledWith({
+      checkoutAttemptId: 'checkout-attempt-123',
+      accessToken: 'raw-token',
+      expiresAt: 1767227400000,
+      origin: 'https://example.com',
+      tour,
       date: getTodayInBookingTimeZone(),
       time: '11:30 AM',
       guests: 2,
-      total: 158,
-      meetingPoint: "Broughton & Bull Street, in front of Leopold's",
-      editUrl: 'https://example.com/manage/booking-123',
-      cancelUrl: 'https://example.com/manage/booking-123',
+      bookerEmail: 'ada@example.com',
+    });
+    expect(updateCheckoutAttemptMock).toHaveBeenCalledWith({
+      id: 'checkout-attempt-123',
+      stripeCheckoutSessionId: 'cs_test_123',
     });
   });
 
-  it('returns an error when booking communication fails', async () => {
+  it('returns an error when Stripe Checkout creation fails', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
     getTourByIdMock.mockResolvedValueOnce(tour as never);
-    saveBookingMock.mockResolvedValueOnce('booking-123' as never);
+    saveCheckoutAttemptMock.mockResolvedValueOnce({
+      checkoutAttemptId: 'checkout-attempt-123' as never,
+      accessToken: 'raw-token',
+      expiresAt: 1767227400000,
+    });
     const error = new Error('boom');
     const consoleErrorMock = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
-    sendBookingCommunicationMock.mockRejectedValueOnce(error);
+    createCheckoutSessionMock.mockRejectedValueOnce(error);
 
     const response = await action({
       request: bookingRequest(),
@@ -143,10 +171,10 @@ describe('tour booking action', () => {
     });
 
     expect(response).toMatchObject({
-      data: { ok: false, error: 'Unable to send booking communication' },
+      data: { ok: false, error: 'Unable to start checkout' },
       init: { status: 500 },
     });
-    expect(sendBookingCommunicationMock).toHaveBeenCalledOnce();
+    expect(createCheckoutSessionMock).toHaveBeenCalledOnce();
     expect(consoleErrorMock).toHaveBeenCalledWith(error);
   });
 });
