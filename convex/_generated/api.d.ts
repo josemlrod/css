@@ -9,6 +9,7 @@
  */
 
 import type * as bookings from "../bookings.js";
+import type * as tours from "../tours.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   bookings: typeof bookings;
+  tours: typeof tours;
 }>;
 
 /**

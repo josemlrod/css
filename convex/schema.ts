@@ -2,11 +2,32 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 export default defineSchema({
+  tours: defineTable({
+    slug: v.string(),
+    name: v.string(),
+    tagline: v.string(),
+    description: v.string(),
+    longDescription: v.string(),
+    duration: v.string(),
+    durationMinutes: v.number(),
+    price: v.number(),
+    maxGuests: v.number(),
+    imageUrl: v.string(),
+    category: v.string(),
+    highlights: v.array(v.string()),
+    startTimes: v.array(v.string()),
+    meetingPoint: v.string(),
+    updatedAt: v.number(),
+  }),
+
   bookings: defineTable({
+    cancelled: v.union(v.number(), v.null()),
     date: v.string(),
     time: v.string(),
     guests: v.number(),
     bookerName: v.string(),
     bookerEmail: v.string(),
+    tourId: v.id('tours'),
+    updatedAt: v.number(),
   }),
 });

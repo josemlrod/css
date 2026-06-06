@@ -137,9 +137,6 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
                 </div>
 
                 <div style="margin-top:26px;">
-                  <a href="${editUrl}" style="display:inline-block;background:#123449;color:#ffffff;text-decoration:none;border-radius:8px;padding:13px 20px;font-weight:700;font-size:14px;">
-                    Edit booking
-                  </a>
                   <p style="margin:16px 0 0;font-size:14px;color:#737373;line-height:1.5;">
                     Need to cancel? <a href="${cancelUrl}" style="color:#123449;font-weight:600;">Cancel booking</a>
                   </p>
@@ -180,6 +177,5 @@ export async function sendBookingCommunication(booking: BookingCommunication) {
       text: email.text,
       html: email.html,
     });
-  } catch {
-  }
+  } catch {}
 }

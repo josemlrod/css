@@ -9,6 +9,8 @@ import { sendBookingCommunication } from '~/lib/email';
 import { tours } from '~/lib/mock-data';
 import type { Route } from './+types/tour-booking';
 import { saveBooking } from '~/lib/bookings';
+import { getTourById } from '~/lib/tours';
+import type { TourId, Tour as TourType } from '~/lib/types';
 
 export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
@@ -29,8 +31,8 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
         <div className='flex items-center gap-4 text-xs text-stone-500'>
           <span className='inline-flex items-center gap-1'>
             <Star className='size-3.5 fill-[#D97757] stroke-[#D97757]' />
-            <span className='font-medium text-stone-900'>{tour.rating}</span>
-            <span>({tour.reviewCount})</span>
+            <span className='font-medium text-stone-900'>5</span>
+            <span>(500)</span>
           </span>
           <span className='inline-flex items-center gap-1'>
             <Clock className='size-3.5' /> {tour.duration}
@@ -46,7 +48,7 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
         <div className='space-y-4'>
           <div className='relative  overflow-hidden rounded-lg bg-stone-100'>
             <img
-              src={tour.image || '/placeholder.svg'}
+              src={tour.imageUrl || '/placeholder.svg'}
               alt={tour.name}
               className='object-cover aspect-[4/5] animate-in fade-in duration-300'
             />
@@ -99,7 +101,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     return data({ ok: false, error: 'Invalid intent' }, { status: 400 });
   }
 
-  const tour = getTour(params.tourId);
+  const tourId = params.tourId as TourId;
+
+  const tour = (await getTourById(tourId)) as TourType;
   const booking = BookingValidation.safeParse({
     date: String(formData.get('date') ?? ''),
     time: String(formData.get('time') ?? ''),
@@ -138,6 +142,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       guests,
       bookerName,
       bookerEmail,
+      tourId,
+      cancelled: null,
     });
     await sendBookingCommunication({
       to: bookerEmail,
@@ -148,8 +154,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       guests,
       total: guests * tour.price,
       meetingPoint: tour.meetingPoint,
-      editUrl: new URL(`/bookings/${bookingId}/edit`, origin).toString(),
-      cancelUrl: new URL(`/bookings/${bookingId}/cancel`, origin).toString(),
+      editUrl: new URL(`/manage/${bookingId}`, origin).toString(),
+      cancelUrl: new URL(`/manage/${bookingId}`, origin).toString(),
     });
   } catch (error) {
     console.error(error);
@@ -162,6 +168,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   return { ok: true };
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
-  return { tour: getTour(params.tourId) };
+export async function loader({ params: { tourId } }: Route.LoaderArgs) {
+  const tour = await getTourById(tourId as TourId);
+
+  if (!tour) throw data('Tour not found', { status: 404 });
+
+  return { tour } as { tour: TourType };
 }

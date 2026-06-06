@@ -49,7 +49,7 @@ export function StepperProvider({ children }: PropsWithChildren) {
     step: 0,
     date: '',
     time: '',
-    guests: 0,
+    guests: 1,
     booker: {
       name: '',
       email: '',

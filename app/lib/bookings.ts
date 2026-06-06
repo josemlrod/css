@@ -1,13 +1,40 @@
 import { ConvexHttpClient } from 'convex/browser';
 
-import type { Doc } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
-
-type Booking = Omit<Doc<'bookings'>, '_id' | '_creationTime'>;
+import { tryCatch } from './utils';
+import type { BookingId, NormalizedBooking } from './types';
+import type { Id } from '../../convex/_generated/dataModel';
 
 const convex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL);
 
-export async function saveBooking(booking: Booking) {
+export async function getBooking(bookingId: BookingId) {
+  const [booking, err] = await tryCatch(
+    convex.query(api.bookings.getBookingById, { bookingId }),
+  );
+
+  if (err) throw new Error('Something went wrong');
+
+  return booking;
+}
+
+export async function getBookingWithTour(bookingId: BookingId) {
+  const [res, err] = await tryCatch(
+    convex.query(api.bookings.getBookingWithTour, { bookingId }),
+  );
+
+  if (err) throw new Error('Something went wrong');
+
+  return res;
+}
+
+export async function saveBooking(booking: NormalizedBooking) {
   const bookingId = await convex.mutation(api.bookings.createBooking, booking);
+  return bookingId;
+}
+
+export async function updateBooking(
+  updates: Partial<NormalizedBooking> & { id: Id<'bookings'> },
+) {
+  const bookingId = await convex.mutation(api.bookings.updateBooking, updates);
   return bookingId;
 }
