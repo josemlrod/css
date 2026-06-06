@@ -19,6 +19,17 @@ export const getCheckoutAttemptById = query({
   },
 });
 
+export const getCheckoutAttemptWithTour = query({
+  args: { checkoutAttemptId: v.id('checkoutAttempts') },
+  handler: async (ctx, { checkoutAttemptId }) => {
+    const checkoutAttempt = await ctx.db.get(checkoutAttemptId);
+    if (!checkoutAttempt) return null;
+
+    const tour = await ctx.db.get(checkoutAttempt.tourId);
+    return { checkoutAttempt, tour };
+  },
+});
+
 export const createCheckoutAttempt = mutation({
   args: {
     tourId: v.id('tours'),
