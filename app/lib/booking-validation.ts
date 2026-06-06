@@ -12,12 +12,21 @@ function isCalendarDate(date: string) {
   return parsedDate.toISOString().slice(0, 10) === date;
 }
 
-export const BookingValidation = z.object({
+export const BookingDetailsValidation = z.object({
   date: z.string().min(1).refine(isCalendarDate).refine(isDateOnOrAfterToday),
   time: z.string().min(1),
   guests: z.number().int().min(1),
+});
+
+export const BookerValidation = z.object({
   bookerName: z.string().trim().min(1),
   bookerEmail: z.string().trim().email(),
 });
 
+export const BookingValidation = BookingDetailsValidation.extend(
+  BookerValidation.shape,
+);
+
+export type BookingDetailsValidation = z.infer<typeof BookingDetailsValidation>;
+export type BookerValidation = z.infer<typeof BookerValidation>;
 export type BookingValidation = z.infer<typeof BookingValidation>;

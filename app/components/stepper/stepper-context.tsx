@@ -4,21 +4,16 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import * as z from 'zod';
-import { isDateOnOrAfterToday } from '~/lib/dates';
+import {
+  BookerValidation,
+  BookingDetailsValidation,
+} from '~/lib/booking-validation';
 
-const Booker = z.object({
-  name: z.string().trim().min(1),
-  email: z.string().trim().email(),
-});
-type Booker = z.infer<typeof Booker>;
-
-const BookingDetails = z.object({
-  date: z.string().min(1).refine(isDateOnOrAfterToday),
-  time: z.string().min(1),
-  guests: z.number().int().min(1),
-});
-type BookingDetails = z.infer<typeof BookingDetails>;
+type Booker = {
+  name: BookerValidation['bookerName'];
+  email: BookerValidation['bookerEmail'];
+};
+type BookingDetails = BookingDetailsValidation;
 
 export type Stepper = {
   step: number;
@@ -59,7 +54,10 @@ export function StepperProvider({ children }: PropsWithChildren) {
 
   const stepValidation = {
     0: () => {
-      const BookingDateTime = BookingDetails.pick({ date: true, time: true });
+      const BookingDateTime = BookingDetailsValidation.pick({
+        date: true,
+        time: true,
+      });
       const res = BookingDateTime.safeParse({
         date: stepper.date,
         time: stepper.time,
@@ -82,7 +80,7 @@ export function StepperProvider({ children }: PropsWithChildren) {
       }
     },
     1: () => {
-      const BookingGuests = BookingDetails.pick({ guests: true });
+      const BookingGuests = BookingDetailsValidation.pick({ guests: true });
       const res = BookingGuests.safeParse({
         guests: stepper.guests,
       });
@@ -104,9 +102,9 @@ export function StepperProvider({ children }: PropsWithChildren) {
       }
     },
     2: () => {
-      const res = Booker.safeParse({
-        name: stepper.booker.name,
-        email: stepper.booker.email,
+      const res = BookerValidation.safeParse({
+        bookerName: stepper.booker.name,
+        bookerEmail: stepper.booker.email,
       });
 
       if (res.success) return true;
