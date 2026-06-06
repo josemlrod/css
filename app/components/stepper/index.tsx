@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 
 import { DateSelector } from './date-selector';
-import { useFetcher, useRouteLoaderData } from 'react-router';
+import { useNavigation, useRouteLoaderData, useSubmit } from 'react-router';
 import { useStepper } from './stepper-context';
 import { GuestSelector } from './guest-selector';
 import { BookerDetails } from './booker-details';
@@ -11,15 +11,14 @@ const steps = ['Date', 'Party', 'Details', 'Confirm'] as const;
 
 export function Stepper() {
   const { tour } = useRouteLoaderData('routes/tour-booking');
-  const fetcher = useFetcher<{ ok: boolean; error?: string }>();
+  const navigation = useNavigation();
+  const submit = useSubmit();
 
   const { setStepper, validate, ...stepper } = useStepper();
   const { step, date, time, guests, booker } = stepper;
 
   const total = tour.price * (guests ?? 1);
-  const submitting = fetcher.state !== 'idle';
-  const confirmed = fetcher.data?.ok === true;
-  const error = fetcher.data?.ok === false ? fetcher.data.error : null;
+  const submitting = navigation.state !== 'idle';
 
   return (
     <div className='lg:sticky lg:top-24 lg:self-start'>
@@ -97,7 +96,7 @@ export function Stepper() {
                 }
 
                 if (step === steps.length - 1) {
-                  fetcher.submit(
+                  submit(
                     {
                       intent: 'confirm-booking',
                       date,
@@ -116,24 +115,17 @@ export function Stepper() {
                   step: Math.min(steps.length - 1, prev.step + 1),
                 }));
               }}
-              disabled={submitting || confirmed}
+              disabled={submitting}
               className='group inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-accent disabled:text-accent-foreground'
             >
-              {confirmed
-                ? 'Booking confirmed'
-                : submitting
-                  ? 'Sending email...'
-                  : step === steps.length - 1
-                    ? 'Confirm booking'
-                    : 'Continue'}
+              {submitting
+                ? 'Opening checkout...'
+                : step === steps.length - 1
+                  ? 'Continue to payment'
+                  : 'Continue'}
             </button>
           </div>
         </div>
-        {error ? (
-          <p className='px-5 pb-4 text-right text-xs text-destructive/80'>
-            We couldn't send the booking email. Please try again.
-          </p>
-        ) : null}
       </div>
 
       <p className='mt-3 text-center text-[11px] text-stone-500'>

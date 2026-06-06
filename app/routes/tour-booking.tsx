@@ -1,14 +1,17 @@
-import { data } from 'react-router';
+import { data, redirect } from 'react-router';
 import { Star, Users, Clock, Check } from 'lucide-react';
 
 import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
 import { BookingValidation } from '~/lib/booking-validation';
-import { sendBookingCommunication } from '~/lib/email';
 
 import { tours } from '~/lib/mock-data';
 import type { Route } from './+types/tour-booking';
-import { saveBooking } from '~/lib/bookings';
+import {
+  saveCheckoutAttempt,
+  updateCheckoutAttempt,
+} from '~/lib/checkout-attempts';
+import { createCheckoutSession } from '~/lib/stripe';
 import { getTourById } from '~/lib/tours';
 import type { TourId, Tour as TourType } from '~/lib/types';
 
@@ -130,42 +133,53 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (!origin) {
     console.error(new Error('APP_ORIGIN is required'));
     return data(
-      { ok: false, error: 'Unable to send booking communication' },
+      { ok: false, error: 'Unable to start checkout' },
       { status: 500 },
     );
   }
 
   try {
-    const bookingId = await saveBooking({
-      date,
-      time,
-      guests,
-      bookerName,
-      bookerEmail,
-      tourId,
-      cancelled: null,
-    });
-    await sendBookingCommunication({
-      to: bookerEmail,
-      bookerName,
-      tourName: tour.name,
-      date,
-      time,
-      guests,
-      total: guests * tour.price,
-      meetingPoint: tour.meetingPoint,
-      editUrl: new URL(`/manage/${bookingId}`, origin).toString(),
-      cancelUrl: new URL(`/manage/${bookingId}`, origin).toString(),
-    });
-  } catch (error) {
-    console.error(error);
-    return data(
-      { ok: false, error: 'Unable to send booking communication' },
-      { status: 500 },
-    );
-  }
+    const { checkoutAttemptId, accessToken, expiresAt } =
+      await saveCheckoutAttempt({
+        date,
+        time,
+        guests,
+        bookerName,
+        bookerEmail,
+        tourId,
+        unitPrice: tour.price,
+        total: guests * tour.price,
+        currency: 'usd',
+      });
 
-  return { ok: true };
+    const session = await createCheckoutSession({
+      checkoutAttemptId,
+      accessToken,
+      expiresAt,
+      origin,
+      tour,
+      date,
+      time,
+      guests,
+      bookerEmail,
+    });
+
+    if (!session.url) {
+      throw new Error('Stripe Checkout Session URL is required');
+    }
+
+    await updateCheckoutAttempt({
+      id: checkoutAttemptId,
+      stripeCheckoutSessionId: session.id,
+    });
+
+    throw redirect(session.url);
+  } catch (error) {
+    if (error instanceof Response) throw error;
+
+    console.error(error);
+    return data({ ok: false, error: 'Unable to start checkout' }, { status: 500 });
+  }
 }
 
 export async function loader({ params: { tourId } }: Route.LoaderArgs) {
