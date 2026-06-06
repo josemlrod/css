@@ -47,6 +47,20 @@ export async function getCheckoutAttempt(
   return checkoutAttempt;
 }
 
+export async function getCheckoutAttemptWithTour(
+  checkoutAttemptId: CheckoutAttemptId,
+) {
+  const [res, err] = await tryCatch(
+    getConvex().query(api.checkoutAttempts.getCheckoutAttemptWithTour, {
+      checkoutAttemptId,
+    }),
+  );
+
+  if (err) throw new Error('Something went wrong');
+
+  return res;
+}
+
 export async function saveCheckoutAttempt(input: CheckoutAttemptInput) {
   const accessToken = generateCheckoutAccessToken();
   const expiresAt = Date.now() + CHECKOUT_ATTEMPT_TTL_MS;
