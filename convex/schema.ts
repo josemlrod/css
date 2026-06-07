@@ -31,7 +31,15 @@ export default defineSchema({
     checkoutAttemptId: v.optional(v.id('checkoutAttempts')),
     accessTokenHash: v.optional(v.string()),
     stripePaymentIntentId: v.optional(v.string()),
-    paymentStatus: v.optional(v.literal('paid')),
+    paymentStatus: v.optional(
+      v.union(
+        v.literal('paid'),
+        v.literal('refund_pending'),
+        v.literal('refunded'),
+        v.literal('refund_failed'),
+      ),
+    ),
+    stripeRefundId: v.optional(v.string()),
     updatedAt: v.number(),
   }),
 

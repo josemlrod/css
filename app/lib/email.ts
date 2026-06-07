@@ -23,6 +23,10 @@ type FailedCapacityRefundCommunication = {
   total: number;
 };
 
+type CancellationRefundCommunication = FailedCapacityRefundCommunication & {
+  supportEmail?: string;
+};
+
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -205,6 +209,68 @@ ${details}`,
   };
 }
 
+export function createBookingCancellationRefundRequestedEmail(
+  booking: CancellationRefundCommunication,
+) {
+  return {
+    subject: `${booking.tourName} cancellation received`,
+    text: `Hi ${booking.bookerName},
+
+Your Booking is canceled. We requested a full refund to your original payment method.
+
+Tour: ${booking.tourName}
+Date: ${formatDate(booking.date)}
+Time: ${booking.time}
+Party size: ${booking.guests}
+Refund amount: ${currency.format(booking.total)}`,
+    html: `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} cancellation received</title></head>
+  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+    <h1>Booking canceled</h1>
+    <p>Hi ${escapeHtml(booking.bookerName)}, your Booking is canceled. We requested a full refund to your original payment method.</p>
+    <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
+    <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
+    <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
+    <strong>Party size:</strong> ${booking.guests}<br />
+    <strong>Refund amount:</strong> ${currency.format(booking.total)}</p>
+  </body>
+</html>`,
+  };
+}
+
+export function createBookingCancellationRefundFailedEmail(
+  booking: CancellationRefundCommunication,
+) {
+  const supportEmail = booking.supportEmail ?? 'support';
+
+  return {
+    subject: `${booking.tourName} cancellation needs support`,
+    text: `Hi ${booking.bookerName},
+
+We could not request your refund, so your Booking remains active. Please try again or contact ${supportEmail} for help.
+
+Tour: ${booking.tourName}
+Date: ${formatDate(booking.date)}
+Time: ${booking.time}
+Party size: ${booking.guests}
+Refund amount: ${currency.format(booking.total)}`,
+    html: `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} cancellation needs support</title></head>
+  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+    <h1>Cancellation needs support</h1>
+    <p>Hi ${escapeHtml(booking.bookerName)}, we could not request your refund, so your Booking remains active. Please try again or contact ${escapeHtml(supportEmail)} for help.</p>
+    <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
+    <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
+    <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
+    <strong>Party size:</strong> ${booking.guests}<br />
+    <strong>Refund amount:</strong> ${currency.format(booking.total)}</p>
+  </body>
+</html>`,
+  };
+}
+
 export async function sendBookingCommunication(booking: BookingCommunication) {
   const resend = new Resend(requireEnv('RESEND_API_KEY'));
   const email = createBookingCommunicationEmail(booking);
@@ -225,6 +291,40 @@ export async function sendFailedCapacityRefundCommunication(
 ) {
   const resend = new Resend(requireEnv('RESEND_API_KEY'));
   const email = createFailedCapacityRefundEmail(booking);
+
+  try {
+    await resend.emails.send({
+      from: requireEnv('RESEND_FROM_EMAIL'),
+      to: booking.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+  } catch {}
+}
+
+export async function sendBookingCancellationRefundRequestedCommunication(
+  booking: CancellationRefundCommunication,
+) {
+  const resend = new Resend(requireEnv('RESEND_API_KEY'));
+  const email = createBookingCancellationRefundRequestedEmail(booking);
+
+  try {
+    await resend.emails.send({
+      from: requireEnv('RESEND_FROM_EMAIL'),
+      to: booking.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+  } catch {}
+}
+
+export async function sendBookingCancellationRefundFailedCommunication(
+  booking: CancellationRefundCommunication,
+) {
+  const resend = new Resend(requireEnv('RESEND_API_KEY'));
+  const email = createBookingCancellationRefundFailedEmail(booking);
 
   try {
     await resend.emails.send({
