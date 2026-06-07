@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createBookingCancellationRefundFailedEmail,
+  createBookingCancellationRefundRequestedEmail,
   createBookingCommunicationEmail,
   createFailedCapacityRefundEmail,
 } from './email';
@@ -46,5 +48,38 @@ describe('Booking Communication email content', () => {
     expect(email.text).toContain('tour filled before payment completed');
     expect(email.text).toContain('refunded your payment in full');
     expect(email.text).toContain('Refund amount: $158.00');
+  });
+
+  it('explains successful cancellation refund request', () => {
+    const email = createBookingCancellationRefundRequestedEmail({
+      to: 'booker@example.com',
+      bookerName: 'Test Booker',
+      tourName: 'Savannah Food Tour',
+      date: '2026-07-04',
+      time: '10:00 AM',
+      guests: 2,
+      total: 158,
+    });
+
+    expect(email.subject).toBe('Savannah Food Tour cancellation received');
+    expect(email.text).toContain('Your Booking is canceled');
+    expect(email.text).toContain('requested a full refund');
+  });
+
+  it('explains refund request failure leaves Booking active', () => {
+    const email = createBookingCancellationRefundFailedEmail({
+      to: 'booker@example.com',
+      bookerName: 'Test Booker',
+      tourName: 'Savannah Food Tour',
+      date: '2026-07-04',
+      time: '10:00 AM',
+      guests: 2,
+      total: 158,
+      supportEmail: 'support@example.com',
+    });
+
+    expect(email.subject).toBe('Savannah Food Tour cancellation needs support');
+    expect(email.text).toContain('Booking remains active');
+    expect(email.text).toContain('support@example.com');
   });
 });

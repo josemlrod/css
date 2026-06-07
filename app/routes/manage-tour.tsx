@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, redirect, useFetcher } from 'react-router';
+import { data, Link, redirect, useFetcher } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
@@ -12,7 +12,13 @@ import {
   Mail,
 } from 'lucide-react';
 
-import { getBookingWithTour, updateBooking } from '~/lib/bookings';
+import { cancelPaidBooking, getBookingWithTourForAccess } from '~/lib/bookings';
+import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
+import {
+  sendBookingCancellationRefundFailedCommunication,
+  sendBookingCancellationRefundRequestedCommunication,
+} from '~/lib/email';
+import { createRefundForPaymentIntent } from '~/lib/stripe';
 
 import type { Tour } from '~/lib/types';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
@@ -24,6 +30,8 @@ const View = {
   OVERVIEW: 'overview',
   CANCEL: 'cancel',
   CANCELLED: 'cancelled',
+  CUTOFF_BLOCKED: 'cutoff_blocked',
+  REFUND_FAILED: 'refund_failed',
 } as const;
 type ViewValues = (typeof View)[keyof typeof View];
 
@@ -33,6 +41,14 @@ export const formatLong = (iso: string) =>
     month: 'long',
     day: 'numeric',
   });
+
+function tourStartAt(date: string, time: string) {
+  return new Date(`${date} ${time}`).getTime();
+}
+
+function canSelfCancel(date: string, time: string) {
+  return tourStartAt(date, time) - Date.now() > 24 * 60 * 60 * 1000;
+}
 
 const cancelReasons = [
   'Change of plans',
@@ -55,6 +71,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
   const [reason, setReason] = useState<string | null>(null);
 
   const originalTotal = tour.price * booking.guests;
+  const selfCancellationAllowed = canSelfCancel(booking.date, booking.time);
 
   return (
     <main>
@@ -75,8 +92,8 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 Hi {booking.bookerName.split(' ')[0]}, here&apos;s your tour.
               </h1>
               <p className='mt-2 max-w-xl text-sm text-muted-foreground'>
-                Need to make a change? You can modify the date, time, or party
-                size — or cancel — anytime up to 24 hours before your tour.
+                You can cancel for a full refund until 24 hours before your tour.
+                Inside 24 hours, contact support so we can help.
               </p>
 
               <BookingCard
@@ -88,18 +105,53 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 total={originalTotal}
               />
 
-              <div className='mt-6 flex flex-col gap-2.5 sm:flex-row'>
-                <button
-                  onClick={() => setView(View.CANCEL)}
-                  className='inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
-                >
-                  <X className='size-3.5' />
-                  Cancel booking
-                </button>
-              </div>
+              {selfCancellationAllowed ? (
+                <div className='mt-6 flex flex-col gap-2.5 sm:flex-row'>
+                  <button
+                    onClick={() => setView(View.CANCEL)}
+                    className='inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
+                  >
+                    <X className='size-3.5' />
+                    Cancel booking
+                  </button>
+                </div>
+              ) : (
+                <div className='mt-6 rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground'>
+                  This tour is inside the 24-hour cancellation cutoff. Contact
+                  support for help with changes or cancellation.
+                </div>
+              )}
 
               <PolicyNote />
             </motion.div>
+          )}
+
+          {fetcher?.data?.view === View.CUTOFF_BLOCKED && (
+            <ResultState
+              key={View.CUTOFF_BLOCKED}
+              icon={<ShieldCheck className='size-6 text-muted-foreground' />}
+              title='Contact support'
+              message='This tour is inside the 24-hour cancellation cutoff, so self-service cancellation is unavailable.'
+              muted
+            >
+              <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
+                Your Booking remains active. Contact support if you need help.
+              </div>
+            </ResultState>
+          )}
+
+          {fetcher?.data?.view === View.REFUND_FAILED && (
+            <ResultState
+              key={View.REFUND_FAILED}
+              icon={<ShieldCheck className='size-6 text-muted-foreground' />}
+              title='Refund needs support'
+              message='We could not request your refund, so your Booking remains active.'
+              muted
+            >
+              <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
+                Please try again or contact support. We sent details to your inbox.
+              </div>
+            </ResultState>
           )}
 
           {!fetcher?.data?.view && view === View.CANCEL && (
@@ -202,7 +254,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               key={View.CANCELLED}
               icon={<X className='size-6 text-muted-foreground' />}
               title='Booking cancelled'
-              message={`A confirmation and your refund of $${originalTotal} are on the way to ${booking.bookerEmail}.`}
+              message={`Your Booking is canceled and a refund of $${originalTotal} was requested for ${booking.bookerEmail}.`}
               muted
             >
               <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
@@ -225,21 +277,81 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
   );
 }
 
-export async function loader({ params: { bookingId } }: Route.LoaderArgs) {
-  const res = await getBookingWithTour(bookingId as Id<'bookings'>);
+export async function loader({ request, params: { bookingId } }: Route.LoaderArgs) {
+  const token = new URL(request.url).searchParams.get('token');
 
-  if (!res || !res.booking) redirect('/');
+  if (!token) throw redirect('/');
+
+  const res = await getBookingWithTourForAccess(
+    bookingId as Id<'bookings'>,
+    hashCheckoutAccessToken(token),
+  );
+
+  if (!res?.booking || !res.tour) throw redirect('/');
 
   return res as { booking: Booking; tour: Tour };
 }
 
-export async function action({ request }: Route.ActionArgs) {
-  const { _id } = await request.json();
-  const time = new Date().getTime();
-  await updateBooking({
-    cancelled: time,
-    id: _id,
+export async function action({ request, params: { bookingId } }: Route.ActionArgs) {
+  const token = new URL(request.url).searchParams.get('token');
+
+  if (!token) return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
+
+  const accessTokenHash = hashCheckoutAccessToken(token);
+  const res = await getBookingWithTourForAccess(
+    bookingId as Id<'bookings'>,
+    accessTokenHash,
+  );
+
+  if (!res?.booking || !res.tour) {
+    return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
+  }
+
+  const { booking, tour } = res;
+  const total = tour.price * booking.guests;
+
+  if (!canSelfCancel(booking.date, booking.time)) {
+    return { view: View.CUTOFF_BLOCKED };
+  }
+
+  if (!booking.stripePaymentIntentId) {
+    return { view: View.REFUND_FAILED };
+  }
+
+  let refund: { id: string };
+
+  try {
+    refund = await createRefundForPaymentIntent(booking.stripePaymentIntentId);
+  } catch {
+    await sendBookingCancellationRefundFailedCommunication({
+      to: booking.bookerEmail,
+      bookerName: booking.bookerName,
+      tourName: tour.name,
+      date: booking.date,
+      time: booking.time,
+      guests: booking.guests,
+      total,
+    });
+
+    return { view: View.REFUND_FAILED };
+  }
+
+  await cancelPaidBooking({
+    id: booking._id,
+    accessTokenHash,
+    stripeRefundId: refund.id,
   });
+
+  await sendBookingCancellationRefundRequestedCommunication({
+    to: booking.bookerEmail,
+    bookerName: booking.bookerName,
+    tourName: tour.name,
+    date: booking.date,
+    time: booking.time,
+    guests: booking.guests,
+    total,
+  });
+
   return { view: View.CANCELLED };
 }
 
@@ -350,8 +462,8 @@ function PolicyNote() {
     <div className='mt-6 flex items-start gap-2 text-xs text-muted-foreground'>
       <ShieldCheck className='mt-0.5 size-3.5 shrink-0 text-muted-foreground/80' />
       <p>
-        Free changes and cancellation up to 24 hours before your tour start
-        time. This link is unique to your booking — no sign-in needed.
+        Free cancellation up to 24 hours before your tour start time. This link
+        is unique to your Booking — no sign-in needed.
       </p>
     </div>
   );
