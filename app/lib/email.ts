@@ -13,6 +13,16 @@ type BookingCommunication = {
   cancelUrl: string;
 };
 
+type FailedCapacityRefundCommunication = {
+  to: string;
+  bookerName: string;
+  tourName: string;
+  date: string;
+  time: string;
+  guests: number;
+  total: number;
+};
+
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -48,7 +58,7 @@ function escapeHtml(value: string) {
 function bookingCommunicationText(booking: BookingCommunication) {
   return `Hi ${booking.bookerName},
 
-Your booking is confirmed.
+Your Booking details are ready.
 
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
@@ -57,8 +67,7 @@ Party size: ${booking.guests}
 Total: ${currency.format(booking.total)}
 Meeting point: ${booking.meetingPoint}
 
-Edit booking: ${booking.editUrl}
-Cancel booking: ${booking.cancelUrl}`;
+Manage or cancel booking: ${booking.cancelUrl}`;
 }
 
 function bookingCommunicationHtml(booking: BookingCommunication) {
@@ -69,7 +78,6 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
   const guests = `${booking.guests} ${booking.guests === 1 ? 'guest' : 'guests'}`;
   const total = currency.format(booking.total);
   const meetingPoint = escapeHtml(booking.meetingPoint);
-  const editUrl = escapeHtml(booking.editUrl);
   const cancelUrl = escapeHtml(booking.cancelUrl);
 
   return `<!doctype html>
@@ -77,11 +85,11 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${tourName} booking confirmed</title>
+    <title>${tourName} Booking details</title>
   </head>
   <body style="margin:0;background:#f7f7f7;color:#171717;font-family:Inter,Arial,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;">
-      Your ${tourName} booking is confirmed.
+      Your ${tourName} Booking details are ready.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;padding:32px 16px;">
@@ -94,10 +102,10 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
                   Booking Communication
                 </p>
                 <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:600;">
-                  Booking confirmed
+                  Booking details ready
                 </h1>
                 <p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#f7f7f7;">
-                  Hi ${bookerName}, your Savannah tour is reserved. We'll see you soon.
+                  Hi ${bookerName}, your Savannah tour is reserved. Stripe will send payment receipt separately.
                 </p>
               </td>
             </tr>
@@ -138,7 +146,7 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
 
                 <div style="margin-top:26px;">
                   <p style="margin:16px 0 0;font-size:14px;color:#737373;line-height:1.5;">
-                    Need to cancel? <a href="${cancelUrl}" style="color:#123449;font-weight:600;">Cancel booking</a>
+                    Need to make a change? <a href="${cancelUrl}" style="color:#123449;font-weight:600;">Manage or cancel booking</a>
                   </p>
                 </div>
               </td>
@@ -157,17 +165,66 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
 </html>`;
 }
 
-function createBookingCommunicationEmail(booking: BookingCommunication) {
+export function createBookingCommunicationEmail(booking: BookingCommunication) {
   return {
-    subject: `Your ${booking.tourName} booking is confirmed`,
+    subject: `Your ${booking.tourName} Booking details`,
     text: bookingCommunicationText(booking),
     html: bookingCommunicationHtml(booking),
+  };
+}
+
+export function createFailedCapacityRefundEmail(
+  booking: FailedCapacityRefundCommunication,
+) {
+  const details = `Tour: ${booking.tourName}
+Date: ${formatDate(booking.date)}
+Time: ${booking.time}
+Party size: ${booking.guests}
+Refund amount: ${currency.format(booking.total)}`;
+
+  return {
+    subject: `${booking.tourName} payment refunded`,
+    text: `Hi ${booking.bookerName},
+
+Your selected tour filled before payment completed. We refunded your payment in full.
+
+${details}`,
+    html: `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} payment refunded</title></head>
+  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+    <h1>Payment refunded</h1>
+    <p>Hi ${escapeHtml(booking.bookerName)}, your selected tour filled before payment completed. We refunded your payment in full.</p>
+    <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
+    <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
+    <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
+    <strong>Party size:</strong> ${booking.guests}<br />
+    <strong>Refund amount:</strong> ${currency.format(booking.total)}</p>
+  </body>
+</html>`,
   };
 }
 
 export async function sendBookingCommunication(booking: BookingCommunication) {
   const resend = new Resend(requireEnv('RESEND_API_KEY'));
   const email = createBookingCommunicationEmail(booking);
+
+  try {
+    await resend.emails.send({
+      from: requireEnv('RESEND_FROM_EMAIL'),
+      to: booking.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+  } catch {}
+}
+
+export async function sendFailedCapacityRefundCommunication(
+  booking: FailedCapacityRefundCommunication,
+) {
+  const resend = new Resend(requireEnv('RESEND_API_KEY'));
+  const email = createFailedCapacityRefundEmail(booking);
 
   try {
     await resend.emails.send({
