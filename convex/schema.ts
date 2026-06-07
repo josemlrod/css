@@ -57,6 +57,8 @@ export default defineSchema({
     ),
     expiresAt: v.number(),
     accessTokenHash: v.string(),
+    failureReason: v.optional(v.literal('capacity_unavailable')),
+    stripeRefundId: v.optional(v.string()),
     updatedAt: v.number(),
   }),
 });

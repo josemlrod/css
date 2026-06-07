@@ -75,3 +75,7 @@ export async function createCheckoutSession({
     },
   });
 }
+
+export async function createRefundForPaymentIntent(paymentIntentId: string) {
+  return await getStripe().refunds.create({ payment_intent: paymentIntentId });
+}

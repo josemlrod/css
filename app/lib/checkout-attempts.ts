@@ -19,6 +19,8 @@ type CheckoutAttemptInput = Omit<
   | 'paymentStatus'
   | 'expiresAt'
   | 'accessTokenHash'
+  | 'failureReason'
+  | 'stripeRefundId'
 >;
 
 export function generateCheckoutAccessToken() {
@@ -98,12 +100,25 @@ export async function completeCheckoutAttempt(input: {
   amountTotal: number;
   currency: string;
   stripePaymentIntentId: string;
+  bookingAccessTokenHash: string;
 }) {
-  const bookingId = await getConvex().mutation(
+  const result = await getConvex().mutation(
     api.checkoutAttempts.completeCheckoutAttempt,
     input,
   );
-  return bookingId;
+  return result;
+}
+
+export async function updateCheckoutAttemptRefundStatus(input: {
+  id: Id<'checkoutAttempts'>;
+  paymentStatus: 'refunded' | 'refund_failed';
+  stripeRefundId?: string;
+}) {
+  const checkoutAttemptId = await getConvex().mutation(
+    api.checkoutAttempts.updateCheckoutAttemptRefundStatus,
+    input,
+  );
+  return checkoutAttemptId;
 }
 
 export async function expireCheckoutAttempt(stripeCheckoutSessionId: string) {

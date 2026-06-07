@@ -72,16 +72,42 @@ export const updateCheckoutAttempt = mutation({
   },
 });
 
+export const updateCheckoutAttemptRefundStatus = mutation({
+  args: {
+    id: v.id('checkoutAttempts'),
+    paymentStatus: v.union(v.literal('refunded'), v.literal('refund_failed')),
+    stripeRefundId: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...updates }) => {
+    const existing = await ctx.db.get(id);
+
+    if (!existing) {
+      throw new Error('Checkout Attempt not found');
+    }
+
+    await ctx.db.patch(id, { ...updates, updatedAt: new Date().getTime() });
+
+    return id;
+  },
+});
+
 export const completeCheckoutAttempt = mutation({
   args: {
     stripeCheckoutSessionId: v.string(),
     amountTotal: v.number(),
     currency: v.string(),
     stripePaymentIntentId: v.string(),
+    bookingAccessTokenHash: v.string(),
   },
   handler: async (
     ctx,
-    { stripeCheckoutSessionId, amountTotal, currency, stripePaymentIntentId },
+    {
+      stripeCheckoutSessionId,
+      amountTotal,
+      currency,
+      stripePaymentIntentId,
+      bookingAccessTokenHash,
+    },
   ) => {
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
@@ -100,11 +126,14 @@ export const completeCheckoutAttempt = mutation({
       .first();
 
     if (existingBooking) {
-      return existingBooking._id;
+      return { status: 'booking_exists' as const, bookingId: existingBooking._id };
     }
 
     if (checkoutAttempt.paymentStatus !== 'pending') {
-      throw new Error('Checkout Attempt is not pending');
+      return {
+        status: checkoutAttempt.paymentStatus,
+        checkoutAttemptId: checkoutAttempt._id,
+      };
     }
 
     if (amountTotal !== checkoutAttempt.total * 100) {
@@ -134,11 +163,22 @@ export const completeCheckoutAttempt = mutation({
       .collect();
     const bookedGuests = bookings.reduce((sum, booking) => sum + booking.guests, 0);
 
+    const now = new Date().getTime();
+
     if (bookedGuests + checkoutAttempt.guests > tour.maxGuests) {
-      throw new Error('Tour capacity unavailable');
+      await ctx.db.patch(checkoutAttempt._id, {
+        paymentStatus: 'refund_pending',
+        failureReason: 'capacity_unavailable',
+        updatedAt: now,
+      });
+
+      return {
+        status: 'capacity_unavailable' as const,
+        checkoutAttempt: { ...checkoutAttempt, paymentStatus: 'refund_pending' as const },
+        tour,
+      };
     }
 
-    const now = new Date().getTime();
     const bookingId = await ctx.db.insert('bookings', {
       cancelled: null,
       date: checkoutAttempt.date,
@@ -148,7 +188,7 @@ export const completeCheckoutAttempt = mutation({
       bookerEmail: checkoutAttempt.bookerEmail,
       tourId: checkoutAttempt.tourId,
       checkoutAttemptId: checkoutAttempt._id,
-      accessTokenHash: checkoutAttempt.accessTokenHash,
+      accessTokenHash: bookingAccessTokenHash,
       stripePaymentIntentId,
       paymentStatus: 'paid',
       updatedAt: now,
@@ -159,7 +199,12 @@ export const completeCheckoutAttempt = mutation({
       updatedAt: now,
     });
 
-    return bookingId;
+    return {
+      status: 'booking_created' as const,
+      bookingId,
+      checkoutAttempt,
+      tour,
+    };
   },
 });
 
