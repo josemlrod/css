@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tour Booking Flow</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #171717;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --paper: #ffffff;
+        --wash: #f8fafc;
+        --blue: #123449;
+        --accent: #dc7b32;
+        --ok: #166534;
+        --warn: #92400e;
+        --bad: #991b1b;
+      }
+
+      body {
+        margin: 0;
+        background: var(--wash);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.55;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 40px 20px 64px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(32px, 6vw, 60px);
+        line-height: 0.95;
+        letter-spacing: -0.05em;
+      }
+
+      h2 {
+        font-size: 22px;
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        font-size: 15px;
+      }
+
+      a,
+      code {
+        color: var(--blue);
+      }
+
+      code {
+        border-radius: 6px;
+        background: #eef2f7;
+        padding: 2px 6px;
+        font-size: 0.92em;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 24px;
+        align-items: end;
+        margin-bottom: 28px;
+      }
+
+      .lede {
+        max-width: 760px;
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .card,
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--paper);
+        box-shadow: 0 18px 40px rgb(15 23 42 / 0.05);
+      }
+
+      .card {
+        padding: 22px;
+      }
+
+      .panel {
+        overflow: hidden;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .entity-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .entity {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px;
+      }
+
+      .entity p,
+      .card p,
+      td,
+      li {
+        color: var(--muted);
+      }
+
+      .tag {
+        display: inline-flex;
+        margin-bottom: 10px;
+        border-radius: 999px;
+        background: #fff7ed;
+        padding: 4px 9px;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .flow {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .num {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--blue);
+        color: white;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .step-body {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: white;
+        padding: 12px 14px;
+      }
+
+      section {
+        margin-top: 28px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f9fafb;
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .status-ok {
+        color: var(--ok);
+        font-weight: 700;
+      }
+
+      .status-warn {
+        color: var(--warn);
+        font-weight: 700;
+      }
+
+      .status-bad {
+        color: var(--bad);
+        font-weight: 700;
+      }
+
+      .code-map {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .code-map div {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+        padding: 12px;
+      }
+
+      @media (max-width: 820px) {
+        .hero,
+        .grid,
+        .entity-grid,
+        .code-map {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="hero">
+        <div>
+          <span class="tag">Core Flow</span>
+          <h1>Tour Booking Flow</h1>
+          <p class="lede">
+            Booker selects tour details, pays through Stripe Checkout, and the app
+            creates a Booking only after verified Stripe webhooks. Refunds and
+            cancellations move through explicit payment states instead of deleting
+            records.
+          </p>
+        </div>
+        <div class="card">
+          <h2>Invariant</h2>
+          <p>
+            Return routes never create Bookings. Only
+            <code>checkout.session.completed</code> from the verified webhook can
+            create one.
+          </p>
+        </div>
+      </div>
+
+      <section class="panel card">
+        <h2>Entities</h2>
+        <div class="entity-grid">
+          <div class="entity">
+            <h3>Tour</h3>
+            <p>Catalog item with price, capacity, start times, meeting point.</p>
+          </div>
+          <div class="entity">
+            <h3>Checkout Attempt</h3>
+            <p>Temporary payment record. Stores selected details, pricing snapshot, Stripe Checkout Session ID, status, expiry, token hash.</p>
+          </div>
+          <div class="entity">
+            <h3>Booking</h3>
+            <p>Paid reservation. Created only after verified payment and capacity re-check. Stores PaymentIntent, token hash, cancel/refund state.</p>
+          </div>
+          <div class="entity">
+            <h3>Booking Communication</h3>
+            <p>Email sent by app for tour details, refund notices, cancellation results, and refund failures. Stripe receipts stay separate.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Checkout Start</h2>
+          <div class="flow">
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker submits details</h3><p><code>app/routes/tour-booking.tsx</code> validates date, time, guests, name, email.</p></div></div>
+            <div class="step"><div class="num">2</div><div class="step-body"><h3>Checkout Attempt created</h3><p><code>saveCheckoutAttempt</code> stores pending status, 30-minute expiry, pricing snapshot, hashed access token.</p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>Stripe Checkout Session created</h3><p><code>createCheckoutSession</code> sends amount, email, success/cancel URLs with raw token.</p></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Payment Received</h2>
+          <div class="flow">
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Webhook verified</h3><p><code>/stripe/webhook</code> constructs Stripe event using <code>STRIPE_WEBHOOK_SECRET</code>.</p></div></div>
+            <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p><code>completeCheckoutAttempt</code> checks amount, currency, idempotency, and current capacity.</p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, Booking is inserted with <code>paymentStatus: paid</code> and the attempt becomes <code>paid</code>.</p></div></div>
+            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link.</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Pending or Expired</h2>
+          <p>
+            Success/cancel return routes only display Checkout Attempt state.
+            If Stripe never completes payment, no Booking exists. If Stripe emits
+            <code>checkout.session.expired</code>, the attempt becomes
+            <code>expired</code>.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>Capacity Race</h2>
+          <p>
+            Checkout Attempts do not reserve capacity. If payment succeeds after
+            capacity fills, webhook code creates no Booking, marks the attempt
+            <code>refund_pending</code>, creates a full Stripe refund, stores the
+            refund ID, and emails the Booker.
+          </p>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Self-Service Cancellation</h2>
+          <p>
+            Manage route requires Booking ID plus raw token. Before the 24-hour
+            cutoff, refund creation must succeed first. Then Booking becomes
+            canceled, capacity releases, and Payment Status becomes
+            <code>refund_pending</code>.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>Refund Lifecycle</h2>
+          <p>
+            Stripe <code>refund.updated</code> or <code>charge.refunded</code>
+            webhooks update the matching Booking or Checkout Attempt by stored
+            <code>stripeRefundId</code>. Succeeded means <code>refunded</code>.
+            Failed/canceled means <code>refund_failed</code> and triggers email.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Entity State</th>
+              <th>Booking?</th>
+              <th>Communication</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Checkout started</td>
+              <td><code>Checkout Attempt.paymentStatus = pending</code></td>
+              <td>No</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>Payment succeeds, capacity available</td>
+              <td><code>Checkout Attempt = paid</code>, <code>Booking = paid</code></td>
+              <td><span class="status-ok">Yes</span></td>
+              <td>Booking details email with manage link</td>
+            </tr>
+            <tr>
+              <td>Payment succeeds, capacity full</td>
+              <td><code>Checkout Attempt = refund_pending</code>, then <code>refunded</code> or <code>refund_failed</code></td>
+              <td><span class="status-bad">No</span></td>
+              <td>Capacity refund email; failure email if Stripe fails refund</td>
+            </tr>
+            <tr>
+              <td>Checkout expires</td>
+              <td><code>Checkout Attempt = expired</code></td>
+              <td><span class="status-bad">No</span></td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>Booker cancels before cutoff</td>
+              <td><code>Booking.cancelled != null</code>, <code>Booking.paymentStatus = refund_pending</code></td>
+              <td><span class="status-warn">Canceled</span></td>
+              <td>Cancellation/refund requested email</td>
+            </tr>
+            <tr>
+              <td>Refund webhook succeeds</td>
+              <td><code>paymentStatus = refunded</code></td>
+              <td>Unchanged</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>Refund webhook fails</td>
+              <td><code>paymentStatus = refund_failed</code></td>
+              <td>Unchanged</td>
+              <td>Refund failure email</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Code Map</h2>
+        <div class="code-map">
+          <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
+          <div><code>app/routes/tour-booking.tsx</code><p>Validates Booker input, creates Checkout Attempt, redirects to Stripe.</p></div>
+          <div><code>app/lib/stripe.ts</code><p>Creates Checkout Sessions, verifies webhooks, creates refunds.</p></div>
+          <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, checks capacity, handles refund status by Stripe refund ID.</p></div>
+          <div><code>app/routes/stripe-webhook.ts</code><p>Owns verified Stripe event behavior for payment completion, expiry, refund lifecycle.</p></div>
+          <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff, starts cancellation refunds.</p></div>
+          <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation.</p></div>
+          <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions.</p></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
