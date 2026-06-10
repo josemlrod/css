@@ -111,7 +111,7 @@ export async function completeCheckoutAttempt(input: {
 
 export async function updateCheckoutAttemptRefundStatus(input: {
   id: Id<'checkoutAttempts'>;
-  paymentStatus: 'refunded' | 'refund_failed';
+  paymentStatus: 'refund_pending' | 'refunded' | 'refund_failed';
   stripeRefundId?: string;
 }) {
   const checkoutAttemptId = await getConvex().mutation(
@@ -119,6 +119,17 @@ export async function updateCheckoutAttemptRefundStatus(input: {
     input,
   );
   return checkoutAttemptId;
+}
+
+export async function updateRefundStatusByStripeRefund(input: {
+  stripeRefundId: string;
+  paymentStatus: 'refunded' | 'refund_failed';
+}) {
+  const result = await getConvex().mutation(
+    api.checkoutAttempts.updateRefundStatusByStripeRefund,
+    input,
+  );
+  return result;
 }
 
 export async function expireCheckoutAttempt(stripeCheckoutSessionId: string) {

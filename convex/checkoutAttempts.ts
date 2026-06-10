@@ -75,7 +75,11 @@ export const updateCheckoutAttempt = mutation({
 export const updateCheckoutAttemptRefundStatus = mutation({
   args: {
     id: v.id('checkoutAttempts'),
-    paymentStatus: v.union(v.literal('refunded'), v.literal('refund_failed')),
+    paymentStatus: v.union(
+      v.literal('refund_pending'),
+      v.literal('refunded'),
+      v.literal('refund_failed'),
+    ),
     stripeRefundId: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
@@ -88,6 +92,60 @@ export const updateCheckoutAttemptRefundStatus = mutation({
     await ctx.db.patch(id, { ...updates, updatedAt: new Date().getTime() });
 
     return id;
+  },
+});
+
+export const updateRefundStatusByStripeRefund = mutation({
+  args: {
+    stripeRefundId: v.string(),
+    paymentStatus: v.union(v.literal('refunded'), v.literal('refund_failed')),
+  },
+  handler: async (ctx, { stripeRefundId, paymentStatus }) => {
+    const booking = await ctx.db
+      .query('bookings')
+      .filter((q) => q.eq(q.field('stripeRefundId'), stripeRefundId))
+      .first();
+
+    if (booking) {
+      if (booking.paymentStatus === paymentStatus) {
+        return { status: 'already_updated' as const };
+      }
+
+      await ctx.db.patch(booking._id, {
+        paymentStatus,
+        updatedAt: new Date().getTime(),
+      });
+
+      const tour = await ctx.db.get(booking.tourId);
+
+      return { status: 'updated_booking' as const, booking, tour };
+    }
+
+    const checkoutAttempt = await ctx.db
+      .query('checkoutAttempts')
+      .filter((q) => q.eq(q.field('stripeRefundId'), stripeRefundId))
+      .first();
+
+    if (checkoutAttempt) {
+      if (checkoutAttempt.paymentStatus === paymentStatus) {
+        return { status: 'already_updated' as const };
+      }
+
+      await ctx.db.patch(checkoutAttempt._id, {
+        paymentStatus,
+        updatedAt: new Date().getTime(),
+      });
+
+      const tour = await ctx.db.get(checkoutAttempt.tourId);
+
+      return {
+        status: 'updated_checkout_attempt' as const,
+        checkoutAttempt,
+        tour,
+      };
+    }
+
+    return { status: 'not_found' as const };
   },
 });
 

@@ -27,6 +27,10 @@ type CancellationRefundCommunication = FailedCapacityRefundCommunication & {
   supportEmail?: string;
 };
 
+type RefundFailedCommunication = FailedCapacityRefundCommunication & {
+  supportEmail?: string;
+};
+
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -150,7 +154,7 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
 
                 <div style="margin-top:26px;">
                   <p style="margin:16px 0 0;font-size:14px;color:#737373;line-height:1.5;">
-                    Need to make a change? <a href="${cancelUrl}" style="color:#123449;font-weight:600;">Manage or cancel booking</a>
+                    Need to cancel? <a href="${cancelUrl}" style="color:#123449;font-weight:600;">Manage cancellation</a>
                   </p>
                 </div>
               </td>
@@ -271,6 +275,36 @@ Refund amount: ${currency.format(booking.total)}`,
   };
 }
 
+export function createRefundFailedEmail(booking: RefundFailedCommunication) {
+  const supportEmail = booking.supportEmail ?? 'support';
+
+  return {
+    subject: `${booking.tourName} refund needs support`,
+    text: `Hi ${booking.bookerName},
+
+Stripe reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${supportEmail} for help.
+
+Tour: ${booking.tourName}
+Date: ${formatDate(booking.date)}
+Time: ${booking.time}
+Party size: ${booking.guests}
+Refund amount: ${currency.format(booking.total)}`,
+    html: `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} refund needs support</title></head>
+  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+    <h1>Refund needs support</h1>
+    <p>Hi ${escapeHtml(booking.bookerName)}, Stripe reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${escapeHtml(supportEmail)} for help.</p>
+    <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
+    <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
+    <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
+    <strong>Party size:</strong> ${booking.guests}<br />
+    <strong>Refund amount:</strong> ${currency.format(booking.total)}</p>
+  </body>
+</html>`,
+  };
+}
+
 export async function sendBookingCommunication(booking: BookingCommunication) {
   const resend = new Resend(requireEnv('RESEND_API_KEY'));
   const email = createBookingCommunicationEmail(booking);
@@ -325,6 +359,23 @@ export async function sendBookingCancellationRefundFailedCommunication(
 ) {
   const resend = new Resend(requireEnv('RESEND_API_KEY'));
   const email = createBookingCancellationRefundFailedEmail(booking);
+
+  try {
+    await resend.emails.send({
+      from: requireEnv('RESEND_FROM_EMAIL'),
+      to: booking.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+  } catch {}
+}
+
+export async function sendRefundFailedCommunication(
+  booking: RefundFailedCommunication,
+) {
+  const resend = new Resend(requireEnv('RESEND_API_KEY'));
+  const email = createRefundFailedEmail(booking);
 
   try {
     await resend.emails.send({

@@ -5,6 +5,7 @@ import {
   createBookingCancellationRefundRequestedEmail,
   createBookingCommunicationEmail,
   createFailedCapacityRefundEmail,
+  createRefundFailedEmail,
 } from './email';
 
 describe('Booking Communication email content', () => {
@@ -80,6 +81,23 @@ describe('Booking Communication email content', () => {
 
     expect(email.subject).toBe('Savannah Food Tour cancellation needs support');
     expect(email.text).toContain('Booking remains active');
+    expect(email.text).toContain('support@example.com');
+  });
+
+  it('explains Stripe refund lifecycle failure', () => {
+    const email = createRefundFailedEmail({
+      to: 'booker@example.com',
+      bookerName: 'Test Booker',
+      tourName: 'Savannah Food Tour',
+      date: '2026-07-04',
+      time: '10:00 AM',
+      guests: 2,
+      total: 158,
+      supportEmail: 'support@example.com',
+    });
+
+    expect(email.subject).toBe('Savannah Food Tour refund needs support');
+    expect(email.text).toContain('Payment Status: refund failed');
     expect(email.text).toContain('support@example.com');
   });
 });
