@@ -8,7 +8,7 @@ import {
 } from '~/lib/email';
 import { createRefundForPaymentIntent } from '~/lib/stripe';
 
-import { action, loader } from './manage-tour';
+import { action, loader, manageCancellationCopy } from './manage-tour';
 
 vi.mock('~/lib/bookings', () => ({
   cancelPaidBooking: vi.fn(),
@@ -145,5 +145,12 @@ describe('manage tour cancellation', () => {
       guests: 2,
       total: 158,
     });
+  });
+
+  it('keeps manage copy focused on cancellation-only v1', () => {
+    expect(manageCancellationCopy.heading).toBe('manage cancellation');
+    expect(manageCancellationCopy.paymentStatus).toBe(
+      'Payment Status: refund pending',
+    );
   });
 });

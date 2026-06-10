@@ -58,6 +58,11 @@ const cancelReasons = [
   'Other',
 ];
 
+export const manageCancellationCopy = {
+  heading: 'manage cancellation',
+  paymentStatus: 'Payment Status: refund pending',
+} as const;
+
 export default function ManageTour({ loaderData }: Route.ComponentProps) {
   const { booking, tour } = loaderData;
   const fetcher = useFetcher();
@@ -89,7 +94,8 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 Booking {booking._id}
               </p>
               <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
-                Hi {booking.bookerName.split(' ')[0]}, here&apos;s your tour.
+                Hi {booking.bookerName.split(' ')[0]},{' '}
+                {manageCancellationCopy.heading}.
               </h1>
               <p className='mt-2 max-w-xl text-sm text-muted-foreground'>
                 You can cancel for a full refund until 24 hours before your tour.
@@ -118,7 +124,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               ) : (
                 <div className='mt-6 rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground'>
                   This tour is inside the 24-hour cancellation cutoff. Contact
-                  support for help with changes or cancellation.
+                  support for cancellation help.
                 </div>
               )}
 
@@ -182,8 +188,8 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 <div className='text-sm'>
                   <p className='font-medium'>Full refund of ${originalTotal}</p>
                   <p className='mt-0.5 text-muted-foreground'>
-                    Refunded to your original payment method within 5–7 business
-                    days.
+                    Payment Status becomes refund pending after Stripe accepts
+                    the refund request.
                   </p>
                 </div>
               </div>
@@ -201,7 +207,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               {/* Reason */}
               <section className='mt-6'>
                 <p className='text-sm font-medium'>
-                  Mind telling us why?{' '}
+                  Cancellation reason{' '}
                   <span className='font-normal text-muted-foreground/70'>
                     (optional)
                   </span>
@@ -253,8 +259,8 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
             <ResultState
               key={View.CANCELLED}
               icon={<X className='size-6 text-muted-foreground' />}
-              title='Booking cancelled'
-              message={`Your Booking is canceled and a refund of $${originalTotal} was requested for ${booking.bookerEmail}.`}
+              title='Booking Status: canceled'
+              message={`${manageCancellationCopy.paymentStatus}. A refund of $${originalTotal} was requested for ${booking.bookerEmail}.`}
               muted
             >
               <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
