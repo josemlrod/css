@@ -15,7 +15,7 @@ export function BookerDetails() {
   return (
     <div className='space-y-4'>
       <Field data-invalid={nameError}>
-        <FieldLabel className='text-xs font-medium text-stone-700'>
+        <FieldLabel className='text-base font-medium text-foreground'>
           Full name
         </FieldLabel>
         <Input
@@ -37,7 +37,7 @@ export function BookerDetails() {
         ) : null}
       </Field>
       <Field data-invalid={emailError}>
-        <FieldLabel className='text-xs font-medium text-stone-700'>
+        <FieldLabel className='text-base font-medium text-foreground'>
           Email
         </FieldLabel>
         <Input

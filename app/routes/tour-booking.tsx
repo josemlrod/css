@@ -23,18 +23,18 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
       {/* Header */}
       <div className='mb-10 flex flex-wrap items-end justify-between gap-4'>
         <div>
-          <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-stone-500'>
+          <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
             Tour · Food
           </p>
           <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
             {tour.name}
           </h1>
-          <p className='mt-2 max-w-xl text-stone-600'>{tour.description}</p>
+          <p className='mt-2 max-w-xl text-base text-muted-foreground'>{tour.description}</p>
         </div>
-        <div className='flex items-center gap-4 text-xs text-stone-500'>
+        <div className='flex items-center gap-4 text-sm text-muted-foreground'>
           <span className='inline-flex items-center gap-1'>
-            <Star className='size-3.5 fill-[#D97757] stroke-[#D97757]' />
-            <span className='font-medium text-stone-900'>5</span>
+            <Star className='size-3.5 fill-accent stroke-accent' />
+            <span className='font-medium text-foreground'>5</span>
             <span>(500)</span>
           </span>
           <span className='inline-flex items-center gap-1'>
@@ -49,20 +49,20 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
       <div className='grid gap-10 lg:grid-cols-[1fr_1fr]'>
         {/* Image side */}
         <div className='space-y-4'>
-          <div className='relative  overflow-hidden rounded-lg bg-stone-100'>
+          <div className='relative  overflow-hidden rounded-lg bg-muted'>
             <img
               src={tour.imageUrl || '/placeholder.svg'}
               alt={tour.name}
               className='object-cover aspect-[4/5] animate-in fade-in duration-300'
             />
           </div>
-          <div className='grid grid-cols-2 gap-3 text-xs'>
-            <div className='rounded-md border border-stone-200 p-3'>
-              <p className='text-stone-500'>Meeting point</p>
+          <div className='grid grid-cols-2 gap-3 text-sm'>
+            <div className='rounded-md border border-border p-3'>
+              <p className='text-muted-foreground'>Meeting point</p>
               <p className='mt-1 font-medium'>{tour.meetingPoint}</p>
             </div>
-            <div className='rounded-md border border-stone-200 p-3'>
-              <p className='text-stone-500'>Includes</p>
+            <div className='rounded-md border border-border p-3'>
+              <p className='text-muted-foreground'>Includes</p>
               <p className='mt-1 font-medium'>Six tastings, recipe card</p>
             </div>
           </div>
@@ -70,9 +70,9 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
             {tour.highlights.map((h) => (
               <li
                 key={h}
-                className='flex items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-700'
+                className='flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground'
               >
-                <Check className='size-3 text-[#D97757]' />
+                <Check className='size-3 text-accent' />
                 {h}
               </li>
             ))}
