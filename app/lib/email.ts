@@ -95,7 +95,7 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${tourName} Booking details</title>
   </head>
-  <body style="margin:0;background:#f7f7f7;color:#171717;font-family:Inter,Arial,sans-serif;">
+  <body style="margin:0;background:#f7f7f7;color:#171717;font-family:Arial,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;">
       Your ${tourName} Booking details are ready.
     </div>
@@ -200,7 +200,7 @@ ${details}`,
     html: `<!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} payment refunded</title></head>
-  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+  <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Payment refunded</h1>
     <p>Hi ${escapeHtml(booking.bookerName)}, your selected tour filled before payment completed. We refunded your payment in full.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
@@ -230,7 +230,7 @@ Refund amount: ${currency.format(booking.total)}`,
     html: `<!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} cancellation received</title></head>
-  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+  <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Booking canceled</h1>
     <p>Hi ${escapeHtml(booking.bookerName)}, your Booking is canceled. We requested a full refund to your original payment method.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
@@ -262,7 +262,7 @@ Refund amount: ${currency.format(booking.total)}`,
     html: `<!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} cancellation needs support</title></head>
-  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+  <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Cancellation needs support</h1>
     <p>Hi ${escapeHtml(booking.bookerName)}, we could not request your refund, so your Booking remains active. Please try again or contact ${escapeHtml(supportEmail)} for help.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
@@ -292,7 +292,7 @@ Refund amount: ${currency.format(booking.total)}`,
     html: `<!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} refund needs support</title></head>
-  <body style="font-family:Inter,Arial,sans-serif;color:#171717;">
+  <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Refund needs support</h1>
     <p>Hi ${escapeHtml(booking.bookerName)}, Stripe reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${escapeHtml(supportEmail)} for help.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
