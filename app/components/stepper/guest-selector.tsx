@@ -13,8 +13,8 @@ export function GuestSelector() {
 
   return (
     <div>
-      <p className='text-sm font-medium'>How many guests?</p>
-      <p className='mt-1 text-xs text-stone-500'>
+      <p className='text-base font-medium'>How many guests?</p>
+      <p className='mt-1 text-sm text-muted-foreground'>
         Up to {tour.maxGuests} per booking
       </p>
       <Field data-invalid={guestError} className='mt-4'>
@@ -38,7 +38,7 @@ export function GuestSelector() {
                 className={`${
                   active
                     ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-stone-200 hover:border-stone-400 aria-invalid:border-destructive/45 aria-invalid:ring-1 aria-invalid:ring-destructive/10'
+                    : 'border-border hover:border-primary/50 aria-invalid:border-destructive/45 aria-invalid:ring-1 aria-invalid:ring-destructive/10'
                 }`}
               >
                 {n}
@@ -52,9 +52,9 @@ export function GuestSelector() {
           </FieldDescription>
         ) : null}
       </Field>
-      <div className='mt-5 rounded-md bg-stone-50 p-3 text-xs text-stone-600'>
+      <div className='mt-5 rounded-md bg-muted p-3 text-sm text-muted-foreground'>
         Small group of{' '}
-        <strong className='font-medium text-stone-900'>{tour.maxGuests}</strong>{' '}
+        <strong className='font-medium text-foreground'>{tour.maxGuests}</strong>{' '}
         max keeps the experience intimate — perfect for asking questions and
         chatting with the chefs.
       </div>

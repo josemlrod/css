@@ -25,15 +25,15 @@ export function BookingConfirmation() {
           <Check className='size-5 text-accent' />
         </motion.div>
         <p className='mt-3 text-base font-medium'>Ready to confirm</p>
-        <p className='mt-1 text-xs text-stone-500'>Review the details below</p>
+        <p className='mt-1 text-sm text-muted-foreground'>Review the details below</p>
       </div>
-      <dl className='space-y-2 rounded-md border border-stone-200 p-4 text-sm'>
+      <dl className='space-y-2 rounded-md border border-border p-4 text-sm'>
         <div className='flex justify-between'>
-          <dt className='text-stone-500'>Tour</dt>
+          <dt className='text-muted-foreground'>Tour</dt>
           <dd className='font-medium'>{tour.name}</dd>
         </div>
         <div className='flex justify-between'>
-          <dt className='text-stone-500'>Date</dt>
+          <dt className='text-muted-foreground'>Date</dt>
           <dd className='font-medium'>
             {date
               ? new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
@@ -45,15 +45,15 @@ export function BookingConfirmation() {
           </dd>
         </div>
         <div className='flex justify-between'>
-          <dt className='text-stone-500'>Guests</dt>
+          <dt className='text-muted-foreground'>Guests</dt>
           <dd className='font-medium'>{guests}</dd>
         </div>
         <div className='flex justify-between'>
-          <dt className='text-stone-500'>Guest</dt>
+          <dt className='text-muted-foreground'>Guest</dt>
           <dd className='font-medium'>{name || '—'}</dd>
         </div>
         <div className='flex justify-between'>
-          <dt className='text-stone-500'>Email</dt>
+          <dt className='text-muted-foreground'>Email</dt>
           <dd className='font-medium'>{email || '—'}</dd>
         </div>
       </dl>

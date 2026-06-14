@@ -6,6 +6,7 @@ import { useStepper } from './stepper-context';
 import { GuestSelector } from './guest-selector';
 import { BookerDetails } from './booker-details';
 import { BookingConfirmation } from './booking-confirmation';
+import { Button } from '../ui/button';
 
 const steps = ['Date', 'Party', 'Details', 'Confirm'] as const;
 
@@ -22,16 +23,16 @@ export function Stepper() {
 
   return (
     <div className='lg:sticky lg:top-24 lg:self-start'>
-      <div className='rounded-xl border border-stone-200 bg-white'>
+      <div className='rounded-xl border border-border bg-white'>
         {/* Step rail */}
-        <div className='border-b border-stone-200 px-5 py-4'>
+        <div className='border-b border-border px-5 py-4'>
           <div className='flex items-center gap-2'>
             {steps.map((s, i) => {
               const active = i === step;
               const done = i < step;
               return (
                 <div key={s} className='flex flex-1 items-center gap-2'>
-                  <div className='relative h-1 flex-1 overflow-hidden rounded-full bg-stone-200'>
+                  <div className='relative h-1 flex-1 overflow-hidden rounded-full bg-muted'>
                     <motion.div
                       initial={false}
                       animate={{ width: active || done ? '100%' : '0%' }}
@@ -62,9 +63,9 @@ export function Stepper() {
         </AnimatePresence>
 
         {/* Footer */}
-        <div className='flex items-center justify-between border-t border-stone-200 bg-stone-50 px-5 py-3'>
+        <div className='flex items-center justify-between border-t border-border bg-muted px-5 py-3'>
           <div>
-            <p className='text-[10px] uppercase tracking-wider text-stone-500'>
+            <p className='text-sm uppercase tracking-wider text-muted-foreground'>
               Total
             </p>
             <motion.p
@@ -82,12 +83,14 @@ export function Stepper() {
                 onClick={() =>
                   setStepper((prev) => ({ ...prev, step: prev.step - 1 }))
                 }
-                className='rounded-md px-3 py-2 text-xs font-medium text-stone-600 transition-colors hover:bg-stone-200'
+                className='rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border'
               >
                 Back
               </button>
             )}
-            <button
+            <Button
+              variant='cta'
+              size='cta'
               onClick={() => {
                 const valid = validate();
 
@@ -116,19 +119,19 @@ export function Stepper() {
                 }));
               }}
               disabled={submitting}
-              className='group inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-accent disabled:text-accent-foreground'
+              className='disabled:cursor-not-allowed disabled:opacity-60'
             >
               {submitting
                 ? 'Opening checkout...'
                 : step === steps.length - 1
                   ? 'Continue to payment'
                   : 'Continue'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
-      <p className='mt-3 text-center text-[11px] text-stone-500'>
+      <p className='mt-3 text-center text-sm text-muted-foreground'>
         Free cancellation up to 24h before
       </p>
     </div>

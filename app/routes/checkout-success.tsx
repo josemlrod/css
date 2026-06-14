@@ -32,18 +32,18 @@ export default function CheckoutSuccess({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className='mx-auto flex min-h-[70vh] max-w-2xl items-center px-4 py-12'>
-      <section className='w-full rounded-xl border border-stone-200 bg-white p-6 shadow-sm'>
-        <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-stone-500'>
+      <section className='w-full rounded-xl border border-border bg-white p-6 shadow-sm'>
+        <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
           Checkout status
         </p>
-        <h1 className='mt-3 text-2xl font-medium tracking-tight text-stone-950'>
+        <h1 className='mt-3 text-2xl font-medium tracking-tight'>
           {status === 'paid'
             ? 'Payment received'
             : status === 'expired'
               ? 'Checkout expired'
               : 'Payment processing'}
         </h1>
-        <p className='mt-2 text-sm text-stone-600'>
+        <p className='mt-2 text-base text-muted-foreground'>
           {status === 'paid'
             ? 'Your paid Booking is being finalized from Stripe confirmation.'
             : status === 'expired'
@@ -51,25 +51,25 @@ export default function CheckoutSuccess({ loaderData }: Route.ComponentProps) {
               : 'Stripe is confirming payment. Your Booking will be created after payment confirmation arrives.'}
         </p>
 
-        <dl className='mt-6 space-y-3 rounded-lg bg-stone-50 p-4 text-sm'>
+        <dl className='mt-6 space-y-3 rounded-lg bg-muted p-4 text-sm'>
           <div className='flex justify-between gap-4'>
-            <dt className='text-stone-500'>Tour</dt>
+            <dt className='text-muted-foreground'>Tour</dt>
             <dd className='text-right font-medium'>{tour.name}</dd>
           </div>
           <div className='flex justify-between gap-4'>
-            <dt className='text-stone-500'>Date</dt>
+            <dt className='text-muted-foreground'>Date</dt>
             <dd className='text-right font-medium'>{checkoutAttempt.date}</dd>
           </div>
           <div className='flex justify-between gap-4'>
-            <dt className='text-stone-500'>Time</dt>
+            <dt className='text-muted-foreground'>Time</dt>
             <dd className='text-right font-medium'>{checkoutAttempt.time}</dd>
           </div>
           <div className='flex justify-between gap-4'>
-            <dt className='text-stone-500'>Guests</dt>
+            <dt className='text-muted-foreground'>Guests</dt>
             <dd className='text-right font-medium'>{checkoutAttempt.guests}</dd>
           </div>
           <div className='flex justify-between gap-4'>
-            <dt className='text-stone-500'>Total paid</dt>
+            <dt className='text-muted-foreground'>Total paid</dt>
             <dd className='text-right font-medium'>${total}</dd>
           </div>
         </dl>

@@ -90,14 +90,14 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             >
-              <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground'>
+              <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
                 Booking {booking._id}
               </p>
               <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
                 Hi {booking.bookerName.split(' ')[0]},{' '}
                 {manageCancellationCopy.heading}.
               </h1>
-              <p className='mt-2 max-w-xl text-sm text-muted-foreground'>
+              <p className='mt-2 max-w-xl text-base text-muted-foreground'>
                 You can cancel for a full refund until 24 hours before your tour.
                 Inside 24 hours, contact support so we can help.
               </p>
@@ -170,7 +170,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
             >
               <button
                 onClick={() => setView('overview')}
-                className='inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground'
+                className='inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground'
               >
                 <ArrowLeft className='size-3.5' />
                 Back to booking
@@ -178,7 +178,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               <h1 className='mt-3 text-balance text-3xl font-medium tracking-tight'>
                 Cancel this booking?
               </h1>
-              <p className='mt-2 max-w-xl text-sm text-muted-foreground'>
+              <p className='mt-2 max-w-xl text-base text-muted-foreground'>
                 Your tour is more than 24 hours away, so you&apos;re eligible
                 for a full refund.
               </p>
@@ -217,7 +217,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                     <button
                       key={r}
                       onClick={() => setReason(reason === r ? null : r)}
-                      className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
+                      className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
                         reason === r
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border hover:border-primary/50'
@@ -271,7 +271,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               </div>
               <Link
                 to='/v2/book'
-                className='mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80'
+                className='mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#bababa] bg-accent px-5 py-1.5 font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black md:text-2xl'
               >
                 Browse tours
               </Link>
@@ -395,14 +395,14 @@ function BookingCard({
         <div className='flex-1 p-4 md:p-5'>
           <div className='flex items-start justify-between gap-3'>
             <div>
-              <p className='font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground'>
+              <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
                 {tour.category}
               </p>
               <h2 className='mt-1 text-balance text-lg font-medium leading-tight'>
                 {tour.name}
               </h2>
             </div>
-            <span className='inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-primary-foreground'>
+            <span className='inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-sm font-medium uppercase tracking-wider text-primary-foreground'>
               <span className='size-1.5 rounded-full bg-accent' />
               {status}
             </span>
@@ -424,13 +424,13 @@ function BookingCard({
               value={`${guests}`}
             />
             <Detail
-              icon={<span className='text-xs font-medium tabular-nums'>$</span>}
+              icon={<span className='text-sm font-medium tabular-nums'>$</span>}
               label='Total paid'
               value={`$${total}`}
             />
           </dl>
           {!compact && (
-            <div className='mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground'>
+            <div className='mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-sm text-muted-foreground'>
               <MapPin className='size-3.5' />
               {tour.meetingPoint}
             </div>
@@ -456,7 +456,7 @@ function Detail({
         {icon}
       </span>
       <div>
-        <dt className='text-[11px] text-muted-foreground'>{label}</dt>
+        <dt className='text-sm text-muted-foreground'>{label}</dt>
         <dd className='font-medium leading-tight'>{value}</dd>
       </div>
     </div>
@@ -465,7 +465,7 @@ function Detail({
 
 function PolicyNote() {
   return (
-    <div className='mt-6 flex items-start gap-2 text-xs text-muted-foreground'>
+    <div className='mt-6 flex items-start gap-2 text-sm text-muted-foreground'>
       <ShieldCheck className='mt-0.5 size-3.5 shrink-0 text-muted-foreground/80' />
       <p>
         Free cancellation up to 24 hours before your tour start time. This link
@@ -512,11 +512,11 @@ function ResultState({
         {icon}
       </motion.div>
       <h1 className='mt-4 text-2xl font-medium tracking-tight'>{title}</h1>
-      <p className='mx-auto mt-2 max-w-sm text-sm text-muted-foreground'>
+      <p className='mx-auto mt-2 max-w-sm text-base text-muted-foreground'>
         {message}
       </p>
       <div className='mt-6 text-left'>{children}</div>
-      <p className='mt-5 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70'>
+      <p className='mt-5 inline-flex items-center gap-1.5 text-sm text-muted-foreground/70'>
         <Mail className='size-3.5' />
         Check your inbox for details
       </p>

@@ -20,7 +20,7 @@ export function DateSelector() {
     <div>
       <div className='flex justify-between'>
         <div>
-          <p className='text-sm font-medium'>When would you like to go?</p>
+          <p className='text-base font-medium'>When would you like to go?</p>
         </div>
       </div>
 
@@ -51,7 +51,7 @@ export function DateSelector() {
         </Field>
       </div>
       <Field className='mt-5'>
-        <FieldLabel className='text-xs font-medium text-stone-700'>
+        <FieldLabel className='text-base font-medium text-foreground'>
           Time slot
         </FieldLabel>
         <div className='mt-2 flex flex-wrap gap-1.5'>
