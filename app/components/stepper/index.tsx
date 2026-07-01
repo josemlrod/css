@@ -22,7 +22,7 @@ export function Stepper() {
   const submitting = navigation.state !== 'idle';
 
   return (
-    <div className='lg:sticky lg:top-24 lg:self-start'>
+    <div>
       <div className='rounded-xl border border-border bg-white'>
         {/* Step rail */}
         <div className='border-b border-border px-5 py-4'>

@@ -19,7 +19,7 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
 
   return (
-    <main className='mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8'>
+    <main className='mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8 mt-6'>
       {/* Header */}
       <div className='mb-10 flex flex-wrap items-end justify-between gap-4'>
         <div>
@@ -29,7 +29,9 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
           <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
             {tour.name}
           </h1>
-          <p className='mt-2 max-w-xl text-base text-muted-foreground'>{tour.description}</p>
+          <p className='mt-2 max-w-xl text-base text-muted-foreground'>
+            {tour.description}
+          </p>
         </div>
         <div className='flex items-center gap-4 text-sm text-muted-foreground'>
           <span className='inline-flex items-center gap-1'>
@@ -178,7 +180,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (error instanceof Response) throw error;
 
     console.error(error);
-    return data({ ok: false, error: 'Unable to start checkout' }, { status: 500 });
+    return data(
+      { ok: false, error: 'Unable to start checkout' },
+      { status: 500 },
+    );
   }
 }
 

@@ -58,8 +58,8 @@ export default function Layout() {
   return (
     <div className='min-h-screen bg-background'>
       <header className='fixed top-0 z-50 w-full border-b-2 border-black bg-white'>
-        <div className='absolute inset-x-0 top-0 h-6 bg-secondary bg-[url(/nav-banner-bkgrd1.gif)] bg-left-top bg-repeat-x' />
-        <div className='relative mx-auto flex max-w-[1980px] items-center bg-white px-4 md:px-8'>
+        <div className='absolute inset-x-0 top-0 h-6 bg-secondary bg-[url(/nav-banner-bkgrd1.gif)] bg-left-top bg-repeat-x z-10' />
+        <div className='relative mx-auto flex max-w-[1980px] items-center bg-white px-4 md:px-8 mt-6'>
           <a href='https://cinematicsitesofsavannah.com/'>
             <img
               alt='Cinematic Sites of Savannah logo'
