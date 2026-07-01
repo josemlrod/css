@@ -1,87 +1,69 @@
-# Welcome to React Router!
+# CSS Tours — Cinematic Sites of Savannah
 
-A modern, production-ready template for building full-stack React applications using React Router.
+A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay via Stripe, and receive email confirmation — all with real-time capacity tracking and self-service cancellation.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## Tech Stack
 
-## Features
+| Layer | Technology |
+|---|---|
+| Framework | React 19, React Router v7 (SSR) |
+| Styling | Tailwind CSS v4, shadcn/ui (Base UI) |
+| Animations | Motion |
+| Backend / DB | Convex |
+| Payments | Stripe Checkout, webhooks, refunds |
+| Email | Resend |
+| Validation | Zod v4 |
+| Testing | Vitest |
+| Deployment | Docker → Fly.io |
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## Built Features
+
+- **4-step booking wizard** — date/time picker, guest count, booker details, confirm → Stripe redirect
+- **Stripe Checkout integration** — session creation, payment capture, amount verification
+- **Stripe webhook handling** — `checkout.session.completed`, `checkout.session.expired`, `refund.updated`; idempotent, capacity-race safe (auto-refunds if tour fills between payment and webhook)
+- **Booking management** — private no-login access via hashed tokens, self-cancel up to 24h before tour
+- **Refund processing** — Stripe refund on cancellation, email notification on success/failure
+- **Booking Communication** — transactional emails via Resend (booking confirmed, refund issued, cancellation failed)
+- **Convex persistence** — `tours`, `checkoutAttempts` (30-min TTL), `bookings` tables with full CRUD + queries
+- **Design parity** — fonts, color palette, and header/footer matching the marketing site
 
 ## Getting Started
 
-### Installation
-
-Install the dependencies:
-
 ```bash
-npm install
+bun install
 ```
 
-### Development
-
-Start the development server with HMR:
+Copy `.env.example` to `.env` and fill in the required values, then:
 
 ```bash
-npm run dev
+bun run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+App available at `http://localhost:5173`.
 
-## Building for Production
+## Scripts
 
-Create a production build:
-
-```bash
-npm run build
-```
+| Command | Description |
+|---|---|
+| `bun run dev` | Start dev server with HMR |
+| `bun run build` | Production build |
+| `bun run typecheck` | TypeScript check |
+| `bun test` | Run tests |
+| `bun run seed:tours` | Seed tours in Convex |
 
 ## Deployment
 
-### Docker Deployment
-
-To build and run using Docker:
+Build and deploy with Docker:
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+docker build -t css-tours .
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+CI/CD via GitHub Actions auto-deploys to Fly.io on push to `main`.
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+## Domain Language
 
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+- **Booker** — the person booking (not "user")
+- **Checkout Attempt** — pre-payment record (not "booking")
+- **Booking** — confirmed, paid reservation
+- **Booking Communication** — email sent to the Booker
