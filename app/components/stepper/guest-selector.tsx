@@ -18,7 +18,7 @@ export function GuestSelector() {
         Up to {tour.maxGuests} per booking
       </p>
       <Field data-invalid={guestError} className='mt-4'>
-        <div className='grid grid-cols-5 gap-1.5'>
+        <div className='grid grid-cols-3 gap-2 sm:grid-cols-5'>
           {Array.from({ length: tour.maxGuests }).map((_, i) => {
             const n = i + 1;
             const active = n === guests;
@@ -35,7 +35,7 @@ export function GuestSelector() {
                     errors: { ...prev.errors, guests: false },
                   }))
                 }
-                className={`${
+                className={`min-h-11 ${
                   active
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border hover:border-primary/50 aria-invalid:border-destructive/45 aria-invalid:ring-1 aria-invalid:ring-destructive/10'

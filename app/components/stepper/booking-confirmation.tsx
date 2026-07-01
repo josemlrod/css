@@ -28,13 +28,13 @@ export function BookingConfirmation() {
         <p className='mt-1 text-sm text-muted-foreground'>Review the details below</p>
       </div>
       <dl className='space-y-2 rounded-md border border-border p-4 text-sm'>
-        <div className='flex justify-between'>
+        <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
           <dt className='text-muted-foreground'>Tour</dt>
-          <dd className='font-medium'>{tour.name}</dd>
+          <dd className='min-w-0 break-words font-medium sm:text-right'>{tour.name}</dd>
         </div>
-        <div className='flex justify-between'>
+        <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
           <dt className='text-muted-foreground'>Date</dt>
-          <dd className='font-medium'>
+          <dd className='min-w-0 break-words font-medium sm:text-right'>
             {date
               ? new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
                   month: 'short',
@@ -44,17 +44,17 @@ export function BookingConfirmation() {
             · {time}
           </dd>
         </div>
-        <div className='flex justify-between'>
+        <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
           <dt className='text-muted-foreground'>Guests</dt>
-          <dd className='font-medium'>{guests}</dd>
+          <dd className='min-w-0 break-words font-medium sm:text-right'>{guests}</dd>
         </div>
-        <div className='flex justify-between'>
+        <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
           <dt className='text-muted-foreground'>Guest</dt>
-          <dd className='font-medium'>{name || '—'}</dd>
+          <dd className='min-w-0 break-words font-medium sm:text-right'>{name || '—'}</dd>
         </div>
-        <div className='flex justify-between'>
+        <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
           <dt className='text-muted-foreground'>Email</dt>
-          <dd className='font-medium'>{email || '—'}</dd>
+          <dd className='min-w-0 break-words font-medium sm:text-right'>{email || '—'}</dd>
         </div>
       </dl>
     </div>

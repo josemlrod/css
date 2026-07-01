@@ -63,7 +63,7 @@ export function Stepper() {
         </AnimatePresence>
 
         {/* Footer */}
-        <div className='flex items-center justify-between border-t border-border bg-muted px-5 py-3'>
+        <div className='flex flex-col gap-3 border-t border-border bg-muted px-5 py-4 sm:flex-row sm:items-center sm:justify-between'>
           <div>
             <p className='text-sm uppercase tracking-wider text-muted-foreground'>
               Total
@@ -77,13 +77,13 @@ export function Stepper() {
               ${total}
             </motion.p>
           </div>
-          <div className='flex items-center gap-2'>
+          <div className='flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center'>
             {step > 0 && (
               <button
                 onClick={() =>
                   setStepper((prev) => ({ ...prev, step: prev.step - 1 }))
                 }
-                className='rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border'
+                className='min-h-11 w-full rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border sm:w-auto'
               >
                 Back
               </button>
@@ -119,7 +119,7 @@ export function Stepper() {
                 }));
               }}
               disabled={submitting}
-              className='disabled:cursor-not-allowed disabled:opacity-60'
+              className='min-h-11 w-full whitespace-normal text-center disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:whitespace-nowrap'
             >
               {submitting
                 ? 'Opening checkout...'
