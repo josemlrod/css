@@ -20,6 +20,7 @@ export function BookerDetails() {
         </FieldLabel>
         <Input
           aria-invalid={nameError}
+          className='min-h-11 text-base md:text-sm'
           value={name ?? ''}
           onChange={(e) =>
             setStepper((prev) => ({
@@ -42,6 +43,7 @@ export function BookerDetails() {
         </FieldLabel>
         <Input
           aria-invalid={emailError}
+          className='min-h-11 text-base md:text-sm'
           type='email'
           value={email ?? ''}
           onChange={(e) =>

@@ -90,7 +90,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             >
-              <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
+              <p className='break-all font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground sm:text-sm sm:tracking-[0.18em]'>
                 Booking {booking._id}
               </p>
               <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
@@ -115,7 +115,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 <div className='mt-6 flex flex-col gap-2.5 sm:flex-row'>
                   <button
                     onClick={() => setView(View.CANCEL)}
-                    className='inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
+                    className='inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
                   >
                     <X className='size-3.5' />
                     Cancel booking
@@ -170,7 +170,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
             >
               <button
                 onClick={() => setView('overview')}
-                className='inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground'
+                className='inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground'
               >
                 <ArrowLeft className='size-3.5' />
                 Back to booking
@@ -212,12 +212,12 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                     (optional)
                   </span>
                 </p>
-                <div className='mt-2.5 flex flex-wrap gap-1.5'>
+                <div className='mt-2.5 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap'>
                   {cancelReasons.map((r) => (
                     <button
                       key={r}
                       onClick={() => setReason(reason === r ? null : r)}
-                      className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
+                      className={`min-h-11 rounded-full border px-3 py-2 text-sm transition-all ${
                         reason === r
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border hover:border-primary/50'
@@ -238,7 +238,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                       encType: 'application/json',
                     });
                   }}
-                  className='inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-destructive bg-destructive px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-destructive/80'
+                  className='inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-destructive bg-destructive px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-destructive/80'
                 >
                   {isSubmitting ? null : <X className='size-3.5' />}
                   {isSubmitting ? 'Submitting...' : 'Confirm cancellation'}
@@ -246,7 +246,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 <button
                   disabled={isSubmitting}
                   onClick={() => setView('overview')}
-                  className='inline-flex flex-1 items-center justify-center rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
+                  className='inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
                 >
                   Keep my booking
                 </button>
@@ -271,7 +271,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               </div>
               <Link
                 to='/v2/book'
-                className='mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[#bababa] bg-accent px-5 py-1.5 font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black md:text-2xl'
+                className='mt-6 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black md:text-2xl'
               >
                 Browse tours
               </Link>
@@ -389,11 +389,11 @@ function BookingCard({
           <img
             src={tour.imageUrl || '/placeholder.svg'}
             alt={tour.name}
-            className='object-cover h-full'
+            className='h-full w-full object-cover'
           />
         </div>
         <div className='flex-1 p-4 md:p-5'>
-          <div className='flex items-start justify-between gap-3'>
+          <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
             <div>
               <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
                 {tour.category}
@@ -407,7 +407,7 @@ function BookingCard({
               {status}
             </span>
           </div>
-          <dl className='mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm'>
+          <dl className='mt-3 grid gap-x-4 gap-y-2.5 text-sm sm:grid-cols-2'>
             <Detail
               icon={<CalendarIcon className='size-3.5' />}
               label='Date'
@@ -430,7 +430,7 @@ function BookingCard({
             />
           </dl>
           {!compact && (
-            <div className='mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-sm text-muted-foreground'>
+            <div className='mt-3 flex items-center gap-1.5 break-words border-t border-border pt-3 text-sm text-muted-foreground'>
               <MapPin className='size-3.5' />
               {tour.meetingPoint}
             </div>
@@ -457,7 +457,7 @@ function Detail({
       </span>
       <div>
         <dt className='text-sm text-muted-foreground'>{label}</dt>
-        <dd className='font-medium leading-tight'>{value}</dd>
+        <dd className='break-words font-medium leading-tight'>{value}</dd>
       </div>
     </div>
   );

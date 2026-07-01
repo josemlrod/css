@@ -19,9 +19,9 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
 
   return (
-    <main className='mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8 mt-6'>
+    <main className='mx-auto max-w-6xl px-4 py-5 md:mt-6 md:px-6 md:py-8'>
       {/* Header */}
-      <div className='mb-10 flex flex-wrap items-end justify-between gap-4'>
+      <div className='mb-8 flex flex-col items-start gap-4 md:mb-10 md:flex-row md:items-end md:justify-between'>
         <div>
           <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
             Tour · Food
@@ -58,7 +58,7 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
               className='object-cover aspect-[4/5] animate-in fade-in duration-300'
             />
           </div>
-          <div className='grid grid-cols-2 gap-3 text-sm'>
+          <div className='grid gap-3 text-sm sm:grid-cols-2'>
             <div className='rounded-md border border-border p-3'>
               <p className='text-muted-foreground'>Meeting point</p>
               <p className='mt-1 font-medium'>{tour.meetingPoint}</p>
@@ -68,7 +68,7 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
               <p className='mt-1 font-medium'>Six tastings, recipe card</p>
             </div>
           </div>
-          <ul className='grid grid-cols-2 gap-1.5'>
+          <ul className='grid gap-1.5 sm:grid-cols-2'>
             {tour.highlights.map((h) => (
               <li
                 key={h}

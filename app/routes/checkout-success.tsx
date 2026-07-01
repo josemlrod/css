@@ -52,25 +52,25 @@ export default function CheckoutSuccess({ loaderData }: Route.ComponentProps) {
         </p>
 
         <dl className='mt-6 space-y-3 rounded-lg bg-muted p-4 text-sm'>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Tour</dt>
-            <dd className='text-right font-medium'>{tour.name}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{tour.name}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Date</dt>
-            <dd className='text-right font-medium'>{checkoutAttempt.date}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.date}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Time</dt>
-            <dd className='text-right font-medium'>{checkoutAttempt.time}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.time}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Guests</dt>
-            <dd className='text-right font-medium'>{checkoutAttempt.guests}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.guests}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Total paid</dt>
-            <dd className='text-right font-medium'>${total}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>${total}</dd>
           </div>
         </dl>
       </section>

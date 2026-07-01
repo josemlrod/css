@@ -41,27 +41,27 @@ export default function CheckoutCancel({ loaderData }: Route.ComponentProps) {
         </p>
 
         <dl className='mt-6 space-y-3 rounded-lg bg-muted p-4 text-sm'>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Tour</dt>
-            <dd className='text-right font-medium'>{tour.name}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{tour.name}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Date</dt>
-            <dd className='text-right font-medium'>{checkoutAttempt.date}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.date}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Time</dt>
-            <dd className='text-right font-medium'>{checkoutAttempt.time}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.time}</dd>
           </div>
-          <div className='flex justify-between gap-4'>
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
             <dt className='text-muted-foreground'>Guests</dt>
-            <dd className='text-right font-medium'>{checkoutAttempt.guests}</dd>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.guests}</dd>
           </div>
         </dl>
 
         <Link
           to={`/tour/${tour._id}`}
-          className='mt-6 inline-flex rounded-full border border-[#bababa] bg-accent px-5 py-1.5 font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black md:text-2xl'
+          className='mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black sm:w-auto md:text-2xl'
         >
           Start a new Checkout Attempt
         </Link>

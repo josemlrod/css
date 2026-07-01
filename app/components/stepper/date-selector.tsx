@@ -28,7 +28,7 @@ export function DateSelector() {
         <Field data-invalid={dateError}>
           <Input
             aria-invalid={dateError}
-            className='w-full'
+            className='min-h-11 w-full text-base md:text-sm'
             id='date-selector'
             type='date'
             min={todaysDate}
@@ -54,7 +54,7 @@ export function DateSelector() {
         <FieldLabel className='text-base font-medium text-foreground'>
           Time slot
         </FieldLabel>
-        <div className='mt-2 flex flex-wrap gap-1.5'>
+        <div className='mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap'>
           {tour.startTimes.map((t: string) => (
             <Button
               aria-invalid={timeError}
@@ -67,7 +67,7 @@ export function DateSelector() {
                   errors: { ...prev.errors, time: false },
                 }))
               }
-              className={`rounded-full aria-invalid:ring-1 aria-invalid:ring-destructive/10 ${t === time ? 'bg-primary text-primary-foreground hover:bg-primary/70' : ''}`}
+              className={`min-h-11 rounded-full aria-invalid:ring-1 aria-invalid:ring-destructive/10 ${t === time ? 'bg-primary text-primary-foreground hover:bg-primary/70' : ''}`}
             >
               {t}
             </Button>
