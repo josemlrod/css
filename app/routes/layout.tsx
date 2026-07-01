@@ -57,6 +57,10 @@ const navItems = [
   },
 ] as const;
 
+function getMobileSubmenuId(href: string) {
+  return `mobile-submenu-${href.replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
+}
+
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openMobileSubmenu, setOpenMobileSubmenu] = useState<string | null>(
@@ -125,68 +129,72 @@ export default function Layout() {
             className={`${menuOpen ? 'block' : 'hidden'} border-t border-border py-3 md:hidden`}
           >
             <ul className='space-y-1'>
-              {navItems.map((item) => (
-                <li key={item.href}>
-                  {'children' in item ? (
-                    <>
-                      <button
-                        type='button'
-                        aria-controls={`mobile-submenu-${item.label}`}
-                        aria-expanded={openMobileSubmenu === item.href}
-                        onClick={() =>
-                          setOpenMobileSubmenu((open) =>
-                            open === item.href ? null : item.href,
-                          )
-                        }
-                        className='flex min-h-11 w-full items-center justify-between font-heading text-xl font-semibold uppercase text-primary transition-colors duration-300 hover:text-brand-teal'
-                      >
-                        {item.label}
-                        <ChevronDown
-                          className={`size-4 transition-transform duration-200 ${openMobileSubmenu === item.href ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {openMobileSubmenu === item.href ? (
-                          <motion.ul
-                            id={`mobile-submenu-${item.label}`}
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                            className='mb-2 border-l border-border pl-4'
-                          >
-                            <li>
-                              <a
-                                className='flex min-h-11 items-center text-sm font-semibold text-[#13344a] transition-colors duration-300 hover:text-[#466b83]'
-                                href={item.href}
-                              >
-                                {item.label} overview
-                              </a>
-                            </li>
-                            {item.children.map((child) => (
-                              <li key={child.href}>
+              {navItems.map((item) => {
+                const submenuId = getMobileSubmenuId(item.href);
+
+                return (
+                  <li key={item.href}>
+                    {'children' in item ? (
+                      <>
+                        <button
+                          type='button'
+                          aria-controls={submenuId}
+                          aria-expanded={openMobileSubmenu === item.href}
+                          onClick={() =>
+                            setOpenMobileSubmenu((open) =>
+                              open === item.href ? null : item.href,
+                            )
+                          }
+                          className='flex min-h-11 w-full items-center justify-between font-heading text-xl font-semibold uppercase text-primary transition-colors duration-300 hover:text-brand-teal'
+                        >
+                          {item.label}
+                          <ChevronDown
+                            className={`size-4 transition-transform duration-200 ${openMobileSubmenu === item.href ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {openMobileSubmenu === item.href ? (
+                            <motion.ul
+                              id={submenuId}
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                              className='mb-2 border-l border-border pl-4'
+                            >
+                              <li>
                                 <a
                                   className='flex min-h-11 items-center text-sm font-semibold text-[#13344a] transition-colors duration-300 hover:text-[#466b83]'
-                                  href={child.href}
+                                  href={item.href}
                                 >
-                                  {child.label}
+                                  {item.label} overview
                                 </a>
                               </li>
-                            ))}
-                          </motion.ul>
-                        ) : null}
-                      </AnimatePresence>
-                    </>
-                  ) : (
-                    <a
-                      className='flex min-h-11 items-center font-heading text-xl font-semibold uppercase text-primary transition-colors duration-300 hover:text-brand-teal'
-                      href={item.href}
-                    >
-                      {item.label}
-                    </a>
-                  )}
-                </li>
-              ))}
+                              {item.children.map((child) => (
+                                <li key={child.href}>
+                                  <a
+                                    className='flex min-h-11 items-center text-sm font-semibold text-[#13344a] transition-colors duration-300 hover:text-[#466b83]'
+                                    href={child.href}
+                                  >
+                                    {child.label}
+                                  </a>
+                                </li>
+                              ))}
+                            </motion.ul>
+                          ) : null}
+                        </AnimatePresence>
+                      </>
+                    ) : (
+                      <a
+                        className='flex min-h-11 items-center font-heading text-xl font-semibold uppercase text-primary transition-colors duration-300 hover:text-brand-teal'
+                        href={item.href}
+                      >
+                        {item.label}
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </nav>
         </div>
