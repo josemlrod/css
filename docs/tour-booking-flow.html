@@ -247,16 +247,16 @@
           <h1>Tour Booking Flow</h1>
           <p class="lede">
             Booker selects tour details and opens PayPal or guest card checkout in
-            the booking stepper. This slice creates the PayPal Order but leaves
-            capture and Booking creation to the next migration slice.
+            the booking stepper. The server captures an approved PayPal Order and
+            creates the Booking only after payment and capacity checks pass.
           </p>
         </div>
         <div class="card">
           <h2>Invariant</h2>
           <p>
-            Return routes never create Bookings. Only
-            <code>checkout.session.completed</code> from the verified webhook can
-            create one.
+            Return routes never create Bookings. Only a server-verified PayPal
+            capture can create one, either from the synchronous capture response
+            or a verified <code>PAYMENT.CAPTURE.COMPLETED</code> webhook.
           </p>
         </div>
       </div>
@@ -278,7 +278,7 @@
           </div>
           <div class="entity">
             <h3>Booking Communication</h3>
-            <p>Email sent by app for tour details, refund notices, cancellation results, and refund failures. Stripe receipts stay separate.</p>
+            <p>Email sent by app for tour details, refund notices, cancellation results, and refund failures. PayPal receipts stay separate.</p>
           </div>
         </div>
       </section>
@@ -288,9 +288,10 @@
         <p>
           Payment persistence uses <code>paypalOrderId</code>,
           <code>paypalCaptureId</code>, and <code>paypalRefundId</code>. New Checkout
-          Attempts now create PayPal Orders from embedded SDK v6 buttons. Capture,
-          Booking creation, webhooks, and refunds move to PayPal in later slices;
-          the old Stripe completion routes remain temporarily but receive no new
+          Attempts now create PayPal Orders from embedded SDK v6 buttons. The
+          capture action creates Bookings or starts PayPal refunds after a capacity
+          race. A verified PayPal webhook will provide an idempotent backup in the
+          next slice. The old Stripe routes remain temporarily but receive no new
           checkouts.
         </p>
       </section>
@@ -310,9 +311,9 @@
         <div class="card">
           <h2>Payment Received</h2>
           <div class="flow">
-            <div class="step"><div class="num">1</div><div class="step-body"><h3>Webhook verified</h3><p><code>/stripe/webhook</code> constructs Stripe event using <code>STRIPE_WEBHOOK_SECRET</code>.</p></div></div>
-            <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p><code>completeCheckoutAttempt</code> checks amount, currency, idempotency, and current capacity.</p></div></div>
-            <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, Booking is inserted with <code>paymentStatus: paid</code> and the attempt becomes <code>paid</code>.</p></div></div>
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Order captured</h3><p>The SDK approval callback posts the private Checkout Attempt token and Order ID to <code>/paypal/capture/:checkoutAttemptId</code>. The server verifies both before calling PayPal.</p></div></div>
+            <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p>A completed capture passes its amount, currency, Order ID, and Capture ID to <code>finalizePaidCapture</code>. <code>completeCheckoutAttempt</code> checks idempotency and current capacity.</p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, the app inserts the Booking with <code>paymentStatus: paid</code> and marks the attempt <code>paid</code>. A pending PayPal capture leaves the attempt pending.</p></div></div>
             <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link.</p></div></div>
           </div>
         </div>
@@ -334,8 +335,8 @@
           <h2>Capacity Race</h2>
           <p>
             Checkout Attempts do not reserve capacity. If payment succeeds after
-            capacity fills, webhook code creates no Booking, marks the attempt
-            <code>refund_pending</code>, creates a full Stripe refund, stores the
+            capacity fills, the shared finalizer creates no Booking, marks the attempt
+            <code>refund_pending</code>, creates a full PayPal refund, stores the
             refund ID, and emails the Booker.
           </p>
         </div>
@@ -390,7 +391,7 @@
               <td>Payment succeeds, capacity full</td>
               <td><code>Checkout Attempt = refund_pending</code>, then <code>refunded</code> or <code>refund_failed</code></td>
               <td><span class="status-bad">No</span></td>
-              <td>Capacity refund email; failure email if Stripe fails refund</td>
+              <td>Capacity refund email; failure email if PayPal fails refund</td>
             </tr>
             <tr>
               <td>Checkout expires</td>
@@ -425,7 +426,9 @@
         <div class="code-map">
           <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
           <div><code>app/routes/tour-booking.tsx</code><p>Validates Booker input, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
-          <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, checks PayPal and card eligibility, starts payment sessions, and handles cancellation.</p></div>
+          <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, starts payment sessions, captures approved Orders, and handles cancellation.</p></div>
+          <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and routes the result by payment status.</p></div>
+          <div><code>app/lib/checkout-completion.ts</code><p>Creates paid Bookings and Booking Communication, or refunds captures after a capacity race.</p></div>
           <div><code>app/lib/stripe.ts</code><p>Creates Checkout Sessions, verifies webhooks, creates refunds.</p></div>
           <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, checks capacity, handles refund status by the persisted PayPal refund ID.</p></div>
           <div><code>app/routes/stripe-webhook.ts</code><p>Owns verified Stripe event behavior for payment completion, expiry, refund lifecycle.</p></div>

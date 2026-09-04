@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createPayPalOrder, verifyPayPalWebhook } from './paypal';
+import {
+  capturePayPalOrder,
+  createPayPalOrder,
+  verifyPayPalWebhook,
+} from './paypal';
 
 function paypalHeaders() {
   return new Headers({
@@ -89,5 +93,57 @@ describe('PayPal API client', () => {
         rawBody: JSON.stringify({ id: 'WH-123', event_type: 'TEST' }),
       }),
     ).rejects.toThrow('PayPal webhook verification failed');
+  });
+
+  it('reads an order after PayPal reports it was already captured', async () => {
+    vi.stubEnv('PAYPAL_ENV', 'sandbox');
+    vi.stubEnv('PAYPAL_CLIENT_ID', 'client-id');
+    vi.stubEnv('PAYPAL_CLIENT_SECRET', 'client-secret');
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input.toString();
+
+        if (url.endsWith('/v1/oauth2/token')) {
+          return Response.json({ access_token: 'paypal-token', expires_in: 3600 });
+        }
+
+        if (init?.method === 'POST') {
+          return Response.json(
+            { details: [{ issue: 'ORDER_ALREADY_CAPTURED' }] },
+            { status: 422 },
+          );
+        }
+
+        return Response.json({
+          purchase_units: [
+            {
+              payments: {
+                captures: [
+                  {
+                    id: 'CAPTURE123',
+                    status: 'COMPLETED',
+                    amount: { value: '158.00', currency_code: 'USD' },
+                    custom_id: 'checkout-attempt-123',
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      },
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(capturePayPalOrder('ORDER123')).resolves.toMatchObject({
+      id: 'CAPTURE123',
+      status: 'COMPLETED',
+    });
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) =>
+          input.toString().endsWith('/v2/checkout/orders/ORDER123') &&
+          !init?.method,
+      ),
+    ).toBe(true);
   });
 });
