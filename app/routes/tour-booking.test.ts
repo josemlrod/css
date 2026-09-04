@@ -5,7 +5,7 @@ import {
   updateCheckoutAttempt,
 } from '~/lib/checkout-attempts';
 import { getTodayInBookingTimeZone } from '~/lib/dates';
-import { createCheckoutSession } from '~/lib/stripe';
+import { createPayPalOrder } from '~/lib/paypal';
 import { getTourById } from '~/lib/tours';
 
 import { action } from './tour-booking';
@@ -19,13 +19,13 @@ vi.mock('~/lib/tours', () => ({
   getTourById: vi.fn(),
 }));
 
-vi.mock('~/lib/stripe', () => ({
-  createCheckoutSession: vi.fn(),
+vi.mock('~/lib/paypal', () => ({
+  createPayPalOrder: vi.fn(),
 }));
 
 const saveCheckoutAttemptMock = vi.mocked(saveCheckoutAttempt);
 const updateCheckoutAttemptMock = vi.mocked(updateCheckoutAttempt);
-const createCheckoutSessionMock = vi.mocked(createCheckoutSession);
+const createPayPalOrderMock = vi.mocked(createPayPalOrder);
 const getTourByIdMock = vi.mocked(getTourById);
 
 const tour = {
@@ -88,10 +88,10 @@ describe('tour booking action', () => {
       init: { status: 400 },
     });
     expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
-    expect(createCheckoutSessionMock).not.toHaveBeenCalled();
+    expect(createPayPalOrderMock).not.toHaveBeenCalled();
   });
 
-  it('persists checkout attempt and redirects to Stripe Checkout for valid input', async () => {
+  it('persists a checkout attempt and returns the PayPal order', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
     getTourByIdMock.mockResolvedValueOnce(tour as never);
     saveCheckoutAttemptMock.mockResolvedValueOnce({
@@ -99,26 +99,24 @@ describe('tour booking action', () => {
       accessToken: 'raw-token',
       expiresAt: 1767227400000,
     });
-    createCheckoutSessionMock.mockResolvedValueOnce({
-      id: 'cs_test_123',
-      url: 'https://checkout.stripe.com/c/pay/cs_test_123',
-    } as never);
+    createPayPalOrderMock.mockResolvedValueOnce({ id: 'ORDER123' });
 
-    await expect(
-      action({
-        request: bookingRequest(),
-        params: { tourId: 'southern-flavors-food' },
-        context: {},
-        url: new URL('https://example.com/tours/southern-flavors-food'),
-        pattern: '/tours/:tourId',
-      }),
-    ).rejects.toMatchObject({
-      status: 302,
-      headers: expect.objectContaining({
-        get: expect.any(Function),
-      }),
+    const response = await action({
+      request: bookingRequest(),
+      params: { tourId: 'southern-flavors-food' },
+      context: {},
+      url: new URL('https://example.com/tours/southern-flavors-food'),
+      pattern: '/tours/:tourId',
     });
 
+    expect(response).toMatchObject({
+      data: {
+        ok: true,
+        orderId: 'ORDER123',
+        checkoutAttemptId: 'checkout-attempt-123',
+        accessToken: 'raw-token',
+      },
+    });
     expect(saveCheckoutAttemptMock).toHaveBeenCalledOnce();
     expect(saveCheckoutAttemptMock).toHaveBeenCalledWith({
       date: getTodayInBookingTimeZone(),
@@ -131,24 +129,24 @@ describe('tour booking action', () => {
       total: 158,
       currency: 'usd',
     });
-    expect(createCheckoutSessionMock).toHaveBeenCalledWith({
+    expect(createPayPalOrderMock).toHaveBeenCalledWith({
       checkoutAttemptId: 'checkout-attempt-123',
       accessToken: 'raw-token',
-      expiresAt: 1767227400000,
       origin: 'https://example.com',
       tour,
       date: getTodayInBookingTimeZone(),
       time: '11:30 AM',
       guests: 2,
+      total: 158,
       bookerEmail: 'ada@example.com',
     });
     expect(updateCheckoutAttemptMock).toHaveBeenCalledWith({
       id: 'checkout-attempt-123',
-      paypalOrderId: 'cs_test_123',
+      paypalOrderId: 'ORDER123',
     });
   });
 
-  it('returns an error when Stripe Checkout creation fails', async () => {
+  it('returns an error when PayPal order creation fails', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
     getTourByIdMock.mockResolvedValueOnce(tour as never);
     saveCheckoutAttemptMock.mockResolvedValueOnce({
@@ -160,7 +158,7 @@ describe('tour booking action', () => {
     const consoleErrorMock = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
-    createCheckoutSessionMock.mockRejectedValueOnce(error);
+    createPayPalOrderMock.mockRejectedValueOnce(error);
 
     const response = await action({
       request: bookingRequest(),
@@ -174,7 +172,33 @@ describe('tour booking action', () => {
       data: { ok: false, error: 'Unable to start checkout' },
       init: { status: 500 },
     });
-    expect(createCheckoutSessionMock).toHaveBeenCalledOnce();
+    expect(createPayPalOrderMock).toHaveBeenCalledOnce();
     expect(consoleErrorMock).toHaveBeenCalledWith(error);
+  });
+
+  it('returns an error when PayPal omits the order ID', async () => {
+    vi.stubEnv('APP_ORIGIN', 'https://example.com');
+    getTourByIdMock.mockResolvedValueOnce(tour as never);
+    saveCheckoutAttemptMock.mockResolvedValueOnce({
+      checkoutAttemptId: 'checkout-attempt-123' as never,
+      accessToken: 'raw-token',
+      expiresAt: 1767227400000,
+    });
+    createPayPalOrderMock.mockResolvedValueOnce({ id: '' });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await action({
+      request: bookingRequest(),
+      params: { tourId: 'southern-flavors-food' },
+      context: {},
+      url: new URL('https://example.com/tours/southern-flavors-food'),
+      pattern: '/tours/:tourId',
+    });
+
+    expect(response).toMatchObject({
+      data: { ok: false, error: 'Unable to start checkout' },
+      init: { status: 500 },
+    });
+    expect(updateCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 });
