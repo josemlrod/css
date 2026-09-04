@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stripe to PayPal: migration analysis</title>
+    <style>
+      :root {
+        --navy: #00354c;
+        --navy-2: #0b4a62;
+        --teal: #80cfd3;
+        --teal-soft: #dff4f3;
+        --coral: #f47b51;
+        --coral-soft: #fff0ea;
+        --cream: #fbf8f1;
+        --paper: #ffffff;
+        --ink: #173440;
+        --muted: #61757d;
+        --line: #c9d7d8;
+        --ok: #166534;
+        --ok-soft: #ecfdf3;
+        --warn: #92400e;
+        --warn-soft: #fff7ed;
+        --bad: #991b1b;
+        --bad-soft: #fef2f2;
+        --shadow: 0 18px 50px rgb(0 53 76 / 10%);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 8% 4%, rgb(128 207 211 / 25%), transparent 24rem),
+          radial-gradient(circle at 92% 36%, rgb(244 123 81 / 13%), transparent 26rem),
+          var(--cream);
+        color: var(--ink);
+        font-family: "Open Sans", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.55;
+      }
+      .page { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 80px; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(30px, 5vw, 52px); line-height: 1; letter-spacing: -0.03em; color: var(--navy); }
+      h2 { font-size: 22px; letter-spacing: -0.01em; color: var(--navy); }
+      h3 { font-size: 15px; color: var(--navy); }
+      .eyebrow { margin: 0 0 10px; color: var(--coral); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+      .lede { margin-top: 16px; max-width: 760px; color: var(--muted); font-size: 17px; }
+      header { padding-bottom: 28px; border-bottom: 2px solid var(--navy); }
+      section { margin-top: 36px; }
+      .card { border: 1px solid var(--line); border-radius: 16px; background: var(--paper); box-shadow: var(--shadow); padding: 22px; }
+      .card p, td, li { color: var(--muted); }
+      .card h2 + p, .card h3 + p { margin-top: 8px; }
+      .grid { display: grid; gap: 16px; }
+      .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      code { border-radius: 5px; background: var(--teal-soft); color: var(--navy); padding: 1px 6px; font-size: 0.9em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      pre { margin: 12px 0 0; padding: 14px 16px; border-radius: 12px; background: var(--navy); color: #e6f4f5; font-size: 12.5px; line-height: 1.5; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      pre .c { color: #80cfd3; }
+      pre .d { color: #f47b51; }
+      pre .a { color: #9be7a0; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th, td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+      th { background: #f2f7f8; color: var(--navy); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+      tr:last-child td { border-bottom: 0; }
+      td:first-child { color: var(--ink); font-weight: 600; }
+      .panel { padding: 0; overflow: hidden; }
+      .panel > h2 { padding: 18px 22px 0; }
+      .panel > p { padding: 8px 22px 14px; }
+      .pill { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; }
+      .ok { background: var(--ok-soft); color: var(--ok); }
+      .warn { background: var(--warn-soft); color: var(--warn); }
+      .bad { background: var(--bad-soft); color: var(--bad); }
+      .info { background: var(--teal-soft); color: var(--navy); }
+      .verdict { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; }
+      .verdict .big { font-size: 20px; color: var(--ink); line-height: 1.35; }
+      .kpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      .kpi div { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); padding: 14px; }
+      .kpi strong { display: block; font-size: 26px; color: var(--navy); letter-spacing: -0.02em; }
+      .kpi span { color: var(--muted); font-size: 13px; }
+      .flow { display: grid; gap: 8px; margin-top: 14px; }
+      .step { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
+      .num { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--navy); color: #fff; font-size: 12.5px; font-weight: 700; }
+      .num.coral { background: var(--coral); }
+      .step-body { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 10px 12px; font-size: 14px; }
+      .step-body h3 { font-size: 14px; }
+      .step-body p { margin-top: 3px; font-size: 13.5px; }
+      ul { margin: 10px 0 0; padding-left: 18px; }
+      li { margin: 4px 0; font-size: 14.5px; }
+      li strong { color: var(--ink); }
+      .num-col { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .plus { color: var(--bad); font-weight: 700; }
+      .minus { color: var(--ok); font-weight: 700; }
+      .note { margin-top: 14px; border-left: 4px solid var(--coral); background: var(--coral-soft); border-radius: 0 12px 12px 0; padding: 12px 14px; font-size: 14px; color: var(--ink); }
+      .note.teal { border-color: var(--teal); background: var(--teal-soft); }
+      .diff { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+      .diff > div { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .diff h3 { padding: 10px 14px; background: #f2f7f8; border-bottom: 1px solid var(--line); }
+      .diff pre { margin: 0; border-radius: 0; background: #0b2a3a; }
+      @media (max-width: 860px) {
+        .grid-2, .grid-3, .verdict, .diff { grid-template-columns: 1fr; }
+        .kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <p class="eyebrow">CSS Tours · payments</p>
+        <h1>Switching Checkout from Stripe to PayPal</h1>
+        <p class="lede">
+          What the current Stripe integration does, which PayPal product actually fits it,
+          how the webhook model changes, and whether the swap removes or adds code.
+          Domain terms follow <code>CONTEXT.md</code>: Booker, Checkout Attempt, Booking, Booking Communication.
+        </p>
+      </header>
+
+      <!-- VERDICT -->
+      <section class="verdict">
+        <div class="card">
+          <p class="eyebrow">Short answer</p>
+          <p class="big">
+            PayPal's no-code Buy Button does accept cards, but it cannot power this app.
+            The workable path is PayPal's <em>low-code</em> JS SDK v6 buttons plus the Orders v2 API.
+            That path is a <strong>net increase</strong> of roughly 250 to 400 lines of app code
+            and a modest increase in complexity, mostly because PayPal makes us do the payment capture
+            step and the webhook signature check that Stripe Checkout did for us.
+          </p>
+          <div class="kpi">
+            <div><strong>Yes</strong><span>Cards accepted without a PayPal account (standalone card button)</span></div>
+            <div><strong>Yes*</strong><span>Apple Pay and Google Pay, after Advanced Checkout onboarding</span></div>
+            <div><strong>No</strong><span>No-code Buy Button viable for Checkout Attempts</span></div>
+            <div><strong>+250 to +400</strong><span>Estimated net app lines (tests excluded)</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Why the no-code button fails here</h2>
+          <ul>
+            <li><strong>Fixed price per button.</strong> Our amount is <code>guests × tour.price</code>, computed server-side and snapshotted on the Checkout Attempt. A dashboard button can't take a per-attempt total.</li>
+            <li><strong>No reference back to our record.</strong> Dashboard buttons expose no <code>custom_id</code> or <code>invoice_id</code>, so a webhook can't be matched to a Checkout Attempt. That breaks amount verification, the capacity re-check, and Booking creation.</li>
+            <li><strong>No per-attempt return URLs.</strong> Our success and cancel routes carry the attempt ID and raw access token.</li>
+            <li><strong>Refunds still need the API.</strong> Self-service cancellation needs a stored capture ID, which only the API path gives us.</li>
+          </ul>
+          <p class="note">You were right that the button accepts cards (PayPal lists PayPal, Pay Later, Venmo, Apple Pay, and major cards). The blocker is reconciliation, not payment methods.</p>
+        </div>
+      </section>
+
+      <!-- INVENTORY -->
+      <section class="card panel">
+        <h2>What is implemented today (nothing here can be dropped silently)</h2>
+        <p>Every Stripe touchpoint in the repo, with the behavior it owns. Each row needs a PayPal equivalent or a deliberate decision.</p>
+        <table>
+          <thead><tr><th>File</th><th>Stripe behavior</th><th>PayPal equivalent</th></tr></thead>
+          <tbody>
+            <tr><td><code>app/lib/stripe.ts</code> (81 lines)</td><td>Client, <code>createCheckoutSession</code> (line items, expiry, success/cancel URLs, metadata), <code>constructStripeWebhookEvent</code>, <code>createRefundForPaymentIntent</code></td><td>New <code>app/lib/paypal.ts</code>: OAuth token, <code>createOrder</code>, <code>captureOrder</code>, <code>refundCapture</code>, <code>verifyWebhook</code></td></tr>
+            <tr><td><code>app/routes/tour-booking.tsx</code> action</td><td>Validates, saves Checkout Attempt, creates session, stores session ID, redirects to Stripe</td><td>Same shape, but creates a PayPal Order, stores <code>paypalOrderId</code>, and returns <code>{ orderId }</code> JSON to the SDK instead of redirecting</td></tr>
+            <tr><td><code>app/components/stepper/index.tsx</code></td><td>"Continue to payment" submits the form and the browser leaves for Stripe</td><td>Final step renders PayPal, card, and (optional) Apple Pay / Google Pay buttons in place of that submit button</td></tr>
+            <tr><td><code>app/routes/stripe-webhook.ts</code> (194 lines)</td><td>Verifies signature; <code>checkout.session.completed</code> → Booking or capacity refund; <code>checkout.session.expired</code>; <code>refund.updated</code> / <code>charge.refunded</code></td><td><code>app/routes/paypal-webhook.ts</code>: <code>PAYMENT.CAPTURE.COMPLETED</code>, <code>PAYMENT.CAPTURE.DENIED</code>, <code>CHECKOUT.PAYMENT-APPROVAL.REVERSED</code>, <code>PAYMENT.CAPTURE.REFUNDED</code>, <code>PAYMENT.REFUND.FAILED</code></td></tr>
+            <tr><td><em>(does not exist yet)</em></td><td>Stripe captured automatically</td><td>New <code>app/routes/paypal-capture.ts</code> action called from the SDK's <code>onApprove</code>: captures the order, then runs the same completion logic as the webhook</td></tr>
+            <tr><td><code>app/routes/checkout-success.tsx</code>, <code>checkout-cancel.tsx</code></td><td>Token-gated status pages, never create Bookings</td><td>Unchanged behavior; copy mentions Stripe in two strings</td></tr>
+            <tr><td><code>app/routes/manage-tour.tsx</code></td><td>24h cutoff, refund first, then <code>cancelPaidBooking</code>, then email</td><td>Same order of operations; calls <code>refundCapture(booking.paypalCaptureId)</code>; one copy string</td></tr>
+            <tr><td><code>convex/schema.ts</code>, <code>checkoutAttempts.ts</code>, <code>bookings.ts</code></td><td><code>stripeCheckoutSessionId</code>, <code>stripePaymentIntentId</code>, <code>stripeRefundId</code>; amount check <code>amountTotal !== total * 100</code></td><td>Rename to <code>paypalOrderId</code>, <code>paypalCaptureId</code>, <code>paypalRefundId</code>; amount check against decimal string <code>"158.00"</code> and <code>currency_code</code></td></tr>
+            <tr><td><code>app/lib/checkout-attempts.ts</code>, <code>bookings.ts</code></td><td>Typed wrappers around the mutations above</td><td>Field renames only</td></tr>
+            <tr><td><code>app/lib/email.ts</code></td><td>"Stripe will send payment receipt separately", "Stripe reported that your refund failed"</td><td>Copy only. PayPal also emails the payer a receipt, so the split between receipt and Booking Communication holds</td></tr>
+            <tr><td>6 test files (1,014 lines)</td><td>Mock <code>~/lib/stripe</code>, assert Stripe field names and redirect</td><td><code>stripe-webhook.test.ts</code> rewritten; others need renames and one behavior change (JSON instead of 302)</td></tr>
+            <tr><td>Docs and config</td><td><code>ADR 0001</code>, <code>tour-booking-flow.html</code>, <code>README</code>, roadmap, <code>.env.example</code>, <code>routes.ts</code>, <code>package.json</code></td><td>New ADR 0002 superseding 0001; flow doc rewrite is required by <code>AGENTS.md</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- OPTIONS -->
+      <section>
+        <h2 style="margin-bottom:12px">Three ways to integrate PayPal, and which one to pick</h2>
+        <div class="grid grid-3">
+          <div class="card">
+            <span class="pill bad">Not viable</span>
+            <h3 style="margin-top:10px">A. No-code Buy Button / Pay Link</h3>
+            <p>Dashboard-generated HTML. Cards, Apple Pay, PayPal, Venmo all supported on PayPal's hosted page.</p>
+            <ul>
+              <li>Fixed or customer-set price only</li>
+              <li>No <code>custom_id</code> to link a Checkout Attempt</li>
+              <li>No per-attempt return URLs</li>
+              <li>Would force dropping capacity re-check and self-service refunds</li>
+            </ul>
+          </div>
+          <div class="card">
+            <span class="pill warn">Fallback</span>
+            <h3 style="margin-top:10px">B. Server redirect (Orders v2 <code>payer-action</code> link)</h3>
+            <p>Closest to today's Stripe Checkout shape: create order, redirect Booker to PayPal, they come back, we capture.</p>
+            <ul>
+              <li>No client JS, smallest diff</li>
+              <li><strong>Card guest checkout is not guaranteed.</strong> PayPal shows "Pay with Debit or Credit Card" based on risk factors it controls, even with "PayPal account optional" on</li>
+              <li>No Apple Pay or Google Pay on the hosted page</li>
+              <li>Still needs the capture step and webhook handler</li>
+            </ul>
+          </div>
+          <div class="card" style="border-color: var(--navy)">
+            <span class="pill ok">Recommended</span>
+            <h3 style="margin-top:10px">C. JS SDK v6 buttons + Orders v2 (low-code)</h3>
+            <p>Buttons render on our confirm step. <code>createOrder</code> and <code>onApprove</code> call our server. Booker never leaves the site.</p>
+            <ul>
+              <li><code>paypal-payments</code>: PayPal and Pay Later</li>
+              <li><code>paypal-guest-payments</code>: a standalone debit/credit card button that does <strong>not</strong> require Advanced Checkout onboarding. This is the card guarantee</li>
+              <li><code>applepay-payments</code>, <code>googlepay-payments</code>: available after Advanced Checkout onboarding (bonus, phase 2)</li>
+              <li>Server keeps full control of amount, Checkout Attempt, capture, and refunds</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- FLOW -->
+      <section class="grid grid-2">
+        <div class="card">
+          <h2>Today: Stripe Checkout</h2>
+          <div class="flow">
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker confirms</h3><p>Form POST → action validates, saves Checkout Attempt (pending, 30 min, token hash)</p></div></div>
+            <div class="step"><div class="num">2</div><div class="step-body"><h3>Session created, redirect</h3><p>Stripe hosts payment. Card, wallet, and capture all handled by Stripe</p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>Return to /checkout/success</h3><p>Shows "Payment processing" until webhook lands. Never creates a Booking</p></div></div>
+            <div class="step"><div class="num coral">4</div><div class="step-body"><h3>Webhook <code>checkout.session.completed</code></h3><p>Signature verified → <code>completeCheckoutAttempt</code> checks amount, currency, idempotency, capacity → Booking + email, or refund + email</p></div></div>
+            <div class="step"><div class="num coral">5</div><div class="step-body"><h3>Webhook <code>checkout.session.expired</code></h3><p>Marks attempt expired</p></div></div>
+            <div class="step"><div class="num coral">6</div><div class="step-body"><h3>Webhooks <code>refund.updated</code> / <code>charge.refunded</code></h3><p>Finalize refund status by <code>stripeRefundId</code></p></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Proposed: PayPal SDK v6 + Orders v2</h2>
+          <div class="flow">
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker reaches confirm step</h3><p>PayPal, Card, (Apple Pay, Google Pay) buttons render. No form submit yet</p></div></div>
+            <div class="step"><div class="num">2</div><div class="step-body"><h3>Button click → <code>createOrder</code></h3><p>SDK calls our existing action. It saves the Checkout Attempt, creates a PayPal Order (<code>custom_id</code> + <code>invoice_id</code> = attempt ID, amount <code>"158.00"</code>), stores <code>paypalOrderId</code>, returns <code>{ orderId }</code></p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>Booker approves in PayPal overlay</h3><p>PayPal login, guest card form, or wallet sheet. Cancel → SDK <code>onCancel</code> → navigate to /checkout/cancel</p></div></div>
+            <div class="step"><div class="num coral">4</div><div class="step-body"><h3><code>onApprove</code> → our capture action (new)</h3><p>Server calls <code>POST /v2/checkout/orders/{id}/capture</code>. If capture status is <code>COMPLETED</code>, run the same <code>completeCheckoutAttempt</code> path → Booking + email, or capacity refund + email. Then navigate to /checkout/success</p></div></div>
+            <div class="step"><div class="num coral">5</div><div class="step-body"><h3>Webhook <code>PAYMENT.CAPTURE.COMPLETED</code> (backup)</h3><p>Same finalizer, idempotent via existing <code>booking_exists</code> branch. Covers a Booker who closes the tab mid-capture, and captures that were <code>PENDING</code> at step 4</p></div></div>
+            <div class="step"><div class="num coral">6</div><div class="step-body"><h3>Webhooks <code>PAYMENT.CAPTURE.REFUNDED</code> / <code>PAYMENT.REFUND.FAILED</code></h3><p>Finalize refund status by <code>paypalRefundId</code>. Same mutation as today</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WEBHOOK DYNAMICS -->
+      <section class="card panel">
+        <h2>Webhook dynamics: what actually changes</h2>
+        <p>The biggest conceptual shift. Stripe Checkout captured for us, so the webhook was the first moment we knew a payment succeeded. PayPal makes us capture, and the capture API response is a synchronous, server-to-server confirmation. The webhook becomes a reconciliation path rather than the only path.</p>
+        <table>
+          <thead><tr><th>Stripe today</th><th>PayPal</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td><code>checkout.session.completed</code> is the sole Booking trigger</td><td>Capture response in our server action is the primary trigger. <code>PAYMENT.CAPTURE.COMPLETED</code> is the backup</td><td><span class="pill warn">Invariant rewrite</span> "Only the webhook creates Bookings" becomes "Only a server-verified PayPal capture creates Bookings (capture response or verified webhook)". Return routes still never create Bookings. Needs ADR 0002</td></tr>
+            <tr><td>Payment is always final when the webhook arrives</td><td>Capture can return <code>PENDING</code> (e.g. bank-funded PayPal balance, review holds) and later flip to <code>COMPLETED</code> or <code>DENIED</code></td><td><span class="pill bad">New state</span> Attempt stays <code>pending</code> on PENDING; success page already shows "Payment processing". <code>DENIED</code> maps to existing <code>failed</code> status</td></tr>
+            <tr><td><code>checkout.session.expired</code></td><td>No expiry webhook. Orders live 72h; an opened approval flow times out after 3h</td><td><span class="pill info">Replace</span> Success/cancel pages already derive "expired" from <code>expiresAt</code>. Add a Convex <code>scheduler.runAfter(30 min)</code> at attempt creation to flip stale attempts to <code>expired</code>, or accept pending rows and drop <code>expireCheckoutAttempt</code></td></tr>
+            <tr><td>n/a</td><td><code>CHECKOUT.PAYMENT-APPROVAL.REVERSED</code>: approved but never captured within 3h; PayPal voids and refunds</td><td><span class="pill info">New handler</span> Mark attempt <code>expired</code> (no Booking, no email). Rare with capture-on-approve</td></tr>
+            <tr><td><code>refund.updated</code>, <code>charge.refunded</code> by <code>stripeRefundId</code></td><td><code>PAYMENT.CAPTURE.REFUNDED</code>, <code>PAYMENT.REFUND.FAILED</code>, <code>PAYMENT.REFUND.PENDING</code>. Refund response is usually already <code>COMPLETED</code></td><td><span class="pill ok">Same shape</span> Can set <code>refunded</code> immediately when the API response says COMPLETED; keep webhook for PENDING → final</td></tr>
+            <tr><td><code>stripe.webhooks.constructEvent</code> (one line)</td><td>No SDK helper. Either POST to <code>/v1/notifications/verify-webhook-signature</code> (needs OAuth token, extra round trip, does not work with PayPal's webhook simulator) or verify RSA-SHA256 locally over <code>transmissionId|time|webhookId|crc32(body)</code></td><td><span class="pill warn">More code</span> ~30 lines for postback, ~50 for local verify. Local verify needs <code>zlib.crc32</code> (Node ≥ 22.2); the production image is <code>node:20-alpine</code>, so either bump it or use the postback</td></tr>
+            <tr><td>Reliable delivery, ordered enough in practice</td><td>Delivery can be delayed, duplicated, or out of order; retries up to 25 times over 3 days</td><td><span class="pill ok">Already handled</span> <code>completeCheckoutAttempt</code> and <code>updateRefundStatusBy…</code> are idempotent today. Match on <code>custom_id</code> (attempt ID) or <code>supplementary_data.related_ids.order_id</code>, not on event ordering</td></tr>
+            <tr><td>Amount in cents, <code>currency: 'usd'</code></td><td>Amount as decimal string <code>"158.00"</code>, <code>currency_code: "USD"</code></td><td><span class="pill info">Mutation change</span> Compare <code>value === total.toFixed(2)</code> and uppercase currency</td></tr>
+            <tr><td><code>metadata.checkoutAttemptId</code></td><td><code>purchase_units[0].custom_id</code> (127 chars, echoed in capture webhooks) plus <code>invoice_id</code></td><td><span class="pill ok">Bonus</span> <code>invoice_id</code> is unique per merchant account by default, so PayPal itself rejects a second payment for the same attempt</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- LOC -->
+      <section class="card panel">
+        <h2>Lines of code: removal or addition?</h2>
+        <p>Addition. Estimates below are for app code (tests listed separately). Ranges reflect SDK vs. raw <code>fetch</code>, and whether Apple Pay / Google Pay ship in the same change.</p>
+        <table>
+          <thead><tr><th>Area</th><th class="num-col">Removed</th><th class="num-col">Added</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>app/lib/stripe.ts</code> → <code>paypal.ts</code></td><td class="num-col minus">-81</td><td class="num-col plus">+120 to +150</td><td>OAuth token helper, create order, capture, refund, webhook verify. <code>@paypal/paypal-server-sdk</code> (2.5.0) covers orders and refunds but not webhook verification, so it saves maybe 20 lines</td></tr>
+            <tr><td>Webhook route</td><td class="num-col minus">-194</td><td class="num-col plus">+170 to +200</td><td>Five event types instead of four; completion logic moves to a shared module</td></tr>
+            <tr><td>Shared finalizer <code>app/lib/checkout-completion.ts</code></td><td class="num-col">0</td><td class="num-col plus">+80 to +100</td><td>Booking email + capacity refund block, lifted out of the webhook so the capture route can reuse it. Not new logic, new file</td></tr>
+            <tr><td>Capture route <code>app/routes/paypal-capture.ts</code></td><td class="num-col">0</td><td class="num-col plus">+50 to +70</td><td>Token-gated action: capture, finalize, return status</td></tr>
+            <tr><td>Client buttons component</td><td class="num-col">-15</td><td class="num-col plus">+70 to +110</td><td>SDK script load, <code>findEligibleMethods</code>, PayPal + card sessions, <code>onApprove</code> / <code>onCancel</code> navigation. Replaces the "Continue to payment" submit branch</td></tr>
+            <tr><td>Apple Pay + Google Pay (phase 2)</td><td class="num-col">0</td><td class="num-col plus">+80 to +140</td><td>Two more session types, eligibility checks, plus a static domain association file under <code>public/.well-known/</code></td></tr>
+            <tr><td>Convex (schema, mutations, expiry scheduler)</td><td class="num-col">~0</td><td class="num-col plus">+15 to +25</td><td>Renames are neutral; scheduled expiry is new</td></tr>
+            <tr><td><code>tour-booking.tsx</code> action, manage route, copy</td><td class="num-col">~0</td><td class="num-col">~0</td><td>Return JSON instead of redirect; rename calls</td></tr>
+            <tr><td><strong>Net app code (without wallets)</strong></td><td class="num-col minus">-290</td><td class="num-col plus">+505 to +655</td><td><strong>≈ +215 to +365</strong></td></tr>
+            <tr><td><strong>Net app code (with wallets)</strong></td><td class="num-col minus">-290</td><td class="num-col plus">+585 to +795</td><td><strong>≈ +295 to +505</strong></td></tr>
+            <tr><td>Tests</td><td class="num-col minus">-369 rewrite</td><td class="num-col plus">+450 to +550</td><td>Webhook suite rewritten; new capture route suite (~120); renames in 4 files. Coverage bar stays where it is: capacity race, duplicate delivery, expired attempts, cutoff, refund failure</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Option B (server redirect, no client JS) would land closer to +100 to +200 net, but it gives up the card guarantee and any wallet path. Not worth it given that cards are essential.</p>
+      </section>
+
+      <!-- COMPLEXITY -->
+      <section class="grid grid-2">
+        <div class="card">
+          <h2>Complexity: what goes up</h2>
+          <ul>
+            <li><strong>Two completion entry points.</strong> Capture response and webhook both call the finalizer. The existing <code>booking_exists</code> and <code>already_updated</code> branches already make this safe, but reviewers must hold both paths in their head.</li>
+            <li><strong>A pending payment state that can last hours.</strong> Stripe Checkout never handed us an unsettled card payment. PayPal can. The success page copy already fits; the missing piece is making sure a PENDING capture does not send Booking Communication.</li>
+            <li><strong>Client-side payment UI.</strong> A script tag, eligibility checks, and callbacks live in the stepper. Today the stepper knows nothing about payments.</li>
+            <li><strong>Webhook verification by hand.</strong> Either an OAuth round trip per webhook or an RSA verify with certificate fetching and host allow-listing (<code>paypal-cert-url</code> must be a <code>*.paypal.com</code> host).</li>
+            <li><strong>Expiry without a webhook.</strong> Needs a scheduler or an accepted pile of stale pending rows.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>Complexity: what stays the same or improves</h2>
+          <ul>
+            <li><strong>Checkout Attempt model is untouched.</strong> Pending → paid/expired/failed/refund_* vocabulary maps one-to-one. Token hashing, 30-minute TTL, pricing snapshot, capacity re-check: all unchanged.</li>
+            <li><strong>Refund flow is the same shape.</strong> Refund first, then cancel, then email. Only the API call and ID field change.</li>
+            <li><strong>Booking Communication is unchanged</strong> except two copy strings.</li>
+            <li><strong>Duplicate payment guard gets stronger.</strong> <code>invoice_id</code> uniqueness is enforced by PayPal's account, not only by our mutation.</li>
+            <li><strong>Faster confirmation for the Booker.</strong> The Booking exists before the success page renders in the common case, instead of "Payment processing" until a webhook lands.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- CODE SHAPE -->
+      <section class="card">
+        <h2>Code shape of the change</h2>
+        <div class="diff">
+          <div>
+            <h3>File layout</h3>
+<pre> app/
+ ├── lib/
+<span class="d">-│   ├── stripe.ts</span>
+<span class="a">+│   ├── paypal.ts                # token, createOrder, captureOrder, refundCapture, verifyWebhook</span>
+<span class="a">+│   ├── checkout-completion.ts   # finalizePaidCapture: booking email / capacity refund</span>
+ │   ├── checkout-attempts.ts     # field renames
+ │   └── email.ts                 # 2 copy strings
+ ├── components/stepper/
+<span class="a">+│   └── paypal-buttons.tsx       # SDK v6: paypal, card, (applepay, googlepay)</span>
+ │   └── index.tsx                # final step renders &lt;PayPalButtons /&gt;
+ ├── routes/
+<span class="d">-│   ├── stripe-webhook.ts</span>
+<span class="a">+│   ├── paypal-webhook.ts</span>
+<span class="a">+│   ├── paypal-capture.ts        # onApprove target</span>
+ │   ├── tour-booking.tsx         # action returns { orderId }
+ │   └── manage-tour.tsx          # refundCapture(paypalCaptureId)
+ convex/
+ ├── schema.ts                    # paypalOrderId, paypalCaptureId, paypalRefundId
+ └── checkoutAttempts.ts          # decimal amount check, scheduled expiry
+ docs/
+<span class="a">+├── adr/0002-paypal-orders-capture.md</span>
+ └── tour-booking-flow.html       # rewrite (required by AGENTS.md)</pre>
+          </div>
+          <div>
+            <h3>Finalizer shared by capture route and webhook</h3>
+<pre><span class="c">// app/lib/checkout-completion.ts</span>
+finalizePaidCapture({ orderId, captureId, amount, currency })
+  result = completeCheckoutAttempt({
+    paypalOrderId: orderId,
+    amountValue: amount,          <span class="c">// "158.00"</span>
+    currency,                     <span class="c">// "USD"</span>
+    paypalCaptureId: captureId,
+    bookingAccessTokenHash,
+  })
+  if booking_created     → sendBookingCommunication(manage link)
+  if capacity_unavailable→ refundCapture(captureId)
+                           mark refund_pending | refund_failed
+                           sendFailedCapacityRefundCommunication
+  if booking_exists      → no-op   <span class="c">// duplicate webhook or double onApprove</span>
+
+<span class="c">// app/routes/paypal-capture.ts</span>
+action: verify token → captureOrder(orderId)
+  status COMPLETED → finalizePaidCapture(...)
+  status PENDING   → leave attempt pending (webhook finishes it)
+  else             → mark attempt failed
+
+<span class="c">// app/routes/paypal-webhook.ts</span>
+verifyWebhook(headers, rawBody) or 400
+PAYMENT.CAPTURE.COMPLETED          → finalizePaidCapture(...)
+PAYMENT.CAPTURE.DENIED             → mark failed
+CHECKOUT.PAYMENT-APPROVAL.REVERSED → mark expired
+PAYMENT.CAPTURE.REFUNDED           → refunded   (by paypalRefundId)
+PAYMENT.REFUND.FAILED              → refund_failed + email</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- CREDENTIALS -->
+      <section class="grid grid-2">
+        <div class="card">
+          <h2>What you need to gather</h2>
+          <ul>
+            <li><strong>PayPal Business account</strong> with "PayPal account optional" set to On (Account Settings → Website payments → Website preferences). This enables guest card checkout inside the PayPal overlay.</li>
+            <li><strong>REST app in the Developer Dashboard</strong>, sandbox and live: <code>PAYPAL_CLIENT_ID</code>, <code>PAYPAL_CLIENT_SECRET</code>. The client ID is public and also needed in the browser as <code>VITE_PAYPAL_CLIENT_ID</code>.</li>
+            <li><strong>Webhook</strong> registered on that app pointing at <code>https://&lt;APP_ORIGIN&gt;/paypal/webhook</code>, subscribed to the five events above. Save the generated <code>PAYPAL_WEBHOOK_ID</code>.</li>
+            <li><strong><code>PAYPAL_ENV=sandbox|live</code></strong> to pick <code>api-m.sandbox.paypal.com</code> vs <code>api-m.paypal.com</code>.</li>
+            <li><strong>For Apple Pay:</strong> enable "Advanced Credit and Debit Card Payments" and tick Apple Pay under the app's Features; register the production domain; host the domain association file at <code>/.well-known/apple-developer-merchantid-domain-association</code>. Sandbox testing needs a real Apple device in Safari.</li>
+            <li><strong>For Google Pay:</strong> same feature enablement, no domain registration.</li>
+            <li><strong>Sandbox buyer accounts</strong> (personal, plus a card-only guest) from the Developer Dashboard for end-to-end testing.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>Risks and open questions</h2>
+          <ul>
+            <li><span class="pill bad">Decide first</span> <strong>Live Stripe Bookings with future tour dates.</strong> Their refunds can only go through Stripe. If any exist in production, the manage route must branch on provider (keep <code>stripe*</code> fields optional and <code>createRefundForPaymentIntent</code> alive) until they age out. If production has none, this is a clean swap. Please confirm which case applies.</li>
+            <li><span class="pill warn">Schema</span> Renaming fields breaks Convex schema validation on existing rows. Options: keep old fields as optional, or run a one-off migration.</li>
+            <li><span class="pill warn">Pending captures</span> PayPal balance payments funded by bank transfer can stay PENDING for days. Copy on the success page and in the pending state should not promise the tour is held, because a Checkout Attempt does not reserve capacity.</li>
+            <li><span class="pill warn">Runtime</span> Production Docker image is <code>node:20-alpine</code>. Local webhook verification with <code>zlib.crc32</code> needs Node 22.2+. Either bump the image or use PayPal's verify endpoint.</li>
+            <li><span class="pill warn">Webhook reliability</span> PayPal delivery is slower and flakier than Stripe's. The capture-on-approve design means the webhook is rarely on the critical path, which is the point.</li>
+            <li><span class="pill info">Apple Pay</span> Only works on registered domains over HTTPS in Safari. Treat it as a separate issue after cards and PayPal are live.</li>
+            <li><span class="pill info">Statement descriptor</span> Card statements show <code>PAYPAL *CSSTOURS</code> style text (22-char <code>soft_descriptor</code>). Worth setting so Bookers recognize the charge.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- PHASES -->
+      <section class="card panel">
+        <h2>Suggested issue breakdown (tracer-bullet order)</h2>
+        <p>Each slice keeps the app deployable. Slice 1 through 5 replace Stripe with parity; 6 adds the bonus wallets.</p>
+        <table>
+          <thead><tr><th>#</th><th>Slice</th><th>Touches</th><th>Done when</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>PayPal client + schema renames + ADR 0002</td><td><code>app/lib/paypal.ts</code>, <code>convex/schema.ts</code>, mutations, <code>.env.example</code>, decision on legacy Stripe fields</td><td><code>bun run typecheck</code> passes; <code>completeCheckoutAttempt</code> accepts decimal amount + <code>paypalOrderId</code>; existing tests updated for renames</td></tr>
+            <tr><td>2</td><td>Create order from confirm step</td><td><code>tour-booking.tsx</code> action, <code>paypal-buttons.tsx</code>, stepper final step</td><td>Clicking PayPal or Card opens the PayPal overlay with the right total in sandbox; Checkout Attempt row has <code>paypalOrderId</code></td></tr>
+            <tr><td>3</td><td>Capture + finalize</td><td><code>paypal-capture.ts</code>, <code>checkout-completion.ts</code></td><td>Sandbox approval creates a Booking, sends Booking Communication, lands on /checkout/success as <code>paid</code>; capacity race refunds; PENDING leaves attempt pending</td></tr>
+            <tr><td>4</td><td>Webhook route</td><td><code>paypal-webhook.ts</code>, <code>routes.ts</code>, verification, scheduled expiry</td><td>Simulated <code>PAYMENT.CAPTURE.COMPLETED</code> for an already-finalized attempt is a no-op; REVERSED marks expired; test suite mirrors today's 11 webhook cases</td></tr>
+            <tr><td>5</td><td>Refunds + cleanup</td><td><code>manage-tour.tsx</code>, refund webhooks, email copy, README, flow doc, remove <code>stripe</code> dependency</td><td>Self-cancel refunds a sandbox capture and flips to <code>refunded</code>; no <code>stripe</code> string left outside the legacy branch (if kept)</td></tr>
+            <tr><td>6</td><td>Apple Pay + Google Pay</td><td><code>paypal-buttons.tsx</code>, <code>public/.well-known/</code>, dashboard onboarding</td><td>Eligible devices show wallet buttons; ineligible ones fall back cleanly to PayPal + Card</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Sources checked</h2>
+        <ul>
+          <li>PayPal Payment Links and Buttons overview (payment methods, no-code scope, no API-level reference fields)</li>
+          <li>Orders v2 API: create, capture, <code>payer-action</code> redirect, <code>custom_id</code> / <code>invoice_id</code> semantics, 72h order and 3h approval validity</li>
+          <li>JS SDK v6 reference: <code>paypal-payments</code>, <code>paypal-guest-payments</code> (standalone card button), <code>applepay-payments</code>, <code>googlepay-payments</code></li>
+          <li>PayPal guest checkout help article: card option on the hosted page depends on risk factors the merchant cannot control</li>
+          <li>Apple Pay / Google Pay integration docs: Advanced Checkout onboarding, domain registration, association file</li>
+          <li>Webhook event names and "Handle uncaptured payments" (<code>CHECKOUT.PAYMENT-APPROVAL.REVERSED</code>, <code>PAYMENT.REFUND.FAILED</code>)</li>
+          <li><code>@paypal/paypal-server-sdk</code> 2.5.0 on npm; no webhook verification helper</li>
+        </ul>
+      </section>
+    </div>
+  </body>
+</html>

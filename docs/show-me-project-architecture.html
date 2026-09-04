@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSS Tours: Project Architecture</title>
+    <style>
+      :root {
+        --navy: #00354c;
+        --navy-2: #0b4a62;
+        --teal: #80cfd3;
+        --teal-soft: #dff4f3;
+        --coral: #f47b51;
+        --coral-soft: #fff0ea;
+        --cream: #fbf8f1;
+        --paper: #ffffff;
+        --ink: #173440;
+        --muted: #61757d;
+        --line: #c9d7d8;
+        --shadow: 0 18px 50px rgb(0 53 76 / 10%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 8% 4%, rgb(128 207 211 / 25%), transparent 24rem),
+          radial-gradient(circle at 92% 36%, rgb(244 123 81 / 13%), transparent 26rem),
+          var(--cream);
+        color: var(--ink);
+        font-family: "Open Sans", "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 52px 0 72px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+        gap: 32px;
+        align-items: end;
+        padding-bottom: 30px;
+        border-bottom: 2px solid var(--navy);
+      }
+
+      .eyebrow,
+      .section-label {
+        margin: 0 0 10px;
+        color: var(--coral);
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 780px;
+        margin-bottom: 12px;
+        color: var(--navy);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(2.5rem, 6vw, 5.5rem);
+        font-weight: 400;
+        letter-spacing: -0.055em;
+        line-height: 0.94;
+      }
+
+      .lede {
+        max-width: 690px;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: clamp(1rem, 1.8vw, 1.2rem);
+        line-height: 1.65;
+      }
+
+      .thesis {
+        padding: 22px;
+        border: 1px solid var(--navy);
+        border-radius: 14px;
+        background: var(--navy);
+        box-shadow: 7px 7px 0 var(--teal);
+        color: white;
+      }
+
+      .thesis strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--teal);
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .thesis p {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 1.25rem;
+        line-height: 1.4;
+      }
+
+      section {
+        margin-top: 54px;
+      }
+
+      .section-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: end;
+        margin-bottom: 20px;
+      }
+
+      h2 {
+        margin-bottom: 0;
+        color: var(--navy);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(1.8rem, 3vw, 2.8rem);
+        font-weight: 400;
+        letter-spacing: -0.035em;
+      }
+
+      .section-note {
+        max-width: 430px;
+        margin-bottom: 3px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        text-align: right;
+      }
+
+      .system-map {
+        display: grid;
+        grid-template-columns: 0.7fr 34px 1.35fr 34px 1fr;
+        gap: 14px;
+        align-items: stretch;
+      }
+
+      .node,
+      .service,
+      .record,
+      .route-card,
+      .step {
+        border: 1px solid var(--line);
+        background: rgb(255 255 255 / 88%);
+        box-shadow: var(--shadow);
+      }
+
+      .node {
+        display: flex;
+        min-height: 210px;
+        flex-direction: column;
+        justify-content: center;
+        padding: 26px;
+        border-radius: 18px;
+      }
+
+      .node.app {
+        border: 2px solid var(--navy);
+        background: var(--paper);
+      }
+
+      .node-number {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        margin-bottom: 18px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--teal-soft);
+        color: var(--navy);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .node h3,
+      .service h3,
+      .record h3,
+      .route-card h3,
+      .step h3 {
+        margin-bottom: 8px;
+        color: var(--navy);
+        font-size: 1rem;
+      }
+
+      .node p,
+      .service p,
+      .record p,
+      .route-card p,
+      .step p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+
+      .node code,
+      .route-card code {
+        display: inline-block;
+        margin-top: 14px;
+        color: var(--coral);
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+
+      .arrow {
+        display: grid;
+        place-items: center;
+        color: var(--coral);
+        font-size: 1.65rem;
+        font-weight: 700;
+      }
+
+      .services {
+        display: grid;
+        gap: 12px;
+      }
+
+      .service {
+        padding: 18px;
+        border-radius: 12px;
+        box-shadow: none;
+      }
+
+      .service.stripe {
+        border-color: var(--coral);
+        background: var(--coral-soft);
+      }
+
+      .trust-boundary {
+        position: relative;
+        margin-top: 24px;
+        padding: 22px 24px;
+        border: 2px dashed var(--coral);
+        border-radius: 16px;
+        background: var(--coral-soft);
+      }
+
+      .trust-boundary::before {
+        position: absolute;
+        top: -11px;
+        left: 20px;
+        padding: 2px 10px;
+        background: var(--cream);
+        color: var(--coral);
+        content: "TRUST BOUNDARY";
+        font-size: 0.68rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+      }
+
+      .trust-boundary p {
+        margin: 0;
+        color: var(--navy);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(1.05rem, 2vw, 1.35rem);
+        line-height: 1.5;
+        text-align: center;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        counter-reset: booking-step;
+      }
+
+      .step {
+        position: relative;
+        min-height: 220px;
+        padding: 58px 18px 20px;
+        overflow: hidden;
+        border-radius: 14px;
+        box-shadow: none;
+        counter-increment: booking-step;
+      }
+
+      .step::before {
+        position: absolute;
+        top: 15px;
+        left: 17px;
+        color: var(--teal);
+        content: "0" counter(booking-step);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 1.65rem;
+      }
+
+      .step:not(:last-child)::after {
+        position: absolute;
+        top: 22px;
+        right: -7px;
+        width: 18px;
+        height: 2px;
+        background: var(--coral);
+        content: "";
+      }
+
+      .step.critical {
+        border-color: var(--navy);
+        background: var(--navy);
+      }
+
+      .step.critical h3,
+      .step.critical p {
+        color: white;
+      }
+
+      .step.critical::before {
+        color: var(--coral);
+      }
+
+      .outcomes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .outcome {
+        padding: 16px;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+
+      .outcome.good {
+        background: var(--teal-soft);
+        color: var(--navy);
+      }
+
+      .outcome.refund {
+        background: var(--coral-soft);
+        color: #8c3519;
+      }
+
+      .records {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+
+      .record {
+        padding: 24px;
+        border-top: 5px solid var(--teal);
+        border-radius: 0 0 14px 14px;
+        box-shadow: none;
+      }
+
+      .record:nth-child(2) {
+        border-top-color: var(--coral);
+      }
+
+      .record:nth-child(3) {
+        border-top-color: var(--navy);
+      }
+
+      .record-tag {
+        display: inline-block;
+        margin-bottom: 18px;
+        padding: 5px 8px;
+        border-radius: 4px;
+        background: #eff3f3;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.68rem;
+      }
+
+      .record ul {
+        margin: 14px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .record li {
+        padding: 7px 0;
+        border-top: 1px solid #e8eeee;
+        color: var(--ink);
+        font-size: 0.78rem;
+      }
+
+      .routes {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .route-card {
+        min-height: 150px;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: none;
+      }
+
+      .route-card code {
+        margin: 0 0 14px;
+      }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        margin-top: 58px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .legend span::before {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: var(--teal);
+        content: "";
+      }
+
+      .legend span:nth-child(2)::before {
+        background: var(--coral);
+      }
+
+      .legend span:nth-child(3)::before {
+        background: var(--navy);
+      }
+
+      @media (max-width: 900px) {
+        header {
+          grid-template-columns: 1fr;
+        }
+
+        .thesis {
+          max-width: 560px;
+        }
+
+        .system-map {
+          grid-template-columns: 1fr;
+        }
+
+        .arrow {
+          min-height: 30px;
+          transform: rotate(90deg);
+        }
+
+        .node {
+          min-height: auto;
+        }
+
+        .flow {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .step:last-child {
+          grid-column: 1 / -1;
+        }
+
+        .records,
+        .routes {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .page {
+          width: min(100% - 22px, 1180px);
+          padding-top: 28px;
+        }
+
+        header {
+          gap: 24px;
+        }
+
+        .section-heading {
+          display: block;
+        }
+
+        .section-note {
+          margin-top: 10px;
+          text-align: left;
+        }
+
+        .flow,
+        .records,
+        .routes,
+        .outcomes {
+          grid-template-columns: 1fr;
+        }
+
+        .step,
+        .step:last-child {
+          min-height: auto;
+          grid-column: auto;
+        }
+
+        .step:not(:last-child)::after {
+          display: none;
+        }
+
+        footer {
+          display: block;
+        }
+
+        .legend {
+          margin-top: 12px;
+        }
+      }
+
+      @media print {
+        body {
+          background: white;
+        }
+
+        .page {
+          width: 100%;
+          padding: 20px;
+        }
+
+        .node,
+        .service,
+        .record,
+        .route-card,
+        .step {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <div>
+          <p class="eyebrow">Cinematic Sites of Savannah</p>
+          <h1>How a tour becomes a Booking</h1>
+          <p class="lede">
+            A server-rendered React application that collects a reservation, sends the Booker to Stripe,
+            and lets a verified webhook make the final capacity decision.
+          </p>
+        </div>
+        <aside class="thesis">
+          <strong>The rule that shapes the system</strong>
+          <p>A browser return never creates a Booking. Only a signed Stripe webhook can do that.</p>
+        </aside>
+      </header>
+
+      <section aria-labelledby="system-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">01 / System map</p>
+            <h2 id="system-title">One SSR app, three external services</h2>
+          </div>
+          <p class="section-note">Route loaders and actions own server work. The client-side Convex provider is present but currently unused.</p>
+        </div>
+
+        <div class="system-map">
+          <article class="node">
+            <span class="node-number">A</span>
+            <h3>Booker</h3>
+            <p>Selects a Tour, enters party and contact details, pays, then manages the Booking through a private link.</p>
+          </article>
+
+          <div class="arrow" aria-hidden="true">&#8594;</div>
+
+          <article class="node app">
+            <span class="node-number">B</span>
+            <h3>React Router SSR application</h3>
+            <p>React renders the UI. Loaders fetch records. Actions validate input and call service SDKs through server modules.</p>
+            <code>app/root.tsx + app/routes/* + app/lib/*</code>
+          </article>
+
+          <div class="arrow" aria-hidden="true">&#8594;</div>
+
+          <div class="services">
+            <article class="service">
+              <h3>Convex</h3>
+              <p>Persists Tours, Checkout Attempts, and Bookings. Transactions protect capacity.</p>
+            </article>
+            <article class="service stripe">
+              <h3>Stripe</h3>
+              <p>Hosts Checkout, signs payment events, and processes full refunds.</p>
+            </article>
+            <article class="service">
+              <h3>Resend</h3>
+              <p>Sends confirmation, cancellation, and refund Booking Communication.</p>
+            </article>
+          </div>
+        </div>
+
+        <div class="trust-boundary">
+          <p>Stripe redirects are for display. Stripe webhooks are trusted instructions after signature verification.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="flow-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">02 / Runtime flow</p>
+            <h2 id="flow-title">The payment path</h2>
+          </div>
+          <p class="section-note">The Checkout Attempt carries the reservation across the untrusted browser redirect.</p>
+        </div>
+
+        <div class="flow">
+          <article class="step">
+            <h3>Collect</h3>
+            <p>The four-step UI gathers date, time, guests, name, and email in React state.</p>
+          </article>
+          <article class="step">
+            <h3>Validate</h3>
+            <p>The action reloads the Tour, validates input with Zod, and calculates price from stored data.</p>
+          </article>
+          <article class="step">
+            <h3>Attempt</h3>
+            <p>Convex stores a pending Checkout Attempt. The app hashes its private access token.</p>
+          </article>
+          <article class="step">
+            <h3>Pay</h3>
+            <p>Stripe hosts Checkout. Success and cancel URLs return to token-protected status pages.</p>
+          </article>
+          <article class="step critical">
+            <h3>Commit</h3>
+            <p>A signed webhook checks amount, currency, duplicate delivery, and live capacity in a Convex transaction.</p>
+          </article>
+        </div>
+
+        <div class="outcomes" aria-label="Webhook outcomes">
+          <div class="outcome good">Capacity available &#8594; create one paid Booking &#8594; email its private management link</div>
+          <div class="outcome refund">Capacity consumed &#8594; mark the failure &#8594; request a refund &#8594; email the Booker</div>
+        </div>
+      </section>
+
+      <section aria-labelledby="records-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">03 / Data model</p>
+            <h2 id="records-title">Three records, three jobs</h2>
+          </div>
+          <p class="section-note">Checkout Attempts hold pre-payment truth. Bookings exist only after verified payment.</p>
+        </div>
+
+        <div class="records">
+          <article class="record">
+            <span class="record-tag">convex/tours.ts</span>
+            <h3>Tour</h3>
+            <p>The sellable catalog entry and source of pricing rules.</p>
+            <ul>
+              <li>Copy, image, duration, meeting point</li>
+              <li>Price and currency input</li>
+              <li>Allowed times and maximum guests</li>
+            </ul>
+          </article>
+          <article class="record">
+            <span class="record-tag">convex/checkoutAttempts.ts</span>
+            <h3>Checkout Attempt</h3>
+            <p>A time-limited snapshot created before Stripe Checkout.</p>
+            <ul>
+              <li>Tour, date, time, party, Booker</li>
+              <li>Price snapshot and Stripe session</li>
+              <li>Payment, expiry, and refund state</li>
+            </ul>
+          </article>
+          <article class="record">
+            <span class="record-tag">convex/bookings.ts</span>
+            <h3>Booking</h3>
+            <p>The paid reservation and source for self-service management.</p>
+            <ul>
+              <li>Reservation and Booker details</li>
+              <li>PaymentIntent and refund IDs</li>
+              <li>Cancellation and refund status</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="routes-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">04 / Route ownership</p>
+            <h2 id="routes-title">Where each decision lives</h2>
+          </div>
+        </div>
+
+        <div class="routes">
+          <article class="route-card">
+            <code>/tour/:tourId</code>
+            <h3>Start Checkout</h3>
+            <p>Loads the Tour, renders the stepper, validates submission, and redirects to Stripe.</p>
+          </article>
+          <article class="route-card">
+            <code>/checkout/success/*</code>
+            <h3>Report status</h3>
+            <p>Reads a token-protected Checkout Attempt. It does not create a Booking.</p>
+          </article>
+          <article class="route-card">
+            <code>/stripe/webhook</code>
+            <h3>Finish payment</h3>
+            <p>Verifies Stripe events, commits capacity, creates the Booking, and starts recovery paths.</p>
+          </article>
+          <article class="route-card">
+            <code>/manage/:bookingId</code>
+            <h3>Cancel and refund</h3>
+            <p>Checks the private token and 24-hour cutoff, then requests a full Stripe refund.</p>
+          </article>
+          <article class="route-card">
+            <code>app/lib/email.ts</code>
+            <h3>Communicate</h3>
+            <p>Builds paid, cancellation, capacity-refund, and refund-failure messages for Resend.</p>
+          </article>
+          <article class="route-card">
+            <code>convex/*</code>
+            <h3>Persist and coordinate</h3>
+            <p>Owns stored records and the transaction that prevents overselling during concurrent payments.</p>
+          </article>
+        </div>
+      </section>
+
+      <footer>
+        <span>CSS Tours architecture, current repository state</span>
+        <div class="legend" aria-label="Color legend">
+          <span>Application and data</span>
+          <span>Payment boundary</span>
+          <span>Trusted server decision</span>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

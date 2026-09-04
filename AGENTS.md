@@ -28,6 +28,7 @@ Use this workflow when assigned one or more GitHub issues.
 - Preserve domain language from `CONTEXT.md`: Booker, Booking, Booking Communication.
 - Before changing the core tour booking flow, read `docs/tour-booking-flow.html`. If your code changes Checkout Attempt, Booking, Stripe Checkout, webhook, refund, cancellation, capacity-race, or Booking Communication behavior, update that HTML doc in the same change.
 - If new behavior needs cross-workstream dependency, isolate behind a small seam or note the blocker.
+- When adding unit tests ensure we're maximizing the lines of code covered with as little lines of test code as possible. We should only be writing tests for dynamic branches of code, all static code does not need a unit test.
 
 ## 4. Verification
 
