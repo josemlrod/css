@@ -12,6 +12,8 @@ Use this workflow when assigned one or more GitHub issues.
 
 ## 2. Branch + Worktree Discipline
 
+- Before starting an issue, create its worktree with `wt switch --create agent/issue-<number>-<short-slug>` (or the multi-issue branch format below).
+- Immediately run `wt step copy-ignored` in the new worktree so local environment files and dependencies are available there.
 - Work only in assigned worktree/branch.
 - Branch name format: `agent/issue-<number>-short-slug` or `agent/issues-<numbers>-short-slug`.
 - Do not modify unrelated files.

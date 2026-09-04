@@ -172,7 +172,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
     await updateCheckoutAttempt({
       id: checkoutAttemptId,
-      stripeCheckoutSessionId: session.id,
+      paypalOrderId: session.id,
     });
 
     throw redirect(session.url);

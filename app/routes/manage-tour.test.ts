@@ -37,7 +37,7 @@ const booking = {
   date: '2099-07-04',
   time: '10:00 AM',
   guests: 2,
-  stripePaymentIntentId: 'pi_test_123',
+  paypalCaptureId: 'pi_test_123',
   paymentStatus: 'paid',
 };
 
@@ -113,7 +113,7 @@ describe('manage tour cancellation', () => {
     expect(cancelPaidBookingMock).toHaveBeenCalledWith({
       id: 'booking_123',
       accessTokenHash: 'hashed_token',
-      stripeRefundId: 're_test_123',
+      paypalRefundId: 're_test_123',
     });
     expect(createRefundForPaymentIntentMock.mock.invocationCallOrder[0]).toBeLessThan(
       cancelPaidBookingMock.mock.invocationCallOrder[0],

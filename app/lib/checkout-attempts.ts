@@ -15,12 +15,12 @@ function getConvex() {
 
 type CheckoutAttemptInput = Omit<
   NormalizedCheckoutAttempt,
-  | 'stripeCheckoutSessionId'
+  | 'paypalOrderId'
   | 'paymentStatus'
   | 'expiresAt'
   | 'accessTokenHash'
   | 'failureReason'
-  | 'stripeRefundId'
+  | 'paypalRefundId'
 >;
 
 export function generateCheckoutAccessToken() {
@@ -70,7 +70,7 @@ export async function saveCheckoutAttempt(input: CheckoutAttemptInput) {
     api.checkoutAttempts.createCheckoutAttempt,
     {
       ...input,
-      stripeCheckoutSessionId: null,
+      paypalOrderId: null,
       paymentStatus: 'pending',
       expiresAt,
       accessTokenHash: hashCheckoutAccessToken(accessToken),
@@ -84,7 +84,7 @@ export async function updateCheckoutAttempt(
   updates: Partial<
     Pick<
       NormalizedCheckoutAttempt,
-      'stripeCheckoutSessionId' | 'paymentStatus' | 'expiresAt'
+      'paypalOrderId' | 'paymentStatus' | 'expiresAt'
     >
   > & { id: Id<'checkoutAttempts'> },
 ) {
@@ -96,10 +96,10 @@ export async function updateCheckoutAttempt(
 }
 
 export async function completeCheckoutAttempt(input: {
-  stripeCheckoutSessionId: string;
-  amountTotal: number;
+  paypalOrderId: string;
+  amountValue: string;
   currency: string;
-  stripePaymentIntentId: string;
+  paypalCaptureId: string;
   bookingAccessTokenHash: string;
 }) {
   const result = await getConvex().mutation(
@@ -112,7 +112,7 @@ export async function completeCheckoutAttempt(input: {
 export async function updateCheckoutAttemptRefundStatus(input: {
   id: Id<'checkoutAttempts'>;
   paymentStatus: 'refund_pending' | 'refunded' | 'refund_failed';
-  stripeRefundId?: string;
+  paypalRefundId?: string;
 }) {
   const checkoutAttemptId = await getConvex().mutation(
     api.checkoutAttempts.updateCheckoutAttemptRefundStatus,
@@ -121,21 +121,21 @@ export async function updateCheckoutAttemptRefundStatus(input: {
   return checkoutAttemptId;
 }
 
-export async function updateRefundStatusByStripeRefund(input: {
-  stripeRefundId: string;
+export async function updateRefundStatusByPayPalRefund(input: {
+  paypalRefundId: string;
   paymentStatus: 'refunded' | 'refund_failed';
 }) {
   const result = await getConvex().mutation(
-    api.checkoutAttempts.updateRefundStatusByStripeRefund,
+    api.checkoutAttempts.updateRefundStatusByPayPalRefund,
     input,
   );
   return result;
 }
 
-export async function expireCheckoutAttempt(stripeCheckoutSessionId: string) {
+export async function expireCheckoutAttempt(input: { paypalOrderId: string }) {
   const checkoutAttemptId = await getConvex().mutation(
     api.checkoutAttempts.expireCheckoutAttempt,
-    { stripeCheckoutSessionId },
+    input,
   );
   return checkoutAttemptId;
 }

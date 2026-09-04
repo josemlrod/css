@@ -6,7 +6,7 @@ import {
   generateCheckoutAccessToken,
   hashCheckoutAccessToken,
   updateCheckoutAttemptRefundStatus,
-  updateRefundStatusByStripeRefund,
+  updateRefundStatusByPayPalRefund,
 } from '~/lib/checkout-attempts';
 import { constructStripeWebhookEvent, createRefundForPaymentIntent } from '~/lib/stripe';
 import {
@@ -23,7 +23,7 @@ vi.mock('~/lib/checkout-attempts', () => ({
   generateCheckoutAccessToken: vi.fn(() => 'raw_booking_token'),
   hashCheckoutAccessToken: vi.fn(() => 'hashed_booking_token'),
   updateCheckoutAttemptRefundStatus: vi.fn(),
-  updateRefundStatusByStripeRefund: vi.fn(),
+  updateRefundStatusByPayPalRefund: vi.fn(),
 }));
 
 vi.mock('~/lib/stripe', () => ({
@@ -44,8 +44,8 @@ const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
 const updateCheckoutAttemptRefundStatusMock = vi.mocked(
   updateCheckoutAttemptRefundStatus,
 );
-const updateRefundStatusByStripeRefundMock = vi.mocked(
-  updateRefundStatusByStripeRefund,
+const updateRefundStatusByPayPalRefundMock = vi.mocked(
+  updateRefundStatusByPayPalRefund,
 );
 const constructStripeWebhookEventMock = vi.mocked(constructStripeWebhookEvent);
 const createRefundForPaymentIntentMock = vi.mocked(createRefundForPaymentIntent);
@@ -129,10 +129,10 @@ describe('Stripe webhook action', () => {
 
     await expect(action(actionArgs(webhookRequest()))).resolves.toEqual({ ok: true });
     expect(completeCheckoutAttemptMock).toHaveBeenCalledWith({
-      stripeCheckoutSessionId: 'cs_test_123',
-      amountTotal: 15800,
+      paypalOrderId: 'cs_test_123',
+      amountValue: '158.00',
       currency: 'usd',
-      stripePaymentIntentId: 'pi_test_123',
+      paypalCaptureId: 'pi_test_123',
       bookingAccessTokenHash: 'hashed_booking_token',
     });
     expect(generateCheckoutAccessTokenMock).toHaveBeenCalledOnce();
@@ -158,7 +158,9 @@ describe('Stripe webhook action', () => {
     } as never);
 
     await expect(action(actionArgs(webhookRequest()))).resolves.toEqual({ ok: true });
-    expect(expireCheckoutAttemptMock).toHaveBeenCalledWith('cs_test_123');
+    expect(expireCheckoutAttemptMock).toHaveBeenCalledWith({
+      paypalOrderId: 'cs_test_123',
+    });
     expect(completeCheckoutAttemptMock).not.toHaveBeenCalled();
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
     expect(createRefundForPaymentIntentMock).not.toHaveBeenCalled();
@@ -258,7 +260,7 @@ describe('Stripe webhook action', () => {
     expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledWith({
       id: 'checkout_attempt_123',
       paymentStatus: 'refund_pending',
-      stripeRefundId: 're_test_123',
+      paypalRefundId: 're_test_123',
     });
     expect(sendFailedCapacityRefundCommunicationMock).toHaveBeenCalledWith({
       to: 'booker@example.com',
@@ -277,14 +279,14 @@ describe('Stripe webhook action', () => {
       type: 'refund.updated',
       data: { object: { id: 're_test_123', status: 'succeeded' } },
     } as never);
-    updateRefundStatusByStripeRefundMock.mockResolvedValueOnce({
+    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_booking',
     } as never);
 
     await expect(action(actionArgs(webhookRequest()))).resolves.toEqual({ ok: true });
 
-    expect(updateRefundStatusByStripeRefundMock).toHaveBeenCalledWith({
-      stripeRefundId: 're_test_123',
+    expect(updateRefundStatusByPayPalRefundMock).toHaveBeenCalledWith({
+      paypalRefundId: 're_test_123',
       paymentStatus: 'refunded',
     });
     expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
@@ -299,14 +301,14 @@ describe('Stripe webhook action', () => {
         },
       },
     } as never);
-    updateRefundStatusByStripeRefundMock.mockResolvedValueOnce({
+    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_checkout_attempt',
     } as never);
 
     await expect(action(actionArgs(webhookRequest()))).resolves.toEqual({ ok: true });
 
-    expect(updateRefundStatusByStripeRefundMock).toHaveBeenCalledWith({
-      stripeRefundId: 're_test_123',
+    expect(updateRefundStatusByPayPalRefundMock).toHaveBeenCalledWith({
+      paypalRefundId: 're_test_123',
       paymentStatus: 'refunded',
     });
   });
@@ -316,7 +318,7 @@ describe('Stripe webhook action', () => {
       type: 'refund.updated',
       data: { object: { id: 're_test_123', status: 'failed' } },
     } as never);
-    updateRefundStatusByStripeRefundMock.mockResolvedValueOnce({
+    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_booking',
       booking: { ...checkoutAttempt, guests: 2 },
       tour: { ...tour, price: 79 },
@@ -324,8 +326,8 @@ describe('Stripe webhook action', () => {
 
     await expect(action(actionArgs(webhookRequest()))).resolves.toEqual({ ok: true });
 
-    expect(updateRefundStatusByStripeRefundMock).toHaveBeenCalledWith({
-      stripeRefundId: 're_test_123',
+    expect(updateRefundStatusByPayPalRefundMock).toHaveBeenCalledWith({
+      paypalRefundId: 're_test_123',
       paymentStatus: 'refund_failed',
     });
     expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith({
@@ -344,7 +346,7 @@ describe('Stripe webhook action', () => {
       type: 'refund.updated',
       data: { object: { id: 're_test_123', status: 'failed' } },
     } as never);
-    updateRefundStatusByStripeRefundMock.mockResolvedValueOnce({
+    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'already_updated',
     } as never);
 
@@ -358,7 +360,7 @@ describe('Stripe webhook action', () => {
       type: 'refund.updated',
       data: { object: { id: 're_unknown', status: 'succeeded' } },
     } as never);
-    updateRefundStatusByStripeRefundMock.mockResolvedValueOnce({
+    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'not_found',
     } as never);
 

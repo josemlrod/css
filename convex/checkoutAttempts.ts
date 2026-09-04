@@ -41,7 +41,7 @@ export const createCheckoutAttempt = mutation({
     unitPrice: v.number(),
     total: v.number(),
     currency: v.string(),
-    stripeCheckoutSessionId: v.union(v.string(), v.null()),
+    paypalOrderId: v.union(v.string(), v.null()),
     paymentStatus,
     expiresAt: v.number(),
     accessTokenHash: v.string(),
@@ -55,7 +55,7 @@ export const createCheckoutAttempt = mutation({
 export const updateCheckoutAttempt = mutation({
   args: {
     id: v.id('checkoutAttempts'),
-    stripeCheckoutSessionId: v.optional(v.union(v.string(), v.null())),
+    paypalOrderId: v.optional(v.union(v.string(), v.null())),
     paymentStatus: v.optional(paymentStatus),
     expiresAt: v.optional(v.number()),
   },
@@ -80,7 +80,7 @@ export const updateCheckoutAttemptRefundStatus = mutation({
       v.literal('refunded'),
       v.literal('refund_failed'),
     ),
-    stripeRefundId: v.optional(v.string()),
+    paypalRefundId: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...updates }) => {
     const existing = await ctx.db.get(id);
@@ -95,15 +95,15 @@ export const updateCheckoutAttemptRefundStatus = mutation({
   },
 });
 
-export const updateRefundStatusByStripeRefund = mutation({
+export const updateRefundStatusByPayPalRefund = mutation({
   args: {
-    stripeRefundId: v.string(),
+    paypalRefundId: v.string(),
     paymentStatus: v.union(v.literal('refunded'), v.literal('refund_failed')),
   },
-  handler: async (ctx, { stripeRefundId, paymentStatus }) => {
+  handler: async (ctx, { paypalRefundId, paymentStatus }) => {
     const booking = await ctx.db
       .query('bookings')
-      .filter((q) => q.eq(q.field('stripeRefundId'), stripeRefundId))
+      .filter((q) => q.eq(q.field('paypalRefundId'), paypalRefundId))
       .first();
 
     if (booking) {
@@ -123,7 +123,7 @@ export const updateRefundStatusByStripeRefund = mutation({
 
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
-      .filter((q) => q.eq(q.field('stripeRefundId'), stripeRefundId))
+      .filter((q) => q.eq(q.field('paypalRefundId'), paypalRefundId))
       .first();
 
     if (checkoutAttempt) {
@@ -151,26 +151,26 @@ export const updateRefundStatusByStripeRefund = mutation({
 
 export const completeCheckoutAttempt = mutation({
   args: {
-    stripeCheckoutSessionId: v.string(),
-    amountTotal: v.number(),
+    paypalOrderId: v.string(),
+    amountValue: v.string(),
     currency: v.string(),
-    stripePaymentIntentId: v.string(),
+    paypalCaptureId: v.string(),
     bookingAccessTokenHash: v.string(),
   },
   handler: async (
     ctx,
     {
-      stripeCheckoutSessionId,
-      amountTotal,
+      paypalOrderId,
+      amountValue,
       currency,
-      stripePaymentIntentId,
+      paypalCaptureId,
       bookingAccessTokenHash,
     },
   ) => {
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
       .filter((q) =>
-        q.eq(q.field('stripeCheckoutSessionId'), stripeCheckoutSessionId),
+        q.eq(q.field('paypalOrderId'), paypalOrderId),
       )
       .first();
 
@@ -194,11 +194,11 @@ export const completeCheckoutAttempt = mutation({
       };
     }
 
-    if (amountTotal !== checkoutAttempt.total * 100) {
+    if (amountValue !== checkoutAttempt.total.toFixed(2)) {
       throw new Error('Checkout amount mismatch');
     }
 
-    if (currency !== checkoutAttempt.currency) {
+    if (currency.toLowerCase() !== checkoutAttempt.currency.toLowerCase()) {
       throw new Error('Checkout currency mismatch');
     }
 
@@ -247,7 +247,7 @@ export const completeCheckoutAttempt = mutation({
       tourId: checkoutAttempt.tourId,
       checkoutAttemptId: checkoutAttempt._id,
       accessTokenHash: bookingAccessTokenHash,
-      stripePaymentIntentId,
+      paypalCaptureId,
       paymentStatus: 'paid',
       updatedAt: now,
     });
@@ -267,12 +267,12 @@ export const completeCheckoutAttempt = mutation({
 });
 
 export const expireCheckoutAttempt = mutation({
-  args: { stripeCheckoutSessionId: v.string() },
-  handler: async (ctx, { stripeCheckoutSessionId }) => {
+  args: { paypalOrderId: v.string() },
+  handler: async (ctx, { paypalOrderId }) => {
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
       .filter((q) =>
-        q.eq(q.field('stripeCheckoutSessionId'), stripeCheckoutSessionId),
+        q.eq(q.field('paypalOrderId'), paypalOrderId),
       )
       .first();
 

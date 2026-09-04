@@ -54,9 +54,9 @@ export const createBooking = mutation({
     cancelled: v.union(v.null(), v.number()),
     checkoutAttemptId: v.optional(v.id('checkoutAttempts')),
     accessTokenHash: v.optional(v.string()),
-    stripePaymentIntentId: v.optional(v.string()),
+    paypalCaptureId: v.optional(v.string()),
     paymentStatus: v.optional(bookingPaymentStatus),
-    stripeRefundId: v.optional(v.string()),
+    paypalRefundId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const time = new Date().getTime();
@@ -74,7 +74,8 @@ export const updateBooking = mutation({
     bookerEmail: v.optional(v.string()),
     cancelled: v.optional(v.union(v.null(), v.number())),
     paymentStatus: v.optional(bookingPaymentStatus),
-    stripeRefundId: v.optional(v.string()),
+    paypalCaptureId: v.optional(v.string()),
+    paypalRefundId: v.optional(v.string()),
     updatedAt: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...updates }) => {
@@ -94,9 +95,9 @@ export const cancelPaidBooking = mutation({
   args: {
     id: v.id('bookings'),
     accessTokenHash: v.string(),
-    stripeRefundId: v.string(),
+    paypalRefundId: v.string(),
   },
-  handler: async (ctx, { id, accessTokenHash, stripeRefundId }) => {
+  handler: async (ctx, { id, accessTokenHash, paypalRefundId }) => {
     const existing = await ctx.db.get('bookings', id);
 
     if (!existing || existing.accessTokenHash !== accessTokenHash) {
@@ -107,7 +108,7 @@ export const cancelPaidBooking = mutation({
       return id;
     }
 
-    if (!existing.stripePaymentIntentId || existing.paymentStatus !== 'paid') {
+    if (!existing.paypalCaptureId || existing.paymentStatus !== 'paid') {
       throw new Error('Booking is not refundable');
     }
 
@@ -116,7 +117,7 @@ export const cancelPaidBooking = mutation({
     await ctx.db.patch(id, {
       cancelled: now,
       paymentStatus: 'refund_pending',
-      stripeRefundId,
+      paypalRefundId,
       updatedAt: now,
     });
 

@@ -144,7 +144,7 @@ describe('tour booking action', () => {
     });
     expect(updateCheckoutAttemptMock).toHaveBeenCalledWith({
       id: 'checkout-attempt-123',
-      stripeCheckoutSessionId: 'cs_test_123',
+      paypalOrderId: 'cs_test_123',
     });
   });
 

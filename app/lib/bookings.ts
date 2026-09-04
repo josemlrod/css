@@ -58,7 +58,7 @@ export async function updateBooking(
 export async function cancelPaidBooking(input: {
   id: Id<'bookings'>;
   accessTokenHash: string;
-  stripeRefundId: string;
+  paypalRefundId: string;
 }) {
   const bookingId = await convex.mutation(api.bookings.cancelPaidBooking, input);
   return bookingId;
