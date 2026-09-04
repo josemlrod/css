@@ -165,6 +165,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       bookerEmail,
     });
 
+    if (!order.id) throw new Error('PayPal Order ID is required');
+
     await updateCheckoutAttempt({
       id: checkoutAttemptId,
       paypalOrderId: order.id,

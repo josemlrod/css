@@ -303,6 +303,7 @@
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Checkout Attempt created</h3><p><code>saveCheckoutAttempt</code> stores pending status, 30-minute expiry, pricing snapshot, hashed access token.</p></div></div>
             <div class="step"><div class="num">3</div><div class="step-body"><h3>PayPal Order created</h3><p>The action computes the total from Tour price and guest count, calls <code>createPayPalOrder</code>, and stores <code>paypalOrderId</code>.</p></div></div>
             <div class="step"><div class="num">4</div><div class="step-body"><h3>SDK opens checkout</h3><p>The action returns the Order ID to SDK v6. PayPal or the guest card form opens over the confirm step without a Stripe redirect.</p></div></div>
+            <div class="step"><div class="num">5</div><div class="step-body"><h3>Checkout canceled</h3><p>Closing the PayPal overlay sends the Booker to <code>/checkout/cancel/:checkoutAttemptId?token=...</code>. This ends the payment flow without creating a Booking.</p></div></div>
           </div>
         </div>
 
@@ -321,9 +322,10 @@
         <div class="card">
           <h2>Pending or Expired</h2>
           <p>
-            Success/cancel return routes only display Checkout Attempt state.
-            If Stripe never completes payment, no Booking exists. If Stripe emits
-            <code>checkout.session.expired</code>, the attempt becomes
+            The token-protected checkout cancel route only displays Checkout
+            Attempt state; it does not cancel a paid Booking. If payment never
+            completes, no Booking exists. During the migration, Stripe
+            <code>checkout.session.expired</code> events still mark legacy attempts
             <code>expired</code>.
           </p>
         </div>

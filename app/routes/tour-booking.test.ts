@@ -175,4 +175,30 @@ describe('tour booking action', () => {
     expect(createPayPalOrderMock).toHaveBeenCalledOnce();
     expect(consoleErrorMock).toHaveBeenCalledWith(error);
   });
+
+  it('returns an error when PayPal omits the order ID', async () => {
+    vi.stubEnv('APP_ORIGIN', 'https://example.com');
+    getTourByIdMock.mockResolvedValueOnce(tour as never);
+    saveCheckoutAttemptMock.mockResolvedValueOnce({
+      checkoutAttemptId: 'checkout-attempt-123' as never,
+      accessToken: 'raw-token',
+      expiresAt: 1767227400000,
+    });
+    createPayPalOrderMock.mockResolvedValueOnce({ id: '' });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await action({
+      request: bookingRequest(),
+      params: { tourId: 'southern-flavors-food' },
+      context: {},
+      url: new URL('https://example.com/tours/southern-flavors-food'),
+      pattern: '/tours/:tourId',
+    });
+
+    expect(response).toMatchObject({
+      data: { ok: false, error: 'Unable to start checkout' },
+      init: { status: 500 },
+    });
+    expect(updateCheckoutAttemptMock).not.toHaveBeenCalled();
+  });
 });

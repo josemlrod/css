@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useFetcher, useNavigate } from 'react-router';
 
 import { Button } from '~/components/ui/button';
 
@@ -61,35 +61,54 @@ function loadPayPalSdk(src: string) {
   if (window.paypal) return Promise.resolve(window.paypal);
   if (paypalSdkPromise) return paypalSdkPromise;
 
-  paypalSdkPromise = new Promise((resolve, reject) => {
-    window.onPayPalWebSdkLoaded = () => {
-      if (window.paypal) resolve(window.paypal);
-      else reject(new Error('PayPal SDK did not initialize'));
-    };
+  const existingScript = document.querySelector<HTMLScriptElement>(
+    'script[data-paypal-web-sdk-v6]',
+  );
+  const script = existingScript ?? document.createElement('script');
 
-    const existingScript = document.querySelector<HTMLScriptElement>(
-      'script[data-paypal-web-sdk-v6]',
+  paypalSdkPromise = new Promise((resolve, reject) => {
+    let settled = false;
+    let timeoutId = 0;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      paypalSdkPromise = undefined;
+      if (!window.paypal) script.remove();
+      reject(error);
+    };
+    timeoutId = window.setTimeout(
+      () => fail(new Error('Unable to load PayPal checkout')),
+      15_000,
     );
+
+    window.onPayPalWebSdkLoaded = () => {
+      if (settled) return;
+      if (!window.paypal) {
+        fail(new Error('PayPal SDK did not initialize'));
+        return;
+      }
+
+      settled = true;
+      window.clearTimeout(timeoutId);
+      resolve(window.paypal);
+    };
 
     if (existingScript) {
       existingScript.addEventListener(
         'error',
-        () => reject(new Error('Unable to load PayPal checkout')),
+        () => fail(new Error('Unable to load PayPal checkout')),
         { once: true },
       );
       return;
     }
 
-    const script = document.createElement('script');
     script.src = src;
     script.async = true;
     script.dataset.paypalWebSdkV6 = 'true';
     script.addEventListener(
       'error',
-      () => {
-        paypalSdkPromise = undefined;
-        reject(new Error('Unable to load PayPal checkout'));
-      },
+      () => fail(new Error('Unable to load PayPal checkout')),
       { once: true },
     );
     document.head.appendChild(script);
@@ -100,6 +119,7 @@ function loadPayPalSdk(src: string) {
 
 export function PayPalButtons() {
   const navigate = useNavigate();
+  const fetcher = useFetcher<ConfirmBookingResponse>();
   const { date, time, guests, booker, validate } = useStepper();
   const sessions = useRef<{
     paypal?: PaymentSession;
@@ -109,11 +129,37 @@ export function PayPalButtons() {
     id: string;
     accessToken: string;
   } | null>(null);
+  const pendingOrder = useRef<{
+    resolve: (order: { orderId: string }) => void;
+    reject: (error: Error) => void;
+  } | null>(null);
   const [eligible, setEligible] = useState({ paypal: false, card: false });
   const [loading, setLoading] = useState(true);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pending = pendingOrder.current;
+
+    if (fetcher.state !== 'idle' || !fetcher.data || !pending) return;
+
+    pendingOrder.current = null;
+    setCreatingOrder(false);
+
+    if (!fetcher.data.ok) {
+      const orderError = new Error(fetcher.data.error);
+      setError(orderError.message);
+      pending.reject(orderError);
+      return;
+    }
+
+    checkoutAttempt.current = {
+      id: fetcher.data.checkoutAttemptId,
+      accessToken: fetcher.data.accessToken,
+    };
+    pending.resolve({ orderId: fetcher.data.orderId });
+  }, [fetcher.data, fetcher.state]);
 
   useEffect(() => {
     let active = true;
@@ -215,7 +261,7 @@ export function PayPalButtons() {
     };
   }, [navigate]);
 
-  async function createOrder() {
+  function createOrder() {
     setError(null);
     setNotice(null);
 
@@ -225,44 +271,39 @@ export function PayPalButtons() {
       throw new Error(validationError);
     }
 
+    if (pendingOrder.current) {
+      return Promise.reject(new Error('Checkout is already starting'));
+    }
+
     setCreatingOrder(true);
 
-    try {
-      const response = await fetch(window.location.pathname, {
-        method: 'POST',
-        body: new URLSearchParams({
-          intent: 'confirm-booking',
-          date,
-          time,
-          guests: String(guests),
-          name: booker.name,
-          email: booker.email,
-        }),
-      });
-      const result = (await response.json()) as ConfirmBookingResponse;
+    return new Promise<{ orderId: string }>((resolve, reject) => {
+      pendingOrder.current = { resolve, reject };
+      void fetcher
+        .submit(
+          {
+            intent: 'confirm-booking',
+            date,
+            time,
+            guests: String(guests),
+            name: booker.name,
+            email: booker.email,
+          },
+          { method: 'post' },
+        )
+        .catch((submissionError: unknown) => {
+          if (pendingOrder.current?.reject !== reject) return;
 
-      if (!response.ok || !result.ok) {
-        throw new Error(
-          result.ok ? 'Unable to start checkout' : result.error,
-        );
-      }
-
-      checkoutAttempt.current = {
-        id: result.checkoutAttemptId,
-        accessToken: result.accessToken,
-      };
-
-      return { orderId: result.orderId };
-    } catch (orderError) {
-      setError(
-        orderError instanceof Error
-          ? orderError.message
-          : 'Unable to start checkout',
-      );
-      throw orderError;
-    } finally {
-      setCreatingOrder(false);
-    }
+          pendingOrder.current = null;
+          setCreatingOrder(false);
+          const orderError =
+            submissionError instanceof Error
+              ? submissionError
+              : new Error('Unable to start checkout');
+          setError(orderError.message);
+          reject(orderError);
+        });
+    });
   }
 
   async function startPayment(method: 'paypal' | 'card') {
