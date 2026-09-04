@@ -279,14 +279,14 @@ export function PayPalButtons() {
 
   return (
     <div className='grid w-full gap-2 sm:w-64'>
-      <button
+      <Button
         type='button'
         onClick={() => void startPayment('paypal')}
         disabled={loading || creatingOrder || !eligible.paypal}
         className='min-h-11 w-full rounded-full bg-[#ffc439] px-5 py-2 text-base font-semibold text-[#111] transition-colors hover:bg-[#f2ba36] disabled:cursor-not-allowed disabled:opacity-50'
       >
         {creatingOrder ? 'Starting checkout...' : 'PayPal'}
-      </button>
+      </Button>
       <Button
         type='button'
         variant='cta'
