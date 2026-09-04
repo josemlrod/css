@@ -7,7 +7,7 @@ import {
   generateCheckoutAccessToken,
   hashCheckoutAccessToken,
   updateCheckoutAttemptRefundStatus,
-  updateRefundStatusByStripeRefund,
+  updateRefundStatusByPayPalRefund,
 } from '~/lib/checkout-attempts';
 import {
   constructStripeWebhookEvent,
@@ -50,8 +50,8 @@ async function processRefundLifecycle(refund: Stripe.Refund) {
 
   if (!paymentStatus) return;
 
-  const result = await updateRefundStatusByStripeRefund({
-    stripeRefundId: refund.id,
+  const result = await updateRefundStatusByPayPalRefund({
+    paypalRefundId: refund.id,
     paymentStatus,
   });
 
@@ -114,10 +114,10 @@ export async function action({ request }: Route.ActionArgs) {
 
       const bookingAccessToken = generateCheckoutAccessToken();
       const result = await completeCheckoutAttempt({
-        stripeCheckoutSessionId: session.id,
-        amountTotal: session.amount_total,
+        paypalOrderId: session.id,
+        amountValue: (session.amount_total / 100).toFixed(2),
         currency: session.currency,
-        stripePaymentIntentId: paymentIntentId,
+        paypalCaptureId: paymentIntentId,
         bookingAccessTokenHash: hashCheckoutAccessToken(bookingAccessToken),
       });
 
@@ -144,7 +144,7 @@ export async function action({ request }: Route.ActionArgs) {
           await updateCheckoutAttemptRefundStatus({
             id: result.checkoutAttempt._id,
             paymentStatus: 'refund_pending',
-            stripeRefundId: refund.id,
+            paypalRefundId: refund.id,
           });
         } catch (refundError) {
           await updateCheckoutAttemptRefundStatus({
@@ -173,7 +173,7 @@ export async function action({ request }: Route.ActionArgs) {
         return data({ ok: false, error: 'Invalid Checkout Session' }, { status: 400 });
       }
 
-      await expireCheckoutAttempt(session.id);
+      await expireCheckoutAttempt({ paypalOrderId: session.id });
     }
 
     if (event.type === 'refund.updated') {

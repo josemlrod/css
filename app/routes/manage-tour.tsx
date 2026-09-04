@@ -320,14 +320,14 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return { view: View.CUTOFF_BLOCKED };
   }
 
-  if (!booking.stripePaymentIntentId) {
+  if (!booking.paypalCaptureId) {
     return { view: View.REFUND_FAILED };
   }
 
   let refund: { id: string };
 
   try {
-    refund = await createRefundForPaymentIntent(booking.stripePaymentIntentId);
+    refund = await createRefundForPaymentIntent(booking.paypalCaptureId);
   } catch {
     await sendBookingCancellationRefundFailedCommunication({
       to: booking.bookerEmail,
@@ -345,7 +345,7 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
   await cancelPaidBooking({
     id: booking._id,
     accessTokenHash,
-    stripeRefundId: refund.id,
+    paypalRefundId: refund.id,
   });
 
   await sendBookingCancellationRefundRequestedCommunication({

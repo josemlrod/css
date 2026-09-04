@@ -271,17 +271,28 @@
           </div>
           <div class="entity">
             <h3>Checkout Attempt</h3>
-            <p>Temporary payment record. Stores selected details, pricing snapshot, Stripe Checkout Session ID, status, expiry, token hash.</p>
+            <p>Temporary payment record. Stores selected details, pricing snapshot, <code>paypalOrderId</code>, status, expiry, token hash.</p>
           </div>
           <div class="entity">
             <h3>Booking</h3>
-            <p>Paid reservation. Created only after verified payment and capacity re-check. Stores PaymentIntent, token hash, cancel/refund state.</p>
+            <p>Paid reservation. Created only after verified payment and capacity re-check. Stores <code>paypalCaptureId</code>, token hash, cancel/refund state.</p>
           </div>
           <div class="entity">
             <h3>Booking Communication</h3>
             <p>Email sent by app for tour details, refund notices, cancellation results, and refund failures. Stripe receipts stay separate.</p>
           </div>
         </div>
+      </section>
+
+      <section class="card">
+        <h2>PayPal Migration State</h2>
+        <p>
+          Payment persistence now uses <code>paypalOrderId</code>,
+          <code>paypalCaptureId</code>, and <code>paypalRefundId</code>. Stripe remains
+          the active checkout, webhook, and refund provider during this foundation
+          slice, so the temporary Stripe routes write their IDs into those fields.
+          Later slices replace those routes with PayPal Orders and Captures.
+        </p>
       </section>
 
       <section class="grid">
@@ -343,7 +354,7 @@
           <p>
             Stripe <code>refund.updated</code> or <code>charge.refunded</code>
             webhooks update the matching Booking or Checkout Attempt by stored
-            <code>stripeRefundId</code>. Succeeded means <code>refunded</code>.
+            <code>paypalRefundId</code>. Succeeded means <code>refunded</code>.
             Failed/canceled means <code>refund_failed</code> and triggers email.
           </p>
         </div>
@@ -412,7 +423,7 @@
           <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
           <div><code>app/routes/tour-booking.tsx</code><p>Validates Booker input, creates Checkout Attempt, redirects to Stripe.</p></div>
           <div><code>app/lib/stripe.ts</code><p>Creates Checkout Sessions, verifies webhooks, creates refunds.</p></div>
-          <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, checks capacity, handles refund status by Stripe refund ID.</p></div>
+          <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, checks capacity, handles refund status by the persisted PayPal refund ID.</p></div>
           <div><code>app/routes/stripe-webhook.ts</code><p>Owns verified Stripe event behavior for payment completion, expiry, refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff, starts cancellation refunds.</p></div>
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation.</p></div>

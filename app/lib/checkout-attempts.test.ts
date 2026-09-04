@@ -57,7 +57,7 @@ describe('checkout attempts', () => {
       unitPrice: 79,
       total: 158,
       currency: 'usd',
-      stripeCheckoutSessionId: null,
+      paypalOrderId: null,
       paymentStatus: 'pending',
       expiresAt: Date.now() + CHECKOUT_ATTEMPT_TTL_MS,
       accessTokenHash: hashCheckoutAccessToken(result.accessToken),

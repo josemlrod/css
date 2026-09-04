@@ -30,7 +30,7 @@ export default defineSchema({
     tourId: v.id('tours'),
     checkoutAttemptId: v.optional(v.id('checkoutAttempts')),
     accessTokenHash: v.optional(v.string()),
-    stripePaymentIntentId: v.optional(v.string()),
+    paypalCaptureId: v.optional(v.string()),
     paymentStatus: v.optional(
       v.union(
         v.literal('paid'),
@@ -39,7 +39,7 @@ export default defineSchema({
         v.literal('refund_failed'),
       ),
     ),
-    stripeRefundId: v.optional(v.string()),
+    paypalRefundId: v.optional(v.string()),
     updatedAt: v.number(),
   }),
 
@@ -53,7 +53,7 @@ export default defineSchema({
     unitPrice: v.number(),
     total: v.number(),
     currency: v.string(),
-    stripeCheckoutSessionId: v.union(v.string(), v.null()),
+    paypalOrderId: v.union(v.string(), v.null()),
     paymentStatus: v.union(
       v.literal('pending'),
       v.literal('paid'),
@@ -66,7 +66,7 @@ export default defineSchema({
     expiresAt: v.number(),
     accessTokenHash: v.string(),
     failureReason: v.optional(v.literal('capacity_unavailable')),
-    stripeRefundId: v.optional(v.string()),
+    paypalRefundId: v.optional(v.string()),
     updatedAt: v.number(),
   }),
 });

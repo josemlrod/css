@@ -31,7 +31,7 @@ const checkoutAttempt = {
   unitPrice: 79,
   total: 158,
   currency: 'usd',
-  stripeCheckoutSessionId: 'cs_test_123',
+  paypalOrderId: 'ORDER123',
   paymentStatus: 'pending',
   expiresAt: Date.now() + 30 * 60 * 1000,
   accessTokenHash: hashCheckoutAccessToken('raw-token'),
