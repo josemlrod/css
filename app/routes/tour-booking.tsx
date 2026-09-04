@@ -1,4 +1,4 @@
-import { data, redirect } from 'react-router';
+import { data } from 'react-router';
 import { Star, Users, Clock, Check } from 'lucide-react';
 
 import { Stepper } from '~/components/stepper';
@@ -11,7 +11,7 @@ import {
   saveCheckoutAttempt,
   updateCheckoutAttempt,
 } from '~/lib/checkout-attempts';
-import { createCheckoutSession } from '~/lib/stripe';
+import { createPayPalOrder } from '~/lib/paypal';
 import { getTourById } from '~/lib/tours';
 import type { TourId, Tour as TourType } from '~/lib/types';
 
@@ -141,44 +141,42 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   try {
-    const { checkoutAttemptId, accessToken, expiresAt } =
-      await saveCheckoutAttempt({
-        date,
-        time,
-        guests,
-        bookerName,
-        bookerEmail,
-        tourId,
-        unitPrice: tour.price,
-        total: guests * tour.price,
-        currency: 'usd',
-      });
+    const { checkoutAttemptId, accessToken } = await saveCheckoutAttempt({
+      date,
+      time,
+      guests,
+      bookerName,
+      bookerEmail,
+      tourId,
+      unitPrice: tour.price,
+      total: guests * tour.price,
+      currency: 'usd',
+    });
 
-    const session = await createCheckoutSession({
+    const order = await createPayPalOrder({
       checkoutAttemptId,
       accessToken,
-      expiresAt,
       origin,
       tour,
       date,
       time,
       guests,
+      total: guests * tour.price,
       bookerEmail,
     });
 
-    if (!session.url) {
-      throw new Error('Stripe Checkout Session URL is required');
-    }
-
     await updateCheckoutAttempt({
       id: checkoutAttemptId,
-      paypalOrderId: session.id,
+      paypalOrderId: order.id,
     });
 
-    throw redirect(session.url);
+    return data({
+      ok: true,
+      orderId: order.id,
+      checkoutAttemptId,
+      accessToken,
+    });
   } catch (error) {
-    if (error instanceof Response) throw error;
-
     console.error(error);
     return data(
       { ok: false, error: 'Unable to start checkout' },

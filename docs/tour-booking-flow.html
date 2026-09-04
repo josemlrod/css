@@ -246,10 +246,9 @@
           <span class="tag">Core Flow</span>
           <h1>Tour Booking Flow</h1>
           <p class="lede">
-            Booker selects tour details, pays through Stripe Checkout, and the app
-            creates a Booking only after verified Stripe webhooks. Refunds and
-            cancellations move through explicit payment states instead of deleting
-            records.
+            Booker selects tour details and opens PayPal or guest card checkout in
+            the booking stepper. This slice creates the PayPal Order but leaves
+            capture and Booking creation to the next migration slice.
           </p>
         </div>
         <div class="card">
@@ -287,11 +286,12 @@
       <section class="card">
         <h2>PayPal Migration State</h2>
         <p>
-          Payment persistence now uses <code>paypalOrderId</code>,
-          <code>paypalCaptureId</code>, and <code>paypalRefundId</code>. Stripe remains
-          the active checkout, webhook, and refund provider during this foundation
-          slice, so the temporary Stripe routes write their IDs into those fields.
-          Later slices replace those routes with PayPal Orders and Captures.
+          Payment persistence uses <code>paypalOrderId</code>,
+          <code>paypalCaptureId</code>, and <code>paypalRefundId</code>. New Checkout
+          Attempts now create PayPal Orders from embedded SDK v6 buttons. Capture,
+          Booking creation, webhooks, and refunds move to PayPal in later slices;
+          the old Stripe completion routes remain temporarily but receive no new
+          checkouts.
         </p>
       </section>
 
@@ -299,9 +299,10 @@
         <div class="card">
           <h2>Checkout Start</h2>
           <div class="flow">
-            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker submits details</h3><p><code>app/routes/tour-booking.tsx</code> validates date, time, guests, name, email.</p></div></div>
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker chooses PayPal or card</h3><p><code>paypal-buttons.tsx</code> validates the confirm-step data before posting date, time, guests, name, and email.</p></div></div>
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Checkout Attempt created</h3><p><code>saveCheckoutAttempt</code> stores pending status, 30-minute expiry, pricing snapshot, hashed access token.</p></div></div>
-            <div class="step"><div class="num">3</div><div class="step-body"><h3>Stripe Checkout Session created</h3><p><code>createCheckoutSession</code> sends amount, email, success/cancel URLs with raw token.</p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>PayPal Order created</h3><p>The action computes the total from Tour price and guest count, calls <code>createPayPalOrder</code>, and stores <code>paypalOrderId</code>.</p></div></div>
+            <div class="step"><div class="num">4</div><div class="step-body"><h3>SDK opens checkout</h3><p>The action returns the Order ID to SDK v6. PayPal or the guest card form opens over the confirm step without a Stripe redirect.</p></div></div>
           </div>
         </div>
 
@@ -421,7 +422,8 @@
         <h2>Code Map</h2>
         <div class="code-map">
           <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
-          <div><code>app/routes/tour-booking.tsx</code><p>Validates Booker input, creates Checkout Attempt, redirects to Stripe.</p></div>
+          <div><code>app/routes/tour-booking.tsx</code><p>Validates Booker input, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
+          <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, checks PayPal and card eligibility, starts payment sessions, and handles cancellation.</p></div>
           <div><code>app/lib/stripe.ts</code><p>Creates Checkout Sessions, verifies webhooks, creates refunds.</p></div>
           <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, checks capacity, handles refund status by the persisted PayPal refund ID.</p></div>
           <div><code>app/routes/stripe-webhook.ts</code><p>Owns verified Stripe event behavior for payment completion, expiry, refund lifecycle.</p></div>

@@ -1,25 +1,23 @@
 import { motion, AnimatePresence } from 'motion/react';
 
 import { DateSelector } from './date-selector';
-import { useNavigation, useRouteLoaderData, useSubmit } from 'react-router';
+import { useRouteLoaderData } from 'react-router';
 import { useStepper } from './stepper-context';
 import { GuestSelector } from './guest-selector';
 import { BookerDetails } from './booker-details';
 import { BookingConfirmation } from './booking-confirmation';
+import { PayPalButtons } from './paypal-buttons';
 import { Button } from '../ui/button';
 
 const steps = ['Date', 'Party', 'Details', 'Confirm'] as const;
 
 export function Stepper() {
   const { tour } = useRouteLoaderData('routes/tour-booking');
-  const navigation = useNavigation();
-  const submit = useSubmit();
 
   const { setStepper, validate, ...stepper } = useStepper();
-  const { step, date, time, guests, booker } = stepper;
+  const { step, guests } = stepper;
 
   const total = tour.price * (guests ?? 1);
-  const submitting = navigation.state !== 'idle';
 
   return (
     <div>
@@ -88,45 +86,25 @@ export function Stepper() {
                 Back
               </button>
             )}
-            <Button
-              variant='cta'
-              size='cta'
-              onClick={() => {
-                const valid = validate();
+            {step === steps.length - 1 ? (
+              <PayPalButtons />
+            ) : (
+              <Button
+                variant='cta'
+                size='cta'
+                onClick={() => {
+                  if (!validate()) return;
 
-                if (!valid) {
-                  return;
-                }
-
-                if (step === steps.length - 1) {
-                  submit(
-                    {
-                      intent: 'confirm-booking',
-                      date,
-                      time,
-                      guests: String(guests),
-                      name: booker.name,
-                      email: booker.email,
-                    },
-                    { method: 'post' },
-                  );
-                  return;
-                }
-
-                setStepper((prev) => ({
-                  ...prev,
-                  step: Math.min(steps.length - 1, prev.step + 1),
-                }));
-              }}
-              disabled={submitting}
-              className='min-h-11 w-full whitespace-normal text-center disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:whitespace-nowrap'
-            >
-              {submitting
-                ? 'Opening checkout...'
-                : step === steps.length - 1
-                  ? 'Continue to payment'
-                  : 'Continue'}
-            </Button>
+                  setStepper((prev) => ({
+                    ...prev,
+                    step: Math.min(steps.length - 1, prev.step + 1),
+                  }));
+                }}
+                className='min-h-11 w-full whitespace-normal text-center sm:w-auto sm:whitespace-nowrap'
+              >
+                Continue
+              </Button>
+            )}
           </div>
         </div>
       </div>
