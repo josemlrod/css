@@ -22,6 +22,22 @@ type PayPalCapture = {
   custom_id: string;
 };
 
+type PayPalOrder = {
+  purchase_units: Array<{
+    payments: { captures: PayPalCapture[] };
+  }>;
+};
+
+class PayPalApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: unknown,
+    message: string,
+  ) {
+    super(`PayPal API request failed (${status}): ${message}`);
+  }
+}
+
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
 
 function requiredEnvironmentVariable(name: string) {
@@ -44,10 +60,33 @@ function getPayPalBaseUrl() {
 async function parsePayPalResponse<T>(response: Response) {
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(`PayPal API request failed (${response.status}): ${message}`);
+    let body: unknown = message;
+
+    try {
+      body = JSON.parse(message);
+    } catch {
+      // Keep non-JSON PayPal responses available in the error message.
+    }
+
+    throw new PayPalApiError(response.status, body, message);
   }
 
   return (await response.json()) as T;
+}
+
+function orderAlreadyCaptured(error: unknown) {
+  if (!(error instanceof PayPalApiError) || error.status !== 422) return false;
+
+  const details = (error.body as { details?: Array<{ issue?: string }> })?.details;
+  return details?.some(({ issue }) => issue === 'ORDER_ALREADY_CAPTURED') ?? false;
+}
+
+function getCapture(order: PayPalOrder) {
+  const capture = order.purchase_units[0]?.payments.captures[0];
+
+  if (!capture) throw new Error('PayPal capture response is missing a capture');
+
+  return capture;
 }
 
 async function payPalRequest<T>(path: string, init: RequestInit = {}) {
@@ -140,23 +179,29 @@ export async function createPayPalOrder(input: CreatePayPalOrderInput) {
 }
 
 export async function capturePayPalOrder(orderId: string) {
-  const order = await payPalRequest<{
-    purchase_units: Array<{
-      payments: { captures: PayPalCapture[] };
-    }>;
-  }>(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
-    method: 'POST',
-    headers: {
-      'PayPal-Request-Id': `capture-${orderId}`,
-      Prefer: 'return=representation',
-    },
-    body: '{}',
-  });
-  const capture = order.purchase_units[0]?.payments.captures[0];
+  let order: PayPalOrder;
 
-  if (!capture) throw new Error('PayPal capture response is missing a capture');
+  try {
+    order = await payPalRequest<PayPalOrder>(
+      `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,
+      {
+        method: 'POST',
+        headers: {
+          'PayPal-Request-Id': `capture-${orderId}`,
+          Prefer: 'return=representation',
+        },
+        body: '{}',
+      },
+    );
+  } catch (error) {
+    if (!orderAlreadyCaptured(error)) throw error;
 
-  return capture;
+    order = await payPalRequest<PayPalOrder>(
+      `/v2/checkout/orders/${encodeURIComponent(orderId)}`,
+    );
+  }
+
+  return getCapture(order);
 }
 
 export async function refundPayPalCapture(captureId: string) {

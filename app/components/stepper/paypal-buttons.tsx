@@ -48,6 +48,10 @@ type ConfirmBookingResponse =
     }
   | { ok: false; error: string };
 
+type CaptureResponse =
+  | { ok: true; status: string; checkoutAttemptId: string }
+  | { ok: false; status?: string; error?: string };
+
 declare global {
   interface Window {
     paypal?: PayPalSdk;
@@ -136,8 +140,8 @@ export function PayPalButtons() {
   const [eligible, setEligible] = useState({ paypal: false, card: false });
   const [loading, setLoading] = useState(true);
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const pending = pendingOrder.current;
@@ -190,11 +194,47 @@ export function PayPalButtons() {
         });
         const paypalEligible = paymentMethods.isEligible('paypal');
         const cardEligible = paymentMethods.isEligible('card');
-        const onApprove = ({ orderId }: { orderId: string }) => {
-          // Issue #47 will capture the approved order and navigate to success.
-          setNotice(
-            `Payment approved for order ${orderId}. Booking completion is not available yet.`,
-          );
+        const onApprove = async ({ orderId }: { orderId: string }) => {
+          const attempt = checkoutAttempt.current;
+
+          if (!attempt) {
+            setError('Unable to complete payment. Please try again.');
+            return;
+          }
+
+          setCapturing(true);
+          setError(null);
+
+          try {
+            const response = await fetch(
+              `/paypal/capture/${encodeURIComponent(attempt.id)}?token=${encodeURIComponent(attempt.accessToken)}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId }),
+              },
+            );
+            const result = (await response.json()) as CaptureResponse;
+
+            if (!result.ok) {
+              throw new Error(
+                result.error ?? 'PayPal could not complete payment. Please try again.',
+              );
+            }
+
+            navigate(
+              `/checkout/success/${encodeURIComponent(attempt.id)}?token=${encodeURIComponent(attempt.accessToken)}`,
+            );
+          } catch (captureError) {
+            if (!active) return;
+            setError(
+              captureError instanceof Error
+                ? captureError.message
+                : 'PayPal could not complete payment. Please try again.',
+            );
+          } finally {
+            if (active) setCapturing(false);
+          }
         };
         const onCancel = () => {
           const attempt = checkoutAttempt.current;
@@ -263,7 +303,6 @@ export function PayPalButtons() {
 
   function createOrder() {
     setError(null);
-    setNotice(null);
 
     if (!validate()) {
       const validationError = 'Check your booking details before paying.';
@@ -309,7 +348,7 @@ export function PayPalButtons() {
   async function startPayment(method: 'paypal' | 'card') {
     const session = sessions.current[method];
 
-    if (!session || creatingOrder) return;
+    if (!session || creatingOrder || capturing) return;
 
     try {
       await session.start({ presentationMode: 'auto' }, createOrder());
@@ -323,17 +362,21 @@ export function PayPalButtons() {
       <Button
         type='button'
         onClick={() => void startPayment('paypal')}
-        disabled={loading || creatingOrder || !eligible.paypal}
+        disabled={loading || creatingOrder || capturing || !eligible.paypal}
         className='min-h-11 w-full rounded-full bg-[#ffc439] px-5 py-2 text-base font-semibold text-[#111] transition-colors hover:bg-[#f2ba36] disabled:cursor-not-allowed disabled:opacity-50'
       >
-        {creatingOrder ? 'Starting checkout...' : 'PayPal'}
+        {creatingOrder
+          ? 'Starting checkout...'
+          : capturing
+            ? 'Completing payment...'
+            : 'PayPal'}
       </Button>
       <Button
         type='button'
         variant='cta'
         size='cta'
         onClick={() => void startPayment('card')}
-        disabled={loading || creatingOrder || !eligible.card}
+        disabled={loading || creatingOrder || capturing || !eligible.card}
         className='min-h-11 w-full whitespace-normal text-center disabled:cursor-not-allowed sm:whitespace-nowrap'
       >
         Debit or Credit Card
@@ -343,7 +386,6 @@ export function PayPalButtons() {
           {error}
         </p>
       )}
-      {notice && <p className='text-sm text-muted-foreground'>{notice}</p>}
     </div>
   );
 }

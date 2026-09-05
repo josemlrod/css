@@ -32,6 +32,10 @@ describe('Booking Communication email content', () => {
       'Manage or cancel booking: https://example.com/manage/booking_123?token=raw_token',
     );
     expect(email.text).not.toContain('Your booking is confirmed.');
+    expect(email.html).toContain(
+      'PayPal will send the payment receipt separately.',
+    );
+    expect(email.html).not.toContain('Stripe');
   });
 
   it('explains capacity refund without creating Booking language', () => {
@@ -45,9 +49,9 @@ describe('Booking Communication email content', () => {
       total: 158,
     });
 
-    expect(email.subject).toBe('Savannah Food Tour payment refunded');
+    expect(email.subject).toBe('Savannah Food Tour refund requested');
     expect(email.text).toContain('tour filled before payment completed');
-    expect(email.text).toContain('refunded your payment in full');
+    expect(email.text).toContain('requested a full refund');
     expect(email.text).toContain('Refund amount: $158.00');
   });
 
@@ -84,7 +88,7 @@ describe('Booking Communication email content', () => {
     expect(email.text).toContain('support@example.com');
   });
 
-  it('explains Stripe refund lifecycle failure', () => {
+  it('explains PayPal refund lifecycle failure', () => {
     const email = createRefundFailedEmail({
       to: 'booker@example.com',
       bookerName: 'Test Booker',
@@ -98,6 +102,7 @@ describe('Booking Communication email content', () => {
 
     expect(email.subject).toBe('Savannah Food Tour refund needs support');
     expect(email.text).toContain('Payment Status: refund failed');
+    expect(email.text).toContain('PayPal reported that your refund failed');
     expect(email.text).toContain('support@example.com');
   });
 });
