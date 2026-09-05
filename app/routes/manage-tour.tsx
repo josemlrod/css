@@ -324,10 +324,14 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return { view: View.REFUND_FAILED };
   }
 
-  let refund: { id: string };
+  let refund: Awaited<ReturnType<typeof refundPayPalCapture>>;
 
   try {
     refund = await refundPayPalCapture(booking.paypalCaptureId);
+
+    if (refund.status !== 'COMPLETED' && refund.status !== 'PENDING') {
+      throw new Error(`PayPal refund returned ${refund.status}`);
+    }
   } catch {
     await sendBookingCancellationRefundFailedCommunication({
       to: booking.bookerEmail,

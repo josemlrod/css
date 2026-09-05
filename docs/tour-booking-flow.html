@@ -369,8 +369,9 @@
             the synchronous response is <code>COMPLETED</code>. Verified
             <code>PAYMENT.CAPTURE.REFUNDED</code> and
             <code>PAYMENT.REFUND.FAILED</code> events finalize Payment Status by
-            that refund ID. Refund failures send Booking Communication only when
-            the mutation changes a record.
+            that refund ID. An unexpected synchronous status keeps the Booking
+            active and sends failure communication. If an event arrives before
+            its refund ID is stored, the webhook returns a retryable response.
           </p>
         </div>
       </section>

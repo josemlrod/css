@@ -59,6 +59,8 @@ async function processRefundFailure(paypalRefundId: string) {
       total: result.checkoutAttempt.total,
     });
   }
+
+  return result;
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -133,10 +135,17 @@ export async function action({ request }: Route.ActionArgs) {
           throw new Error('PayPal refund is missing its Refund ID');
         }
 
-        await updateRefundStatusByPayPalRefund({
+        const result = await updateRefundStatusByPayPalRefund({
           paypalRefundId,
           paymentStatus: 'refunded',
         });
+
+        if (result.status === 'not_found') {
+          return data(
+            { ok: false, error: 'PayPal refund is not ready for reconciliation' },
+            { status: 503 },
+          );
+        }
         break;
       }
       case 'PAYMENT.REFUND.FAILED': {
@@ -146,7 +155,14 @@ export async function action({ request }: Route.ActionArgs) {
           throw new Error('PayPal refund is missing its Refund ID');
         }
 
-        await processRefundFailure(paypalRefundId);
+        const result = await processRefundFailure(paypalRefundId);
+
+        if (result.status === 'not_found') {
+          return data(
+            { ok: false, error: 'PayPal refund is not ready for reconciliation' },
+            { status: 503 },
+          );
+        }
         break;
       }
     }

@@ -150,6 +150,20 @@ describe('manage tour cancellation', () => {
     });
   });
 
+  it.each(['FAILED', 'CANCELLED'])(
+    'keeps Booking active when PayPal returns %s',
+    async (status) => {
+      getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
+      refundPayPalCaptureMock.mockResolvedValueOnce({ id: 'REFUND123', status });
+
+      await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
+
+      expect(cancelPaidBookingMock).not.toHaveBeenCalled();
+      expect(sendBookingCancellationRefundFailedCommunicationMock).toHaveBeenCalledOnce();
+      expect(sendBookingCancellationRefundRequestedCommunicationMock).not.toHaveBeenCalled();
+    },
+  );
+
   it('keeps manage copy focused on cancellation-only v1', () => {
     expect(manageCancellationCopy.heading).toBe('manage cancellation');
     expect(manageCancellationCopy.paymentStatus).toBe(
