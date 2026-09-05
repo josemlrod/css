@@ -18,7 +18,7 @@ import {
   sendBookingCancellationRefundFailedCommunication,
   sendBookingCancellationRefundRequestedCommunication,
 } from '~/lib/email';
-import { createRefundForPaymentIntent } from '~/lib/stripe';
+import { refundPayPalCapture } from '~/lib/paypal';
 
 import type { Tour } from '~/lib/types';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
@@ -188,7 +188,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 <div className='text-sm'>
                   <p className='font-medium'>Full refund of ${originalTotal}</p>
                   <p className='mt-0.5 text-muted-foreground'>
-                    Payment Status becomes refund pending after Stripe accepts
+                    Payment Status becomes refund pending after PayPal accepts
                     the refund request.
                   </p>
                 </div>
@@ -324,10 +324,14 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return { view: View.REFUND_FAILED };
   }
 
-  let refund: { id: string };
+  let refund: Awaited<ReturnType<typeof refundPayPalCapture>>;
 
   try {
-    refund = await createRefundForPaymentIntent(booking.paypalCaptureId);
+    refund = await refundPayPalCapture(booking.paypalCaptureId);
+
+    if (refund.status !== 'COMPLETED' && refund.status !== 'PENDING') {
+      throw new Error(`PayPal refund returned ${refund.status}`);
+    }
   } catch {
     await sendBookingCancellationRefundFailedCommunication({
       to: booking.bookerEmail,

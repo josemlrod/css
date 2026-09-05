@@ -268,19 +268,29 @@ describe('PayPal webhook action', () => {
     expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
   });
 
-  it('accepts unknown refund references without communication', async () => {
-    verifyPayPalWebhookMock.mockResolvedValueOnce({
-      event_type: 'PAYMENT.REFUND.FAILED',
-      resource: { id: 'REFUND-UNKNOWN' },
-    });
-    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
-      status: 'not_found',
-    } as never);
+  it.each(['PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.REFUND.FAILED'])(
+    'retries %s when the refund reference is not persisted yet',
+    async (eventType) => {
+      verifyPayPalWebhookMock.mockResolvedValueOnce({
+        event_type: eventType,
+        resource: { id: 'REFUND-UNKNOWN' },
+      });
+      updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
+        status: 'not_found',
+      } as never);
 
-    await expect(action(actionArgs())).resolves.toEqual({ ok: true });
+      const response = await action(actionArgs());
 
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
-  });
+      expect(response).toMatchObject({
+        data: {
+          ok: false,
+          error: 'PayPal refund is not ready for reconciliation',
+        },
+        init: { status: 503 },
+      });
+      expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+    },
+  );
 
   it('accepts unknown event types without processing', async () => {
     verifyPayPalWebhookMock.mockResolvedValueOnce({

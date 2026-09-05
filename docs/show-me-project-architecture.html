@@ -237,7 +237,7 @@
         box-shadow: none;
       }
 
-      .service.stripe {
+      .service.paypal {
         border-color: var(--coral);
         background: var(--coral-soft);
       }
@@ -555,13 +555,13 @@
           <p class="eyebrow">Cinematic Sites of Savannah</p>
           <h1>How a tour becomes a Booking</h1>
           <p class="lede">
-            A server-rendered React application that collects a reservation, sends the Booker to Stripe,
-            and lets a verified webhook make the final capacity decision.
+            A server-rendered React application that collects a reservation, captures an approved PayPal Order,
+            and checks live capacity before creating a Booking.
           </p>
         </div>
         <aside class="thesis">
           <strong>The rule that shapes the system</strong>
-          <p>A browser return never creates a Booking. Only a signed Stripe webhook can do that.</p>
+          <p>A browser return never creates a Booking. Only a server-verified PayPal capture can do that.</p>
         </aside>
       </header>
 
@@ -597,9 +597,9 @@
               <h3>Convex</h3>
               <p>Persists Tours, Checkout Attempts, and Bookings. Transactions protect capacity.</p>
             </article>
-            <article class="service stripe">
-              <h3>Stripe</h3>
-              <p>Hosts Checkout, signs payment events, and processes full refunds.</p>
+            <article class="service paypal">
+              <h3>PayPal</h3>
+              <p>Creates and captures Orders, signs payment events, and processes full refunds.</p>
             </article>
             <article class="service">
               <h3>Resend</h3>
@@ -609,7 +609,7 @@
         </div>
 
         <div class="trust-boundary">
-          <p>Stripe redirects are for display. Stripe webhooks are trusted instructions after signature verification.</p>
+          <p>Only server capture or refund responses and PayPal webhooks verified through the API can change payment state.</p>
         </div>
       </section>
 
@@ -619,7 +619,7 @@
             <p class="section-label">02 / Runtime flow</p>
             <h2 id="flow-title">The payment path</h2>
           </div>
-          <p class="section-note">The Checkout Attempt carries the reservation across the untrusted browser redirect.</p>
+          <p class="section-note">The Checkout Attempt carries the reservation through the untrusted browser payment flow.</p>
         </div>
 
         <div class="flow">
@@ -637,11 +637,11 @@
           </article>
           <article class="step">
             <h3>Pay</h3>
-            <p>Stripe hosts Checkout. Success and cancel URLs return to token-protected status pages.</p>
+            <p>PayPal SDK v6 opens PayPal or guest card checkout over the confirm step.</p>
           </article>
           <article class="step critical">
             <h3>Commit</h3>
-            <p>A signed webhook checks amount, currency, duplicate delivery, and live capacity in a Convex transaction.</p>
+            <p>The capture action checks amount, currency, duplicate delivery, and live capacity in a Convex transaction.</p>
           </article>
         </div>
 
@@ -674,10 +674,10 @@
           <article class="record">
             <span class="record-tag">convex/checkoutAttempts.ts</span>
             <h3>Checkout Attempt</h3>
-            <p>A time-limited snapshot created before Stripe Checkout.</p>
+            <p>A time-limited snapshot created before PayPal checkout.</p>
             <ul>
               <li>Tour, date, time, party, Booker</li>
-              <li>Price snapshot and Stripe session</li>
+              <li>Price snapshot and PayPal Order ID</li>
               <li>Payment, expiry, and refund state</li>
             </ul>
           </article>
@@ -687,7 +687,7 @@
             <p>The paid reservation and source for self-service management.</p>
             <ul>
               <li>Reservation and Booker details</li>
-              <li>PaymentIntent and refund IDs</li>
+              <li>PayPal capture and refund IDs</li>
               <li>Cancellation and refund status</li>
             </ul>
           </article>
@@ -706,7 +706,7 @@
           <article class="route-card">
             <code>/tour/:tourId</code>
             <h3>Start Checkout</h3>
-            <p>Loads the Tour, renders the stepper, validates submission, and redirects to Stripe.</p>
+            <p>Loads the Tour, renders the stepper, validates submission, and creates a PayPal Order.</p>
           </article>
           <article class="route-card">
             <code>/checkout/success/*</code>
@@ -714,14 +714,14 @@
             <p>Reads a token-protected Checkout Attempt. It does not create a Booking.</p>
           </article>
           <article class="route-card">
-            <code>/stripe/webhook</code>
+            <code>/paypal/capture/* + /paypal/webhook</code>
             <h3>Finish payment</h3>
-            <p>Verifies Stripe events, commits capacity, creates the Booking, and starts recovery paths.</p>
+            <p>The capture action handles primary completion. Verified events provide backup completion and recovery paths.</p>
           </article>
           <article class="route-card">
             <code>/manage/:bookingId</code>
             <h3>Cancel and refund</h3>
-            <p>Checks the private token and 24-hour cutoff, then requests a full Stripe refund.</p>
+            <p>Checks the private token and 24-hour cutoff, then requests a full PayPal refund.</p>
           </article>
           <article class="route-card">
             <code>app/lib/email.ts</code>

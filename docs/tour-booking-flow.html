@@ -303,7 +303,7 @@
             <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker chooses PayPal or card</h3><p><code>paypal-buttons.tsx</code> validates the confirm-step data before posting date, time, guests, name, and email.</p></div></div>
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Checkout Attempt created</h3><p><code>saveCheckoutAttempt</code> stores pending status, 30-minute expiry, pricing snapshot, hashed access token.</p></div></div>
             <div class="step"><div class="num">3</div><div class="step-body"><h3>PayPal Order created</h3><p>The action computes the total from Tour price and guest count, calls <code>createPayPalOrder</code>, and stores <code>paypalOrderId</code>.</p></div></div>
-            <div class="step"><div class="num">4</div><div class="step-body"><h3>SDK opens checkout</h3><p>The action returns the Order ID to SDK v6. PayPal or the guest card form opens over the confirm step without a Stripe redirect.</p></div></div>
+            <div class="step"><div class="num">4</div><div class="step-body"><h3>SDK opens checkout</h3><p>The action returns the Order ID to SDK v6. PayPal or the guest card form opens over the confirm step.</p></div></div>
             <div class="step"><div class="num">5</div><div class="step-body"><h3>Checkout canceled</h3><p>Closing the PayPal overlay sends the Booker to <code>/checkout/cancel/:checkoutAttemptId?token=...</code>. This ends the payment flow without creating a Booking.</p></div></div>
           </div>
         </div>
@@ -364,13 +364,14 @@
         <div class="card">
           <h2>Refund Lifecycle</h2>
           <p>
-            The PayPal refund response records <code>refunded</code>,
-            <code>refund_pending</code>, or <code>refund_failed</code> with its
-            <code>paypalRefundId</code>. Verified
+            Self-service cancellation stores <code>refund_pending</code> and the
+            <code>paypalRefundId</code> after PayPal accepts the refund, even when
+            the synchronous response is <code>COMPLETED</code>. Verified
             <code>PAYMENT.CAPTURE.REFUNDED</code> and
             <code>PAYMENT.REFUND.FAILED</code> events finalize Payment Status by
-            that refund ID. Refund failures send Booking Communication only when
-            the mutation changes a record.
+            that refund ID. An unexpected synchronous status keeps the Booking
+            active and sends failure communication. If an event arrives before
+            its refund ID is stored, the webhook returns a retryable response.
           </p>
         </div>
       </section>
@@ -440,7 +441,7 @@
           <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, starts payment sessions, captures approved Orders, and handles cancellation.</p></div>
           <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and routes the result by payment status.</p></div>
           <div><code>app/lib/checkout-completion.ts</code><p>Creates paid Bookings and Booking Communication, or refunds captures after a capacity race.</p></div>
-          <div><code>app/lib/stripe.ts</code><p>Creates Checkout Sessions, verifies webhooks, creates refunds.</p></div>
+          <div><code>app/lib/paypal.ts</code><p>Creates and captures PayPal Orders, verifies webhooks, and refunds captures.</p></div>
           <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, schedules pending-attempt expiry, and handles refund status by the persisted PayPal refund ID.</p></div>
           <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff, starts cancellation refunds.</p></div>

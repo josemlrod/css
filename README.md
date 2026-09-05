@@ -1,6 +1,6 @@
 # CSS Tours — Cinematic Sites of Savannah
 
-A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay via Stripe, and receive email confirmation — all with real-time capacity tracking and self-service cancellation.
+A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay via PayPal, and receive email confirmation with real-time capacity tracking and self-service cancellation.
 
 ## Tech Stack
 
@@ -10,7 +10,7 @@ A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay vi
 | Styling | Tailwind CSS v4, shadcn/ui (Base UI) |
 | Animations | Motion |
 | Backend / DB | Convex |
-| Payments | Stripe Checkout, webhooks, refunds |
+| Payments | PayPal Orders v2, JS SDK v6 buttons, webhooks, refunds |
 | Email | Resend |
 | Validation | Zod v4 |
 | Testing | Vitest |
@@ -18,11 +18,11 @@ A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay vi
 
 ## Built Features
 
-- **4-step booking wizard** — date/time picker, guest count, booker details, confirm → Stripe redirect
-- **Stripe Checkout integration** — session creation, payment capture, amount verification
+- **4-step booking wizard**: date/time picker, guest count, Booker details, and PayPal or guest card buttons on the confirm step
+- **PayPal checkout integration**: Orders v2 creation, server-side capture, and amount verification
 - **PayPal webhook handling** — `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `CHECKOUT.PAYMENT-APPROVAL.REVERSED`, `PAYMENT.CAPTURE.REFUNDED`, and `PAYMENT.REFUND.FAILED`; idempotent completion and refund handling
 - **Booking management** — private no-login access via hashed tokens, self-cancel up to 24h before tour
-- **Refund processing** — Stripe refund on cancellation, email notification on success/failure
+- **Refund processing**: PayPal refund on cancellation, with email notification on success or failure
 - **Booking Communication** — transactional emails via Resend (booking confirmed, refund issued, cancellation failed)
 - **Convex persistence** — `tours`, `checkoutAttempts` (30-min TTL), `bookings` tables with full CRUD + queries
 - **Design parity** — fonts, color palette, and header/footer matching the marketing site
