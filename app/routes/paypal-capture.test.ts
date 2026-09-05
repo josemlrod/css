@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   getCheckoutAttempt,
@@ -30,6 +30,7 @@ const checkoutAttempt = {
   accessTokenHash: 'hashed-token',
   paypalOrderId: 'ORDER123',
   paymentStatus: 'pending',
+  expiresAt: 9_999_999_999_999,
 };
 
 function captureRequest(orderId: unknown = 'ORDER123', token = 'raw-token') {
@@ -56,6 +57,10 @@ describe('PayPal capture action', () => {
     vi.clearAllMocks();
     getCheckoutAttemptMock.mockResolvedValue(checkoutAttempt as never);
     verifyCheckoutAccessTokenMock.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('rejects non-POST requests before loading the Checkout Attempt', async () => {
@@ -87,6 +92,22 @@ describe('PayPal capture action', () => {
     expect(capturePayPalOrderMock).not.toHaveBeenCalled();
   });
 
+  it('rejects an expired pending attempt without calling PayPal', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_000);
+    getCheckoutAttemptMock.mockResolvedValueOnce({
+      ...checkoutAttempt,
+      expiresAt: 1_000,
+    } as never);
+
+    const response = await action(actionArgs(captureRequest()));
+
+    expect(response).toMatchObject({
+      data: { ok: false, status: 'expired', error: 'Checkout expired' },
+      init: { status: 409 },
+    });
+    expect(capturePayPalOrderMock).not.toHaveBeenCalled();
+  });
+
   it('finalizes a completed capture with PayPal payment details', async () => {
     capturePayPalOrderMock.mockResolvedValueOnce({
       id: 'CAPTURE123',
@@ -110,6 +131,29 @@ describe('PayPal capture action', () => {
       data: {
         ok: true,
         status: 'paid',
+        checkoutAttemptId: 'checkout-attempt-123',
+      },
+    });
+  });
+
+  it('returns an immediately completed capacity refund status', async () => {
+    capturePayPalOrderMock.mockResolvedValueOnce({
+      id: 'CAPTURE123',
+      status: 'COMPLETED',
+      amount: { value: '158.00', currency_code: 'USD' },
+      custom_id: 'checkout-attempt-123',
+    });
+    finalizePaidCaptureMock.mockResolvedValueOnce({
+      status: 'capacity_unavailable',
+      paymentStatus: 'refunded',
+    } as never);
+
+    const response = await action(actionArgs(captureRequest()));
+
+    expect(response).toMatchObject({
+      data: {
+        ok: true,
+        status: 'refunded',
         checkoutAttemptId: 'checkout-attempt-123',
       },
     });

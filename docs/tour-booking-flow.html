@@ -356,10 +356,10 @@
         <div class="card">
           <h2>Refund Lifecycle</h2>
           <p>
-            Stripe <code>refund.updated</code> or <code>charge.refunded</code>
-            webhooks update the matching Booking or Checkout Attempt by stored
-            <code>paypalRefundId</code>. Succeeded means <code>refunded</code>.
-            Failed/canceled means <code>refund_failed</code> and triggers email.
+            The PayPal refund response records <code>refunded</code>,
+            <code>refund_pending</code>, or <code>refund_failed</code> with its
+            <code>paypalRefundId</code>. Pending refunds remain pending until the
+            verified PayPal refund webhook lands in the next migration slice.
           </p>
         </div>
       </section>

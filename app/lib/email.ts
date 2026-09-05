@@ -113,7 +113,7 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
                   Booking details ready
                 </h1>
                 <p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#f7f7f7;">
-                  Hi ${bookerName}, your Savannah tour is reserved. Stripe will send payment receipt separately.
+                  Hi ${bookerName}, your Savannah tour is reserved. PayPal will send the payment receipt separately.
                 </p>
               </td>
             </tr>
@@ -191,18 +191,18 @@ Party size: ${booking.guests}
 Refund amount: ${currency.format(booking.total)}`;
 
   return {
-    subject: `${booking.tourName} payment refunded`,
+    subject: `${booking.tourName} refund requested`,
     text: `Hi ${booking.bookerName},
 
-Your selected tour filled before payment completed. We refunded your payment in full.
+Your selected tour filled before payment completed. We requested a full refund to your original payment method.
 
 ${details}`,
     html: `<!doctype html>
 <html lang="en">
-  <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} payment refunded</title></head>
+  <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} refund requested</title></head>
   <body style="font-family:Arial,sans-serif;color:#171717;">
-    <h1>Payment refunded</h1>
-    <p>Hi ${escapeHtml(booking.bookerName)}, your selected tour filled before payment completed. We refunded your payment in full.</p>
+    <h1>Refund requested</h1>
+    <p>Hi ${escapeHtml(booking.bookerName)}, your selected tour filled before payment completed. We requested a full refund to your original payment method.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
     <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
     <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
@@ -282,7 +282,7 @@ export function createRefundFailedEmail(booking: RefundFailedCommunication) {
     subject: `${booking.tourName} refund needs support`,
     text: `Hi ${booking.bookerName},
 
-Stripe reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${supportEmail} for help.
+PayPal reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${supportEmail} for help.
 
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
@@ -294,7 +294,7 @@ Refund amount: ${currency.format(booking.total)}`,
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} refund needs support</title></head>
   <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Refund needs support</h1>
-    <p>Hi ${escapeHtml(booking.bookerName)}, Stripe reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${escapeHtml(supportEmail)} for help.</p>
+    <p>Hi ${escapeHtml(booking.bookerName)}, PayPal reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${escapeHtml(supportEmail)} for help.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
     <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
     <strong>Time:</strong> ${escapeHtml(booking.time)}<br />

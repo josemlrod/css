@@ -7,6 +7,7 @@ import {
 import {
   sendBookingCommunication,
   sendFailedCapacityRefundCommunication,
+  sendRefundFailedCommunication,
 } from './email';
 import { refundPayPalCapture } from './paypal';
 
@@ -16,6 +17,15 @@ function manageBookingUrl(bookingId: string, accessToken: string) {
   if (!origin) throw new Error('APP_ORIGIN is required');
 
   return new URL(`/manage/${bookingId}?token=${accessToken}`, origin).toString();
+}
+
+function refundPaymentStatus(status: string) {
+  if (status === 'COMPLETED') return 'refunded' as const;
+  if (status === 'FAILED' || status === 'CANCELLED') {
+    return 'refund_failed' as const;
+  }
+
+  return 'refund_pending' as const;
 }
 
 export async function finalizePaidCapture({
@@ -68,13 +78,15 @@ export async function finalizePaidCapture({
       throw refundError;
     }
 
+    const paymentStatus = refundPaymentStatus(refund.status);
+
     await updateCheckoutAttemptRefundStatus({
       id: result.checkoutAttempt._id,
-      paymentStatus: 'refund_pending',
+      paymentStatus,
       paypalRefundId: refund.id,
     });
 
-    await sendFailedCapacityRefundCommunication({
+    const communication = {
       to: result.checkoutAttempt.bookerEmail,
       bookerName: result.checkoutAttempt.bookerName,
       tourName: result.tour.name,
@@ -82,7 +94,15 @@ export async function finalizePaidCapture({
       time: result.checkoutAttempt.time,
       guests: result.checkoutAttempt.guests,
       total: result.checkoutAttempt.total,
-    });
+    };
+
+    if (paymentStatus === 'refund_failed') {
+      await sendRefundFailedCommunication(communication);
+    } else {
+      await sendFailedCapacityRefundCommunication(communication);
+    }
+
+    return { ...result, paymentStatus };
   }
 
   return result;

@@ -17,7 +17,7 @@ function completedPaymentStatus(
   if (result.status === 'booking_created' || result.status === 'booking_exists') {
     return 'paid';
   }
-  if (result.status === 'capacity_unavailable') return 'refund_pending';
+  if (result.status === 'capacity_unavailable') return result.paymentStatus;
 
   return result.status;
 }
@@ -59,6 +59,18 @@ export async function action({ params, request }: Route.ActionArgs) {
       status: checkoutAttempt.paymentStatus,
       checkoutAttemptId,
     });
+  }
+
+  if (checkoutAttempt.expiresAt <= Date.now()) {
+    return data(
+      {
+        ok: false,
+        status: 'expired',
+        error: 'Checkout expired',
+        checkoutAttemptId,
+      },
+      { status: 409 },
+    );
   }
 
   try {

@@ -89,7 +89,7 @@ export default function CheckoutSuccess({ loaderData }: Route.ComponentProps) {
             <dd className='min-w-0 break-words font-medium sm:text-right'>{checkoutAttempt.guests}</dd>
           </div>
           <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
-            <dt className='text-muted-foreground'>Total paid</dt>
+            <dt className='text-muted-foreground'>Booking total</dt>
             <dd className='min-w-0 break-words font-medium sm:text-right'>${total}</dd>
           </div>
         </dl>
