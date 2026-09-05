@@ -18,4 +18,5 @@ export default [
     route('/paypal/webhook', 'routes/paypal-webhook.ts'),
     route('/manage/:bookingId', 'routes/manage-tour.tsx'),
   ]),
+  route('*', 'routes/$.tsx'),
 ] satisfies RouteConfig;

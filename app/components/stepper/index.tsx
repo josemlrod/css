@@ -75,7 +75,7 @@ export function Stepper() {
               ${total}
             </motion.p>
           </div>
-          <div className='flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center'>
+          <div className='flex min-w-0 w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center'>
             {step > 0 && (
               <button
                 onClick={() =>
@@ -90,8 +90,7 @@ export function Stepper() {
               <PayPalButtons />
             ) : (
               <Button
-                variant='cta'
-                size='cta'
+                variant='default'
                 onClick={() => {
                   if (!validate()) return;
 
@@ -109,8 +108,11 @@ export function Stepper() {
         </div>
       </div>
 
-      <p className='mt-3 text-center text-sm text-muted-foreground'>
-        Free cancellation up to 24h before
+      <p className='mt-3 text-center text-xs leading-snug text-muted-foreground'>
+        Pay securely with PayPal or debit/credit card
+      </p>
+      <p className='text-center text-xs leading-snug text-muted-foreground'>
+        Free cancellation up to 24h before.
       </p>
     </div>
   );

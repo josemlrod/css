@@ -21,12 +21,9 @@ type PaymentSessionCallbacks = {
 
 type PayPalSdkInstance = {
   findEligibleMethods: (options: { currencyCode: 'USD' }) => Promise<{
-    isEligible: (method: 'paypal' | 'card') => boolean;
+    isEligible: (method: 'paypal') => boolean;
   }>;
   createPayPalOneTimePaymentSession: (
-    callbacks: PaymentSessionCallbacks,
-  ) => PaymentSession;
-  createPayPalGuestOneTimePaymentSession: (
     callbacks: PaymentSessionCallbacks,
   ) => PaymentSession;
 };
@@ -34,7 +31,7 @@ type PayPalSdkInstance = {
 type PayPalSdk = {
   createInstance: (options: {
     clientId: string;
-    components: ['paypal-payments', 'paypal-guest-payments'];
+    components: ['paypal-payments'];
     pageType: 'checkout';
   }) => Promise<PayPalSdkInstance>;
 };
@@ -55,7 +52,6 @@ type CaptureResponse =
 declare global {
   interface Window {
     paypal?: PayPalSdk;
-    onPayPalWebSdkLoaded?: () => void;
   }
 }
 
@@ -86,7 +82,7 @@ function loadPayPalSdk(src: string) {
       15_000,
     );
 
-    window.onPayPalWebSdkLoaded = () => {
+    const succeed = () => {
       if (settled) return;
       if (!window.paypal) {
         fail(new Error('PayPal SDK did not initialize'));
@@ -97,6 +93,7 @@ function loadPayPalSdk(src: string) {
       window.clearTimeout(timeoutId);
       resolve(window.paypal);
     };
+    script.addEventListener('load', succeed, { once: true });
 
     if (existingScript) {
       existingScript.addEventListener(
@@ -125,10 +122,7 @@ export function PayPalButtons() {
   const navigate = useNavigate();
   const fetcher = useFetcher<ConfirmBookingResponse>();
   const { date, time, guests, booker, validate } = useStepper();
-  const sessions = useRef<{
-    paypal?: PaymentSession;
-    card?: PaymentSession;
-  }>({});
+  const session = useRef<PaymentSession | null>(null);
   const checkoutAttempt = useRef<{
     id: string;
     accessToken: string;
@@ -137,7 +131,7 @@ export function PayPalButtons() {
     resolve: (order: { orderId: string }) => void;
     reject: (error: Error) => void;
   } | null>(null);
-  const [eligible, setEligible] = useState({ paypal: false, card: false });
+  const [eligible, setEligible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -186,14 +180,13 @@ export function PayPalButtons() {
         const paypal = await loadPayPalSdk(src);
         const sdkInstance = await paypal.createInstance({
           clientId,
-          components: ['paypal-payments', 'paypal-guest-payments'],
+          components: ['paypal-payments'],
           pageType: 'checkout',
         });
         const paymentMethods = await sdkInstance.findEligibleMethods({
           currencyCode: 'USD',
         });
         const paypalEligible = paymentMethods.isEligible('paypal');
-        const cardEligible = paymentMethods.isEligible('card');
         const onApprove = async ({ orderId }: { orderId: string }) => {
           const attempt = checkoutAttempt.current;
 
@@ -218,7 +211,8 @@ export function PayPalButtons() {
 
             if (!result.ok) {
               throw new Error(
-                result.error ?? 'PayPal could not complete payment. Please try again.',
+                result.error ??
+                  'PayPal could not complete payment. Please try again.',
               );
             }
 
@@ -254,30 +248,16 @@ export function PayPalButtons() {
 
         if (!active) return;
 
-        sessions.current = {
-          paypal: paypalEligible
-            ? sdkInstance.createPayPalOneTimePaymentSession({
-                onApprove,
-                onCancel,
-                onError,
-              })
-            : undefined,
-          card: cardEligible
-            ? sdkInstance.createPayPalGuestOneTimePaymentSession({
-                onApprove,
-                onCancel,
-                onError,
-                onWarn: (warning) =>
-                  setError(
-                    warning.message ??
-                      'Please check your card details and try again.',
-                  ),
-              })
-            : undefined,
-        };
-        setEligible({ paypal: paypalEligible, card: cardEligible });
+        session.current = paypalEligible
+          ? sdkInstance.createPayPalOneTimePaymentSession({
+              onApprove,
+              onCancel,
+              onError,
+            })
+          : null;
+        setEligible(paypalEligible);
 
-        if (!paypalEligible && !cardEligible) {
+        if (!paypalEligible) {
           setError('PayPal payment methods are not available.');
         }
       } catch (sdkError) {
@@ -297,7 +277,7 @@ export function PayPalButtons() {
 
     return () => {
       active = false;
-      sessions.current = {};
+      session.current = null;
     };
   }, [navigate]);
 
@@ -345,44 +325,36 @@ export function PayPalButtons() {
     });
   }
 
-  async function startPayment(method: 'paypal' | 'card') {
-    const session = sessions.current[method];
+  async function startPayment() {
+    const paymentSession = session.current;
 
-    if (!session || creatingOrder || capturing) return;
+    if (!paymentSession || creatingOrder || capturing) return;
 
     try {
-      await session.start({ presentationMode: 'auto' }, createOrder());
+      await paymentSession.start({ presentationMode: 'auto' }, createOrder());
     } catch {
       setError((current) => current ?? 'Unable to start checkout');
     }
   }
 
   return (
-    <div className='grid w-full gap-2 sm:w-64'>
+    <div className='grid min-w-0 w-full gap-1.5 sm:w-56'>
       <Button
         type='button'
-        onClick={() => void startPayment('paypal')}
-        disabled={loading || creatingOrder || capturing || !eligible.paypal}
-        className='min-h-11 w-full rounded-full bg-[#ffc439] px-5 py-2 text-base font-semibold text-[#111] transition-colors hover:bg-[#f2ba36] disabled:cursor-not-allowed disabled:opacity-50'
+        variant='default'
+        onClick={() => void startPayment()}
+        disabled={loading || creatingOrder || capturing || !eligible}
+        className='min-h-10 w-full whitespace-normal text-center text-sm disabled:cursor-not-allowed md:text-base'
       >
         {creatingOrder
           ? 'Starting checkout...'
           : capturing
             ? 'Completing payment...'
-            : 'PayPal'}
+            : 'Continue to payment'}
       </Button>
-      <Button
-        type='button'
-        variant='cta'
-        size='cta'
-        onClick={() => void startPayment('card')}
-        disabled={loading || creatingOrder || capturing || !eligible.card}
-        className='min-h-11 w-full whitespace-normal text-center disabled:cursor-not-allowed sm:whitespace-nowrap'
-      >
-        Debit or Credit Card
-      </Button>
+
       {error && (
-        <p role='alert' className='text-sm text-destructive'>
+        <p role='alert' className='text-sm text-destructive break-words'>
           {error}
         </p>
       )}

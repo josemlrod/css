@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Outlet } from 'react-router';
 
 import { Footer } from '~/components/footer';
-import logo from '../../public/logo.png';
 
 const navItems = [
   {
@@ -77,7 +76,7 @@ export default function Layout() {
               <img
                 alt='Cinematic Sites of Savannah logo'
                 className='h-24 w-auto pb-2 md:h-[140px] min-[1100px]:h-[150px]'
-                src={logo}
+                src='/logo.png'
               />
             </a>
 
@@ -88,11 +87,18 @@ export default function Layout() {
               onClick={() => setMenuOpen((open) => !open)}
               className='inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border text-primary transition-colors duration-300 hover:bg-muted md:hidden'
             >
-              {menuOpen ? <X className='size-5' /> : <Menu className='size-5' />}
+              {menuOpen ? (
+                <X className='size-5' />
+              ) : (
+                <Menu className='size-5' />
+              )}
               <span className='sr-only'>Toggle navigation</span>
             </button>
 
-            <nav className='hidden w-full justify-center pt-6 md:flex' aria-label='Main'>
+            <nav
+              className='hidden w-full justify-center pt-6 md:flex'
+              aria-label='Main'
+            >
               <ul className='flex flex-wrap justify-center gap-x-6 gap-y-2'>
                 {navItems.map((item) => (
                   <li key={item.href} className='group relative'>
@@ -159,7 +165,10 @@ export default function Layout() {
                               initial={{ opacity: 0, y: -4 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -4 }}
-                              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                              transition={{
+                                duration: 0.18,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
                               className='mb-2 border-l border-border pl-4'
                             >
                               <li>
