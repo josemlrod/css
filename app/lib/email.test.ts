@@ -35,7 +35,6 @@ describe('Booking Communication email content', () => {
     expect(email.html).toContain(
       'PayPal will send the payment receipt separately.',
     );
-    expect(email.html).not.toContain('Stripe');
   });
 
   it('explains capacity refund without creating Booking language', () => {

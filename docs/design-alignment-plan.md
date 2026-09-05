@@ -326,7 +326,7 @@ no body copy below `text-sm`.
 
 ## Out of Scope
 
-- No changes to booking logic, Convex functions, Stripe flow, or routes.
+- No changes to booking logic, Convex functions, payment flow, or routes.
 - No dark mode work (the `.dark` block in `app.css` stays as-is).
 - No changes to the marketing site itself.
 - Hero/homepage sections of the marketing site (Ants Valley 75px hero, etc.)

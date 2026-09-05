@@ -6,7 +6,7 @@ import {
   sendBookingCancellationRefundFailedCommunication,
   sendBookingCancellationRefundRequestedCommunication,
 } from '~/lib/email';
-import { createRefundForPaymentIntent } from '~/lib/stripe';
+import { refundPayPalCapture } from '~/lib/paypal';
 
 import { action, loader, manageCancellationCopy } from './manage-tour';
 
@@ -24,8 +24,8 @@ vi.mock('~/lib/email', () => ({
   sendBookingCancellationRefundRequestedCommunication: vi.fn(),
 }));
 
-vi.mock('~/lib/stripe', () => ({
-  createRefundForPaymentIntent: vi.fn(),
+vi.mock('~/lib/paypal', () => ({
+  refundPayPalCapture: vi.fn(),
 }));
 
 const booking = {
@@ -37,7 +37,7 @@ const booking = {
   date: '2099-07-04',
   time: '10:00 AM',
   guests: 2,
-  paypalCaptureId: 'pi_test_123',
+  paypalCaptureId: 'CAPTURE123',
   paymentStatus: 'paid',
 };
 
@@ -49,7 +49,7 @@ const tour = {
 const getBookingWithTourForAccessMock = vi.mocked(getBookingWithTourForAccess);
 const cancelPaidBookingMock = vi.mocked(cancelPaidBooking);
 const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
-const createRefundForPaymentIntentMock = vi.mocked(createRefundForPaymentIntent);
+const refundPayPalCaptureMock = vi.mocked(refundPayPalCapture);
 const sendBookingCancellationRefundFailedCommunicationMock = vi.mocked(
   sendBookingCancellationRefundFailedCommunication,
 );
@@ -88,7 +88,7 @@ describe('manage tour cancellation', () => {
     } as never);
 
     await expect(action(args())).resolves.toEqual({ view: 'cutoff_blocked' });
-    expect(createRefundForPaymentIntentMock).not.toHaveBeenCalled();
+    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
     expect(cancelPaidBookingMock).not.toHaveBeenCalled();
   });
 
@@ -98,24 +98,27 @@ describe('manage tour cancellation', () => {
     const response = await action(args());
 
     expect(response).toMatchObject({ init: { status: 403 } });
-    expect(createRefundForPaymentIntentMock).not.toHaveBeenCalled();
+    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
     expect(cancelPaidBookingMock).not.toHaveBeenCalled();
   });
 
   it('creates refund before canceling Booking', async () => {
     getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
-    createRefundForPaymentIntentMock.mockResolvedValueOnce({ id: 're_test_123' } as never);
+    refundPayPalCaptureMock.mockResolvedValueOnce({
+      id: 'REFUND123',
+      status: 'COMPLETED',
+    });
 
     await expect(action(args())).resolves.toEqual({ view: 'cancelled' });
 
     expect(hashCheckoutAccessTokenMock).toHaveBeenCalledWith('raw_token');
-    expect(createRefundForPaymentIntentMock).toHaveBeenCalledWith('pi_test_123');
+    expect(refundPayPalCaptureMock).toHaveBeenCalledWith('CAPTURE123');
     expect(cancelPaidBookingMock).toHaveBeenCalledWith({
       id: 'booking_123',
       accessTokenHash: 'hashed_token',
-      paypalRefundId: 're_test_123',
+      paypalRefundId: 'REFUND123',
     });
-    expect(createRefundForPaymentIntentMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(refundPayPalCaptureMock.mock.invocationCallOrder[0]).toBeLessThan(
       cancelPaidBookingMock.mock.invocationCallOrder[0],
     );
     expect(sendBookingCancellationRefundRequestedCommunicationMock).toHaveBeenCalledWith({
@@ -131,7 +134,7 @@ describe('manage tour cancellation', () => {
 
   it('keeps Booking active when refund creation fails', async () => {
     getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
-    createRefundForPaymentIntentMock.mockRejectedValueOnce(new Error('refund failed'));
+    refundPayPalCaptureMock.mockRejectedValueOnce(new Error('refund failed'));
 
     await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
 

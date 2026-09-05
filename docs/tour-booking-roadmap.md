@@ -215,6 +215,8 @@ The term **Tour Guide** is intentionally introduced here as a planning term. It 
 
 ## 5. Checkout Flow
 
+PayPal is now the payment provider under [ADR 0002](./adr/0002-paypal-orders-capture.md), which supersedes the original Stripe plan below. The remaining Stripe details in this section are retained as historical planning context.
+
 A **Booker** should pay for selected tour details through Stripe Checkout before a **Booking** is created.
 
 ### Payment Provider
