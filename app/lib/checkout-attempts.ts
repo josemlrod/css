@@ -139,3 +139,11 @@ export async function expireCheckoutAttempt(input: { paypalOrderId: string }) {
   );
   return checkoutAttemptId;
 }
+
+export async function failCheckoutAttempt(input: { paypalOrderId: string }) {
+  const checkoutAttemptId = await getConvex().mutation(
+    api.checkoutAttempts.failCheckoutAttempt,
+    input,
+  );
+  return checkoutAttemptId;
+}

@@ -15,7 +15,7 @@ export default [
     ),
     route('/checkout/cancel/:checkoutAttemptId', 'routes/checkout-cancel.tsx'),
     route('/paypal/capture/:checkoutAttemptId', 'routes/paypal-capture.ts'),
-    route('/stripe/webhook', 'routes/stripe-webhook.ts'),
+    route('/paypal/webhook', 'routes/paypal-webhook.ts'),
     route('/manage/:bookingId', 'routes/manage-tour.tsx'),
   ]),
 ] satisfies RouteConfig;

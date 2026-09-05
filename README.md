@@ -20,7 +20,7 @@ A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay vi
 
 - **4-step booking wizard** — date/time picker, guest count, booker details, confirm → Stripe redirect
 - **Stripe Checkout integration** — session creation, payment capture, amount verification
-- **Stripe webhook handling** — `checkout.session.completed`, `checkout.session.expired`, `refund.updated`; idempotent, capacity-race safe (auto-refunds if tour fills between payment and webhook)
+- **PayPal webhook handling** — `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `CHECKOUT.PAYMENT-APPROVAL.REVERSED`, `PAYMENT.CAPTURE.REFUNDED`, and `PAYMENT.REFUND.FAILED`; idempotent completion and refund handling
 - **Booking management** — private no-login access via hashed tokens, self-cancel up to 24h before tour
 - **Refund processing** — Stripe refund on cancellation, email notification on success/failure
 - **Booking Communication** — transactional emails via Resend (booking confirmed, refund issued, cancellation failed)

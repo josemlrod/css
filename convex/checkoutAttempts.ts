@@ -1,6 +1,8 @@
 import { v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import { internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
+import { internalMutation, mutation, query } from './_generated/server';
 
 const paymentStatus = v.union(
   v.literal('pending'),
@@ -46,9 +48,33 @@ export const createCheckoutAttempt = mutation({
     expiresAt: v.number(),
     accessTokenHash: v.string(),
   },
-  handler: async (ctx, args) => {
-    const time = new Date().getTime();
-    return await ctx.db.insert('checkoutAttempts', { ...args, updatedAt: time });
+  handler: async (ctx, args): Promise<Id<'checkoutAttempts'>> => {
+    const id = await ctx.db.insert('checkoutAttempts', {
+      ...args,
+      updatedAt: Date.now(),
+    });
+
+    await ctx.scheduler.runAfter(
+      Math.max(0, args.expiresAt - Date.now()),
+      internal.checkoutAttempts.expireIfPending,
+      { id },
+    );
+
+    return id;
+  },
+});
+
+export const expireIfPending = internalMutation({
+  args: { id: v.id('checkoutAttempts') },
+  handler: async (ctx, { id }) => {
+    const checkoutAttempt = await ctx.db.get(id);
+
+    if (!checkoutAttempt || checkoutAttempt.paymentStatus !== 'pending') return;
+
+    await ctx.db.patch(id, {
+      paymentStatus: 'expired',
+      updatedAt: Date.now(),
+    });
   },
 });
 
@@ -284,6 +310,31 @@ export const expireCheckoutAttempt = mutation({
       await ctx.db.patch(checkoutAttempt._id, {
         paymentStatus: 'expired',
         updatedAt: new Date().getTime(),
+      });
+    }
+
+    return checkoutAttempt._id;
+  },
+});
+
+export const failCheckoutAttempt = mutation({
+  args: { paypalOrderId: v.string() },
+  handler: async (ctx, { paypalOrderId }) => {
+    const checkoutAttempt = await ctx.db
+      .query('checkoutAttempts')
+      .filter((q) =>
+        q.eq(q.field('paypalOrderId'), paypalOrderId),
+      )
+      .first();
+
+    if (!checkoutAttempt) {
+      throw new Error('Checkout Attempt not found');
+    }
+
+    if (checkoutAttempt.paymentStatus === 'pending') {
+      await ctx.db.patch(checkoutAttempt._id, {
+        paymentStatus: 'failed',
+        updatedAt: Date.now(),
       });
     }
 
