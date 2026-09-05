@@ -290,9 +290,9 @@
           <code>paypalCaptureId</code>, and <code>paypalRefundId</code>. New Checkout
           Attempts now create PayPal Orders from embedded SDK v6 buttons. The
           capture action creates Bookings or starts PayPal refunds after a capacity
-          race. A verified PayPal webhook will provide an idempotent backup in the
-          next slice. The old Stripe routes remain temporarily but receive no new
-          checkouts.
+          race. The verified PayPal webhook provides an idempotent backup for
+          completed captures and handles failed captures, approval reversals, and
+          refund results.
         </p>
       </section>
 
@@ -325,9 +325,17 @@
           <p>
             The token-protected checkout cancel route only displays Checkout
             Attempt state; it does not cancel a paid Booking. If payment never
-            completes, no Booking exists. During the migration, Stripe
-            <code>checkout.session.expired</code> events still mark legacy attempts
-            <code>expired</code>.
+            completes, Convex schedules the pending Checkout Attempt to become
+            <code>expired</code> at its 30-minute deadline. A verified
+            <code>CHECKOUT.PAYMENT-APPROVAL.REVERSED</code> event can also expire a
+            still-pending attempt by PayPal Order ID. A verified capture that
+            completes after scheduled expiry still runs the amount, currency, and
+            capacity checks before creating a Booking or starting a refund.
+          </p>
+          <p>
+            Manual check: create a Checkout Attempt and leave it unpaid, then
+            confirm <code>paymentStatus = expired</code> after 30 minutes. For a
+            faster check, run <code>expireIfPending</code> from the Convex dashboard.
           </p>
         </div>
 
@@ -358,8 +366,11 @@
           <p>
             The PayPal refund response records <code>refunded</code>,
             <code>refund_pending</code>, or <code>refund_failed</code> with its
-            <code>paypalRefundId</code>. Pending refunds remain pending until the
-            verified PayPal refund webhook lands in the next migration slice.
+            <code>paypalRefundId</code>. Verified
+            <code>PAYMENT.CAPTURE.REFUNDED</code> and
+            <code>PAYMENT.REFUND.FAILED</code> events finalize Payment Status by
+            that refund ID. Refund failures send Booking Communication only when
+            the mutation changes a record.
           </p>
         </div>
       </section>
@@ -394,7 +405,7 @@
               <td>Capacity refund email; failure email if PayPal fails refund</td>
             </tr>
             <tr>
-              <td>Checkout expires</td>
+              <td>Scheduled expiry or PayPal approval reversal</td>
               <td><code>Checkout Attempt = expired</code></td>
               <td><span class="status-bad">No</span></td>
               <td>None</td>
@@ -406,13 +417,13 @@
               <td>Cancellation/refund requested email</td>
             </tr>
             <tr>
-              <td>Refund webhook succeeds</td>
+              <td><code>PAYMENT.CAPTURE.REFUNDED</code></td>
               <td><code>paymentStatus = refunded</code></td>
               <td>Unchanged</td>
               <td>None</td>
             </tr>
             <tr>
-              <td>Refund webhook fails</td>
+              <td><code>PAYMENT.REFUND.FAILED</code></td>
               <td><code>paymentStatus = refund_failed</code></td>
               <td>Unchanged</td>
               <td>Refund failure email</td>
@@ -430,8 +441,8 @@
           <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and routes the result by payment status.</p></div>
           <div><code>app/lib/checkout-completion.ts</code><p>Creates paid Bookings and Booking Communication, or refunds captures after a capacity race.</p></div>
           <div><code>app/lib/stripe.ts</code><p>Creates Checkout Sessions, verifies webhooks, creates refunds.</p></div>
-          <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, checks capacity, handles refund status by the persisted PayPal refund ID.</p></div>
-          <div><code>app/routes/stripe-webhook.ts</code><p>Owns verified Stripe event behavior for payment completion, expiry, refund lifecycle.</p></div>
+          <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, schedules pending-attempt expiry, and handles refund status by the persisted PayPal refund ID.</p></div>
+          <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff, starts cancellation refunds.</p></div>
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation.</p></div>
           <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions.</p></div>
