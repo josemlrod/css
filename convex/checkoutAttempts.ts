@@ -213,7 +213,10 @@ export const completeCheckoutAttempt = mutation({
       return { status: 'booking_exists' as const, bookingId: existingBooking._id };
     }
 
-    if (checkoutAttempt.paymentStatus !== 'pending') {
+    if (
+      checkoutAttempt.paymentStatus !== 'pending' &&
+      checkoutAttempt.paymentStatus !== 'expired'
+    ) {
       return {
         status: checkoutAttempt.paymentStatus,
         checkoutAttemptId: checkoutAttempt._id,

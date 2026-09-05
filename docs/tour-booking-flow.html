@@ -328,7 +328,9 @@
             completes, Convex schedules the pending Checkout Attempt to become
             <code>expired</code> at its 30-minute deadline. A verified
             <code>CHECKOUT.PAYMENT-APPROVAL.REVERSED</code> event can also expire a
-            still-pending attempt by PayPal Order ID.
+            still-pending attempt by PayPal Order ID. A verified capture that
+            completes after scheduled expiry still runs the amount, currency, and
+            capacity checks before creating a Booking or starting a refund.
           </p>
           <p>
             Manual check: create a Checkout Attempt and leave it unpaid, then
