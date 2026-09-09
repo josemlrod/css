@@ -13,6 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - run: >-
+          flyctl deploy --remote-only
+          --build-arg VITE_CONVEX_URL="$VITE_CONVEX_URL"
+          --build-arg VITE_PAYPAL_CLIENT_ID="$VITE_PAYPAL_CLIENT_ID"
+          --build-arg VITE_PAYPAL_ENV="$VITE_PAYPAL_ENV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
+          VITE_PAYPAL_CLIENT_ID: ${{ vars.VITE_PAYPAL_CLIENT_ID }}
+          VITE_PAYPAL_ENV: ${{ vars.VITE_PAYPAL_ENV }}
