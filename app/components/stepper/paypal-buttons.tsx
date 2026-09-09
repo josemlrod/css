@@ -166,6 +166,10 @@ export function PayPalButtons() {
       (import.meta.env.DEV ? 'sandbox' : 'live');
     const clientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
+    console.info('---------------------------');
+    console.info('environment', environment);
+    console.info('---------------------------');
+
     async function initialize() {
       try {
         if (!clientId) throw new Error('PayPal checkout is not configured');
