@@ -23,7 +23,10 @@ describe('Booking Communication email content', () => {
       cancelUrl: 'https://example.com/manage/booking_123?token=raw_token',
     });
 
-    expect(email.subject).toBe('Your Savannah Food Tour Booking details');
+    expect(email.subject).toBe('Your Savannah Food Tour is all set');
+    expect(email.text).toContain(
+      'Thank you so much for booking with Cinematic Sites of Savannah.',
+    );
     expect(email.text).toContain('Date: July 4, 2026');
     expect(email.text).toContain('Time: 10:00 AM');
     expect(email.text).toContain('Party size: 2');
@@ -31,10 +34,16 @@ describe('Booking Communication email content', () => {
     expect(email.text).toContain(
       'Manage or cancel booking: https://example.com/manage/booking_123?token=raw_token',
     );
-    expect(email.text).not.toContain('Your booking is confirmed.');
     expect(email.html).toContain(
-      'PayPal will send the payment receipt separately.',
+      "we can't wait to share Savannah's most iconic film locations",
     );
+    expect(email.html).toContain('Cinematic Sites of Savannah Team');
+    expect(email.html).toContain('Manage cancellation');
+    expect(email.html).toContain(
+      'src="https://cinematicsitesofsavannah.com/wp-content/uploads/2023/06/CSS-logo1.png"',
+    );
+    expect(email.html).toContain('alt="Cinematic Sites of Savannah"');
+    expect(email.html).not.toContain('Booking Communication');
   });
 
   it('explains capacity refund without creating Booking language', () => {

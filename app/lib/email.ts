@@ -64,9 +64,9 @@ function escapeHtml(value: string) {
 }
 
 function bookingCommunicationText(booking: BookingCommunication) {
-  return `Hi ${booking.bookerName},
+  return `Hi there! Thank you so much for booking with Cinematic Sites of Savannah. We're excited to have you join us!
 
-Your Booking details are ready.
+Your tour is all set, and we can't wait to share Savannah's most iconic film locations and behind-the-scenes stories with you. If you have any questions before the tour, need directions, or have special requests, feel free to reach out anytime.
 
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
@@ -75,11 +75,15 @@ Party size: ${booking.guests}
 Total: ${currency.format(booking.total)}
 Meeting point: ${booking.meetingPoint}
 
+We look forward to exploring the city with you and giving you a fun, memorable experience!
+
+See you soon,
+Cinematic Sites of Savannah Team
+
 Manage or cancel booking: ${booking.cancelUrl}`;
 }
 
 function bookingCommunicationHtml(booking: BookingCommunication) {
-  const bookerName = escapeHtml(booking.bookerName);
   const tourName = escapeHtml(booking.tourName);
   const date = escapeHtml(formatDate(booking.date));
   const time = escapeHtml(booking.time);
@@ -93,11 +97,11 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${tourName} Booking details</title>
+    <title>Your ${tourName} is all set</title>
   </head>
   <body style="margin:0;background:#f7f7f7;color:#171717;font-family:Arial,sans-serif;">
     <div style="display:none;max-height:0;overflow:hidden;">
-      Your ${tourName} Booking details are ready.
+      Your ${tourName} is all set.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;padding:32px 16px;">
@@ -105,21 +109,23 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e5e5e5;border-radius:14px;overflow:hidden;">
             <tr>
-              <td style="padding:32px 32px 24px;background:#123449;color:#ffffff;">
-                <p style="margin:0 0 10px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#dc7b32;">
-                  Booking Communication
-                </p>
-                <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:600;">
-                  Booking details ready
-                </h1>
-                <p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#f7f7f7;">
-                  Hi ${bookerName}, your Savannah tour is reserved. PayPal will send the payment receipt separately.
-                </p>
+              <td align="center" style="padding:26px 28px 20px;background:#123449;">
+                <img src="https://cinematicsitesofsavannah.com/wp-content/uploads/2023/06/CSS-logo1.png" width="270" alt="Cinematic Sites of Savannah" style="display:block;width:270px;max-width:100%;height:auto;border:0;border-radius:4px;" />
               </td>
             </tr>
 
             <tr>
               <td style="padding:28px 32px;">
+                <h1 style="margin:0;color:#123449;font-size:30px;line-height:1.15;font-weight:700;">
+                  Your tour is all set
+                </h1>
+                <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#171717;">
+                  Hi there! Thank you so much for booking with Cinematic Sites of Savannah. We're excited to have you join us!
+                </p>
+                <p style="margin:18px 0 22px;font-size:15px;line-height:1.65;color:#404040;">
+                  Your tour is all set, and we can't wait to share Savannah's most iconic film locations and behind-the-scenes stories with you. If you have any questions before the tour, need directions, or have special requests, feel free to reach out anytime.
+                </p>
+
                 <h2 style="margin:0 0 16px;font-size:18px;line-height:1.3;color:#171717;">
                   ${tourName}
                 </h2>
@@ -152,6 +158,14 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
                   </p>
                 </div>
 
+                <p style="margin:24px 0 0;font-size:16px;line-height:1.6;color:#171717;">
+                  We look forward to exploring the city with you and giving you a fun, memorable experience!
+                </p>
+                <p style="margin:16px 0 0;font-size:16px;line-height:1.6;color:#171717;">
+                  See you soon,<br />
+                  Cinematic Sites of Savannah Team
+                </p>
+
                 <div style="margin-top:26px;">
                   <p style="margin:16px 0 0;font-size:14px;color:#737373;line-height:1.5;">
                     Need to cancel? <a href="${cancelUrl}" style="color:#123449;font-weight:600;">Manage cancellation</a>
@@ -161,9 +175,7 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
             </tr>
 
             <tr>
-              <td style="padding:20px 32px;background:#f7f7f7;color:#737373;font-size:13px;line-height:1.5;border-top:1px solid #e5e5e5;">
-                Keep this email handy. Your guide will meet you at the meeting point listed above.
-              </td>
+              <td style="height:7px;background:#dc7b32;font-size:0;line-height:0;">&nbsp;</td>
             </tr>
           </table>
         </td>
@@ -175,7 +187,7 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
 
 export function createBookingCommunicationEmail(booking: BookingCommunication) {
   return {
-    subject: `Your ${booking.tourName} Booking details`,
+    subject: `Your ${booking.tourName} is all set`,
     text: bookingCommunicationText(booking),
     html: bookingCommunicationHtml(booking),
   };
