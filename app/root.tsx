@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   isRouteErrorResponse,
   Links,
@@ -7,7 +6,6 @@ import {
   Scripts,
   ScrollRestoration,
 } from 'react-router';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
 
 import type { Route } from './+types/root';
 import './app.css';
@@ -51,11 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const [convex] = useState(
-    () => new ConvexReactClient(import.meta.env.VITE_CONVEX_URL),
-  );
-
-  return <ConvexProvider client={convex}>{<Outlet />}</ConvexProvider>;
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

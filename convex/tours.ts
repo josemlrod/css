@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import { internalMutation } from './_generated/server';
+import { serverQuery } from './lib/serverFunctions';
 
 const tourFields = {
   slug: v.string(),
@@ -19,7 +20,7 @@ const tourFields = {
   meetingPoint: v.string(),
 };
 
-export const getTours = query({
+export const getTours = serverQuery({
   args: {},
   handler: async (ctx) => {
     const tours = await ctx.db.query('tours').collect();
@@ -27,7 +28,7 @@ export const getTours = query({
   },
 });
 
-export const getTourById = query({
+export const getTourById = serverQuery({
   args: { tourId: v.id('tours') },
   handler: async (ctx, { tourId }) => {
     const tour = await ctx.db.get('tours', tourId);
@@ -35,7 +36,7 @@ export const getTourById = query({
   },
 });
 
-export const seedTours = mutation({
+export const seedTours = internalMutation({
   args: {
     tours: v.array(v.object(tourFields)),
   },

@@ -12,7 +12,7 @@ Each item links to its GitHub issue (all labeled `launch`). Tick items off as PR
 
 ### 1. Lock down Convex functions (#59)
 
-- [ ] Done
+- [x] Done
 
 Every Convex function is a public `query` or `mutation`. The Convex URL also ships in the client bundle because `app/root.tsx` (`App`, around line 55) creates a `ConvexReactClient` that nothing uses. Anyone can read the URL from devtools and call:
 
@@ -168,6 +168,7 @@ Tracked in #79.
   Then set `PAYPAL_WEBHOOK_ID`.
 - [ ] Choose the final domain before launch, for example `book.cinematicsitesofsavannah.com`. `APP_ORIGIN` goes into PayPal return URLs and into manage links in sent emails, so changing it later breaks old links.
 - [ ] Set `VITE_CONVEX_URL` to the production deployment in GitHub repo variables.
+- [ ] Generate `CONVEX_SERVER_SECRET` and set the same value on the production Convex deployment (`npx convex env set CONVEX_SERVER_SECRET <value> --prod`) and in Fly secrets.
 - [ ] Verify the sending domain in Resend (SPF and DKIM). Put `RESEND_FROM_EMAIL` on that domain and `RESEND_API_KEY` in Fly secrets.
 - [ ] Send test emails to Gmail and Outlook and confirm they don't land in spam.
 - [ ] Set `APP_ORIGIN` in Fly secrets.

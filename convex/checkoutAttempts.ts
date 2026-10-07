@@ -2,7 +2,8 @@ import { v } from 'convex/values';
 
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import { internalMutation } from './_generated/server';
+import { serverMutation, serverQuery } from './lib/serverFunctions';
 
 const paymentStatus = v.union(
   v.literal('pending'),
@@ -14,14 +15,14 @@ const paymentStatus = v.union(
   v.literal('refund_failed'),
 );
 
-export const getCheckoutAttemptById = query({
+export const getCheckoutAttemptById = serverQuery({
   args: { checkoutAttemptId: v.id('checkoutAttempts') },
   handler: async (ctx, { checkoutAttemptId }) => {
     return await ctx.db.get(checkoutAttemptId);
   },
 });
 
-export const getCheckoutAttemptWithTour = query({
+export const getCheckoutAttemptWithTour = serverQuery({
   args: { checkoutAttemptId: v.id('checkoutAttempts') },
   handler: async (ctx, { checkoutAttemptId }) => {
     const checkoutAttempt = await ctx.db.get(checkoutAttemptId);
@@ -32,7 +33,7 @@ export const getCheckoutAttemptWithTour = query({
   },
 });
 
-export const createCheckoutAttempt = mutation({
+export const createCheckoutAttempt = serverMutation({
   args: {
     tourId: v.id('tours'),
     date: v.string(),
@@ -78,7 +79,7 @@ export const expireIfPending = internalMutation({
   },
 });
 
-export const updateCheckoutAttempt = mutation({
+export const updateCheckoutAttempt = serverMutation({
   args: {
     id: v.id('checkoutAttempts'),
     paypalOrderId: v.optional(v.union(v.string(), v.null())),
@@ -98,7 +99,7 @@ export const updateCheckoutAttempt = mutation({
   },
 });
 
-export const updateCheckoutAttemptRefundStatus = mutation({
+export const updateCheckoutAttemptRefundStatus = serverMutation({
   args: {
     id: v.id('checkoutAttempts'),
     paymentStatus: v.union(
@@ -121,7 +122,7 @@ export const updateCheckoutAttemptRefundStatus = mutation({
   },
 });
 
-export const updateRefundStatusByPayPalRefund = mutation({
+export const updateRefundStatusByPayPalRefund = serverMutation({
   args: {
     paypalRefundId: v.string(),
     paymentStatus: v.union(v.literal('refunded'), v.literal('refund_failed')),
@@ -175,7 +176,7 @@ export const updateRefundStatusByPayPalRefund = mutation({
   },
 });
 
-export const completeCheckoutAttempt = mutation({
+export const completeCheckoutAttempt = serverMutation({
   args: {
     paypalOrderId: v.string(),
     amountValue: v.string(),
@@ -295,7 +296,7 @@ export const completeCheckoutAttempt = mutation({
   },
 });
 
-export const expireCheckoutAttempt = mutation({
+export const expireCheckoutAttempt = serverMutation({
   args: { paypalOrderId: v.string() },
   handler: async (ctx, { paypalOrderId }) => {
     const checkoutAttempt = await ctx.db
@@ -320,7 +321,7 @@ export const expireCheckoutAttempt = mutation({
   },
 });
 
-export const failCheckoutAttempt = mutation({
+export const failCheckoutAttempt = serverMutation({
   args: { paypalOrderId: v.string() },
   handler: async (ctx, { paypalOrderId }) => {
     const checkoutAttempt = await ctx.db

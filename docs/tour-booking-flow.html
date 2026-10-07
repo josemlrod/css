@@ -446,6 +446,8 @@
           <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff, starts cancellation refunds.</p></div>
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation.</p></div>
+          <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
+          <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
           <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions.</p></div>
         </div>
       </section>

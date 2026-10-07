@@ -49,7 +49,7 @@ App available at `http://localhost:5173`.
 | `bun run build` | Production build |
 | `bun run typecheck` | TypeScript check |
 | `bun test` | Run tests |
-| `bun run seed:tours` | Seed tours in Convex |
+| `bun run seed:tours` | Seed tours in Convex through `npx convex run` (add `--prod` for production) |
 
 ## Deployment
 
