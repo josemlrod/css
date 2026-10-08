@@ -1,13 +1,6 @@
-import { ConvexHttpClient } from 'convex/browser';
+import { spawnSync } from 'node:child_process';
 
-import { api } from '../convex/_generated/api';
 import { tours } from '../app/lib/mock-data';
-
-const convexUrl = process.env.CONVEX_URL ?? process.env.VITE_CONVEX_URL;
-
-if (!convexUrl) {
-  throw new Error('Set CONVEX_URL or VITE_CONVEX_URL before running this script.');
-}
 
 const seedTours = tours.map(
   ({
@@ -43,9 +36,18 @@ const seedTours = tours.map(
   }),
 );
 
-const client = new ConvexHttpClient(convexUrl);
-const insertedCount = await client.mutation(api.tours.seedTours, {
-  tours: seedTours,
-});
+// seedTours is internal, so it runs through the Convex CLI with deploy credentials.
+// Extra arguments pass through, for example `bun run seed:tours --prod`.
+const result = spawnSync(
+  'npx',
+  [
+    'convex',
+    'run',
+    'tours:seedTours',
+    JSON.stringify({ tours: seedTours }),
+    ...process.argv.slice(2),
+  ],
+  { stdio: 'inherit' },
+);
 
-console.log(`Seeded ${insertedCount} tours.`);
+process.exit(result.status ?? 1);

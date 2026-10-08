@@ -30,6 +30,7 @@ describe('checkout attempts', () => {
   });
 
   it('persists default pending shape with 30 minute expiration', async () => {
+    process.env.CONVEX_SERVER_SECRET = 'test-server-secret';
     vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
 
     const result = await saveCheckoutAttempt({
@@ -61,6 +62,7 @@ describe('checkout attempts', () => {
       paymentStatus: 'pending',
       expiresAt: Date.now() + CHECKOUT_ATTEMPT_TTL_MS,
       accessTokenHash: hashCheckoutAccessToken(result.accessToken),
+      serverSecret: 'test-server-secret',
     });
 
     vi.useRealTimers();

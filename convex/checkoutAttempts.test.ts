@@ -1,8 +1,48 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { completeCheckoutAttempt } from './checkoutAttempts';
 
+const handler = (
+  completeCheckoutAttempt as unknown as {
+    _handler: (
+      context: never,
+      args: {
+        paypalOrderId: string;
+        amountValue: string;
+        currency: string;
+        paypalCaptureId: string;
+        bookingAccessTokenHash: string;
+        serverSecret: string;
+      },
+    ) => Promise<{ status: string }>;
+  }
+)._handler;
+
+const args = {
+  paypalOrderId: 'ORDER-123',
+  amountValue: '158.00',
+  currency: 'USD',
+  paypalCaptureId: 'CAPTURE-123',
+  bookingAccessTokenHash: 'booking_token_hash',
+};
+
 describe('completeCheckoutAttempt', () => {
+  beforeEach(() => {
+    process.env.CONVEX_SERVER_SECRET = 'test-server-secret';
+  });
+
+  it('rejects callers without the server secret', () => {
+    expect(() =>
+      handler({} as never, { ...args, serverSecret: 'wrong-secret' }),
+    ).toThrow('Unauthorized');
+
+    delete process.env.CONVEX_SERVER_SECRET;
+
+    expect(() => handler({} as never, { ...args, serverSecret: '' })).toThrow(
+      'Unauthorized',
+    );
+  });
+
   it('reconciles a completed capture after scheduled expiry', async () => {
     const checkoutAttempt = {
       _id: 'checkout_attempt_123',
@@ -45,26 +85,9 @@ describe('completeCheckoutAttempt', () => {
       },
     };
 
-    const handler = (
-      completeCheckoutAttempt as unknown as {
-        _handler: (
-          context: never,
-          args: {
-            paypalOrderId: string;
-            amountValue: string;
-            currency: string;
-            paypalCaptureId: string;
-            bookingAccessTokenHash: string;
-          },
-        ) => Promise<{ status: string }>;
-      }
-    )._handler;
     const result = await handler(ctx as never, {
-      paypalOrderId: 'ORDER-123',
-      amountValue: '158.00',
-      currency: 'USD',
-      paypalCaptureId: 'CAPTURE-123',
-      bookingAccessTokenHash: 'booking_token_hash',
+      ...args,
+      serverSecret: 'test-server-secret',
     });
 
     expect(result.status).toBe('booking_created');

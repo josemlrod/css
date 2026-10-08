@@ -1,17 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import { ConvexHttpClient } from 'convex/browser';
-
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
+import { convexMutation, convexQuery } from './convex.server';
 import type { CheckoutAttemptId, NormalizedCheckoutAttempt } from './types';
 import { tryCatch } from './utils';
 
 export const CHECKOUT_ATTEMPT_TTL_MS = 30 * 60 * 1000;
-
-function getConvex() {
-  return new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL);
-}
 
 type CheckoutAttemptInput = Omit<
   NormalizedCheckoutAttempt,
@@ -39,7 +34,7 @@ export async function getCheckoutAttempt(
   checkoutAttemptId: CheckoutAttemptId,
 ) {
   const [checkoutAttempt, err] = await tryCatch(
-    getConvex().query(api.checkoutAttempts.getCheckoutAttemptById, {
+    convexQuery(api.checkoutAttempts.getCheckoutAttemptById, {
       checkoutAttemptId,
     }),
   );
@@ -53,7 +48,7 @@ export async function getCheckoutAttemptWithTour(
   checkoutAttemptId: CheckoutAttemptId,
 ) {
   const [res, err] = await tryCatch(
-    getConvex().query(api.checkoutAttempts.getCheckoutAttemptWithTour, {
+    convexQuery(api.checkoutAttempts.getCheckoutAttemptWithTour, {
       checkoutAttemptId,
     }),
   );
@@ -66,7 +61,7 @@ export async function getCheckoutAttemptWithTour(
 export async function saveCheckoutAttempt(input: CheckoutAttemptInput) {
   const accessToken = generateCheckoutAccessToken();
   const expiresAt = Date.now() + CHECKOUT_ATTEMPT_TTL_MS;
-  const checkoutAttemptId = await getConvex().mutation(
+  const checkoutAttemptId = await convexMutation(
     api.checkoutAttempts.createCheckoutAttempt,
     {
       ...input,
@@ -88,7 +83,7 @@ export async function updateCheckoutAttempt(
     >
   > & { id: Id<'checkoutAttempts'> },
 ) {
-  const checkoutAttemptId = await getConvex().mutation(
+  const checkoutAttemptId = await convexMutation(
     api.checkoutAttempts.updateCheckoutAttempt,
     updates,
   );
@@ -102,7 +97,7 @@ export async function completeCheckoutAttempt(input: {
   paypalCaptureId: string;
   bookingAccessTokenHash: string;
 }) {
-  const result = await getConvex().mutation(
+  const result = await convexMutation(
     api.checkoutAttempts.completeCheckoutAttempt,
     input,
   );
@@ -114,7 +109,7 @@ export async function updateCheckoutAttemptRefundStatus(input: {
   paymentStatus: 'refund_pending' | 'refunded' | 'refund_failed';
   paypalRefundId?: string;
 }) {
-  const checkoutAttemptId = await getConvex().mutation(
+  const checkoutAttemptId = await convexMutation(
     api.checkoutAttempts.updateCheckoutAttemptRefundStatus,
     input,
   );
@@ -125,7 +120,7 @@ export async function updateRefundStatusByPayPalRefund(input: {
   paypalRefundId: string;
   paymentStatus: 'refunded' | 'refund_failed';
 }) {
-  const result = await getConvex().mutation(
+  const result = await convexMutation(
     api.checkoutAttempts.updateRefundStatusByPayPalRefund,
     input,
   );
@@ -133,7 +128,7 @@ export async function updateRefundStatusByPayPalRefund(input: {
 }
 
 export async function expireCheckoutAttempt(input: { paypalOrderId: string }) {
-  const checkoutAttemptId = await getConvex().mutation(
+  const checkoutAttemptId = await convexMutation(
     api.checkoutAttempts.expireCheckoutAttempt,
     input,
   );
@@ -141,7 +136,7 @@ export async function expireCheckoutAttempt(input: { paypalOrderId: string }) {
 }
 
 export async function failCheckoutAttempt(input: { paypalOrderId: string }) {
-  const checkoutAttemptId = await getConvex().mutation(
+  const checkoutAttemptId = await convexMutation(
     api.checkoutAttempts.failCheckoutAttempt,
     input,
   );
