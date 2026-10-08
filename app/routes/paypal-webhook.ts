@@ -37,27 +37,33 @@ async function processRefundFailure(paypalRefundId: string) {
   });
 
   if (result.status === 'updated_booking' && result.tour) {
-    await sendRefundFailedCommunication({
-      to: result.booking.bookerEmail,
-      bookerName: result.booking.bookerName,
-      tourName: result.tour.name,
-      date: result.booking.date,
-      time: result.booking.time,
-      guests: result.booking.guests,
-      total: result.tour.price * result.booking.guests,
-    });
+    await sendRefundFailedCommunication(
+      {
+        to: result.booking.bookerEmail,
+        bookerName: result.booking.bookerName,
+        tourName: result.tour.name,
+        date: result.booking.date,
+        time: result.booking.time,
+        guests: result.booking.guests,
+        total: result.tour.price * result.booking.guests,
+      },
+      { bookingId: result.booking._id },
+    );
   }
 
   if (result.status === 'updated_checkout_attempt' && result.tour) {
-    await sendRefundFailedCommunication({
-      to: result.checkoutAttempt.bookerEmail,
-      bookerName: result.checkoutAttempt.bookerName,
-      tourName: result.tour.name,
-      date: result.checkoutAttempt.date,
-      time: result.checkoutAttempt.time,
-      guests: result.checkoutAttempt.guests,
-      total: result.checkoutAttempt.total,
-    });
+    await sendRefundFailedCommunication(
+      {
+        to: result.checkoutAttempt.bookerEmail,
+        bookerName: result.checkoutAttempt.bookerName,
+        tourName: result.tour.name,
+        date: result.checkoutAttempt.date,
+        time: result.checkoutAttempt.time,
+        guests: result.checkoutAttempt.guests,
+        total: result.checkoutAttempt.total,
+      },
+      { checkoutAttemptId: result.checkoutAttempt._id },
+    );
   }
 
   return result;

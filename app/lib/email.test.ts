@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createBookingCancellationRefundFailedEmail,
@@ -6,7 +6,16 @@ import {
   createBookingCommunicationEmail,
   createFailedCapacityRefundEmail,
   createRefundFailedEmail,
+  sendBookingCommunication,
 } from './email';
+
+const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
+
+vi.mock('resend', () => ({
+  Resend: class {
+    emails = { send: sendMock };
+  },
+}));
 
 describe('Booking Communication email content', () => {
   it('includes paid Booking details and private manage/cancel link', () => {
@@ -112,5 +121,74 @@ describe('Booking Communication email content', () => {
     expect(email.text).toContain('Payment Status: refund failed');
     expect(email.text).toContain('PayPal reported that your refund failed');
     expect(email.text).toContain('support@example.com');
+  });
+});
+
+describe('Booking Communication sending', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    sendMock.mockReset();
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_FROM_EMAIL;
+    delete process.env.OPERATOR_EMAIL;
+  });
+
+  it('logs a Resend error result and alerts the operator without the manage link', async () => {
+    process.env.RESEND_API_KEY = 're_test';
+    process.env.RESEND_FROM_EMAIL = 'tours@example.com';
+    process.env.OPERATOR_EMAIL = 'operator@example.com';
+    const consoleErrorMock = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    sendMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: { name: 'validation_error', message: 'Invalid `to` field' },
+      })
+      .mockRejectedValueOnce(new Error('Network down'));
+
+    await expect(
+      sendBookingCommunication(
+        {
+          to: 'booker@example.com',
+          bookerName: 'Test Booker',
+          tourName: 'Savannah Food Tour',
+          date: '2026-07-04',
+          time: '10:00 AM',
+          guests: 2,
+          total: 158,
+          meetingPoint: 'City Market',
+          editUrl: 'https://example.com/manage/booking_123?token=raw_token',
+          cancelUrl: 'https://example.com/manage/booking_123?token=raw_token',
+        },
+        { bookingId: 'booking_123' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(sendMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        to: 'operator@example.com',
+        text: expect.stringContaining('Booking ID: booking_123'),
+      }),
+    );
+    expect(JSON.stringify(sendMock.mock.lastCall)).not.toContain('raw_token');
+    expect(consoleErrorMock.mock.calls).toEqual([
+      [
+        'Email send failed',
+        {
+          type: 'booking_communication',
+          bookingId: 'booking_123',
+          error: 'validation_error: Invalid `to` field',
+        },
+      ],
+      [
+        'Email send failed',
+        {
+          type: 'booking_communication_failed_alert',
+          bookingId: 'booking_123',
+          error: 'Network down',
+        },
+      ],
+    ]);
   });
 });
