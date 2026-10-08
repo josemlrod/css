@@ -51,18 +51,21 @@ export async function finalizePaidCapture({
   if (result.status === 'booking_created') {
     const manageUrl = manageBookingUrl(result.bookingId, bookingAccessToken);
 
-    await sendBookingCommunication({
-      to: result.checkoutAttempt.bookerEmail,
-      bookerName: result.checkoutAttempt.bookerName,
-      tourName: result.tour.name,
-      date: result.checkoutAttempt.date,
-      time: result.checkoutAttempt.time,
-      guests: result.checkoutAttempt.guests,
-      total: result.checkoutAttempt.total,
-      meetingPoint: result.tour.meetingPoint,
-      editUrl: manageUrl,
-      cancelUrl: manageUrl,
-    });
+    await sendBookingCommunication(
+      {
+        to: result.checkoutAttempt.bookerEmail,
+        bookerName: result.checkoutAttempt.bookerName,
+        tourName: result.tour.name,
+        date: result.checkoutAttempt.date,
+        time: result.checkoutAttempt.time,
+        guests: result.checkoutAttempt.guests,
+        total: result.checkoutAttempt.total,
+        meetingPoint: result.tour.meetingPoint,
+        editUrl: manageUrl,
+        cancelUrl: manageUrl,
+      },
+      { bookingId: result.bookingId },
+    );
   }
 
   if (result.status === 'capacity_unavailable') {
@@ -96,10 +99,12 @@ export async function finalizePaidCapture({
       total: result.checkoutAttempt.total,
     };
 
+    const record = { checkoutAttemptId: result.checkoutAttempt._id };
+
     if (paymentStatus === 'refund_failed') {
-      await sendRefundFailedCommunication(communication);
+      await sendRefundFailedCommunication(communication, record);
     } else {
-      await sendFailedCapacityRefundCommunication(communication);
+      await sendFailedCapacityRefundCommunication(communication, record);
     }
 
     return { ...result, paymentStatus };

@@ -121,15 +121,18 @@ describe('manage tour cancellation', () => {
     expect(refundPayPalCaptureMock.mock.invocationCallOrder[0]).toBeLessThan(
       cancelPaidBookingMock.mock.invocationCallOrder[0],
     );
-    expect(sendBookingCancellationRefundRequestedCommunicationMock).toHaveBeenCalledWith({
-      to: 'booker@example.com',
-      bookerName: 'Test Booker',
-      tourName: 'Savannah Food Tour',
-      date: '2099-07-04',
-      time: '10:00 AM',
-      guests: 2,
-      total: 158,
-    });
+    expect(sendBookingCancellationRefundRequestedCommunicationMock).toHaveBeenCalledWith(
+      {
+        to: 'booker@example.com',
+        bookerName: 'Test Booker',
+        tourName: 'Savannah Food Tour',
+        date: '2099-07-04',
+        time: '10:00 AM',
+        guests: 2,
+        total: 158,
+      },
+      { bookingId: 'booking_123' },
+    );
   });
 
   it('keeps Booking active when refund creation fails', async () => {
@@ -139,15 +142,18 @@ describe('manage tour cancellation', () => {
     await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
 
     expect(cancelPaidBookingMock).not.toHaveBeenCalled();
-    expect(sendBookingCancellationRefundFailedCommunicationMock).toHaveBeenCalledWith({
-      to: 'booker@example.com',
-      bookerName: 'Test Booker',
-      tourName: 'Savannah Food Tour',
-      date: '2099-07-04',
-      time: '10:00 AM',
-      guests: 2,
-      total: 158,
-    });
+    expect(sendBookingCancellationRefundFailedCommunicationMock).toHaveBeenCalledWith(
+      {
+        to: 'booker@example.com',
+        bookerName: 'Test Booker',
+        tourName: 'Savannah Food Tour',
+        date: '2099-07-04',
+        time: '10:00 AM',
+        guests: 2,
+        total: 158,
+      },
+      { bookingId: 'booking_123' },
+    );
   });
 
   it.each(['FAILED', 'CANCELLED'])(

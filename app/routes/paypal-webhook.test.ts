@@ -215,7 +215,7 @@ describe('PayPal webhook action', () => {
     });
     updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_booking',
-      booking: checkoutAttempt,
+      booking: { ...checkoutAttempt, _id: 'booking_123' },
       tour,
     } as never);
 
@@ -225,15 +225,18 @@ describe('PayPal webhook action', () => {
       paypalRefundId: 'REFUND-123',
       paymentStatus: 'refund_failed',
     });
-    expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith({
-      to: 'booker@example.com',
-      bookerName: 'Test Booker',
-      tourName: 'Savannah Food Tour',
-      date: '2026-07-04',
-      time: '10:00 AM',
-      guests: 2,
-      total: 158,
-    });
+    expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith(
+      {
+        to: 'booker@example.com',
+        bookerName: 'Test Booker',
+        tourName: 'Savannah Food Tour',
+        date: '2026-07-04',
+        time: '10:00 AM',
+        guests: 2,
+        total: 158,
+      },
+      { bookingId: 'booking_123' },
+    );
   });
 
   it('uses Checkout Attempt totals when its refund fails', async () => {
@@ -243,7 +246,11 @@ describe('PayPal webhook action', () => {
     });
     updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_checkout_attempt',
-      checkoutAttempt: { ...checkoutAttempt, total: 150 },
+      checkoutAttempt: {
+        ...checkoutAttempt,
+        _id: 'checkout_attempt_123',
+        total: 150,
+      },
       tour,
     } as never);
 
@@ -251,6 +258,7 @@ describe('PayPal webhook action', () => {
 
     expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith(
       expect.objectContaining({ total: 150 }),
+      { checkoutAttemptId: 'checkout_attempt_123' },
     );
   });
 

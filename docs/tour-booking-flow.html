@@ -278,7 +278,7 @@
           </div>
           <div class="entity">
             <h3>Booking Communication</h3>
-            <p>The app sends a welcome confirmation with tour details, meeting point, and a private cancellation link. It also sends refund notices, cancellation results, and refund failures. PayPal receipts stay separate.</p>
+            <p>The app sends a welcome confirmation with tour details, meeting point, and a private cancellation link. It also sends refund notices, cancellation results, and refund failures. PayPal receipts stay separate. A failed send never changes the payment or cancellation response. It is logged with the email type and the Booking or Checkout Attempt ID, never the manage link.</p>
           </div>
         </div>
       </section>
@@ -314,7 +314,7 @@
             <div class="step"><div class="num">1</div><div class="step-body"><h3>Order captured</h3><p>The SDK approval callback posts the private Checkout Attempt token and Order ID to <code>/paypal/capture/:checkoutAttemptId</code>. The server verifies both before calling PayPal.</p></div></div>
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p>A completed capture passes its amount, currency, Order ID, and Capture ID to <code>finalizePaidCapture</code>. <code>completeCheckoutAttempt</code> checks idempotency and current capacity.</p></div></div>
             <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, the app inserts the Booking with <code>paymentStatus: paid</code> and marks the attempt <code>paid</code>. A pending PayPal capture leaves the attempt pending.</p></div></div>
-            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link.</p></div></div>
+            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link. If Resend rejects or fails the send, the app emails <code>OPERATOR_EMAIL</code> the Booking ID and Booker contact details, without the link, so the operator can reach the Booker.</p></div></div>
           </div>
         </div>
       </section>
@@ -397,7 +397,7 @@
               <td>Payment succeeds, capacity available</td>
               <td><code>Checkout Attempt = paid</code>, <code>Booking = paid</code></td>
               <td><span class="status-ok">Yes</span></td>
-              <td>Booking details email with manage link</td>
+              <td>Booking details email with manage link; operator alert if it fails</td>
             </tr>
             <tr>
               <td>Payment succeeds, capacity full</td>
@@ -448,7 +448,7 @@
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
           <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
-          <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions.</p></div>
+          <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
         </div>
       </section>
     </main>

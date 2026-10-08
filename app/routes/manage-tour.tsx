@@ -333,15 +333,18 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
       throw new Error(`PayPal refund returned ${refund.status}`);
     }
   } catch {
-    await sendBookingCancellationRefundFailedCommunication({
-      to: booking.bookerEmail,
-      bookerName: booking.bookerName,
-      tourName: tour.name,
-      date: booking.date,
-      time: booking.time,
-      guests: booking.guests,
-      total,
-    });
+    await sendBookingCancellationRefundFailedCommunication(
+      {
+        to: booking.bookerEmail,
+        bookerName: booking.bookerName,
+        tourName: tour.name,
+        date: booking.date,
+        time: booking.time,
+        guests: booking.guests,
+        total,
+      },
+      { bookingId: booking._id },
+    );
 
     return { view: View.REFUND_FAILED };
   }
@@ -352,15 +355,18 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     paypalRefundId: refund.id,
   });
 
-  await sendBookingCancellationRefundRequestedCommunication({
-    to: booking.bookerEmail,
-    bookerName: booking.bookerName,
-    tourName: tour.name,
-    date: booking.date,
-    time: booking.time,
-    guests: booking.guests,
-    total,
-  });
+  await sendBookingCancellationRefundRequestedCommunication(
+    {
+      to: booking.bookerEmail,
+      bookerName: booking.bookerName,
+      tourName: tour.name,
+      date: booking.date,
+      time: booking.time,
+      guests: booking.guests,
+      total,
+    },
+    { bookingId: booking._id },
+  );
 
   return { view: View.CANCELLED };
 }

@@ -95,14 +95,14 @@ Scrappy fix:
 
 ### 7. Stop swallowing email failures (#65)
 
-- [ ] Done
+- [x] Done
 
 Every send function in `app/lib/email.ts` ends in `catch {}`. The confirmation email is the only place the manage/cancel link exists. If Resend rejects a send, the Booker can't cancel and nobody finds out.
 
 Fix:
 
 - Log the error with enough context to find the Booking.
-- Alert the operator when the confirmation email fails, so they can resend the link by hand.
+- Alert the operator when the confirmation email fails, so they can contact the Booker. The operator can't resend the link, because only the token hash is stored.
 
 Durable retries are tracked in #54 and #56 and can wait.
 
@@ -172,6 +172,7 @@ Tracked in #79.
 - [ ] Verify the sending domain in Resend (SPF and DKIM). Put `RESEND_FROM_EMAIL` on that domain and `RESEND_API_KEY` in Fly secrets.
 - [ ] Send test emails to Gmail and Outlook and confirm they don't land in spam.
 - [ ] Set `APP_ORIGIN` in Fly secrets.
+- [ ] Set `OPERATOR_EMAIL` in Fly secrets once #58 names the recipient. Without it, failed Booking emails are only logged.
 - [ ] Run one real live-mode purchase at a low test price, then self-cancel it for a refund. Check webhook deliveries in the PayPal dashboard.
 - [ ] Update the WordPress tour links to the production slugs from item 2.
 - [ ] Add a privacy policy link to the footer. The app collects names, emails, and payments.

@@ -31,6 +31,11 @@ type RefundFailedCommunication = FailedCapacityRefundCommunication & {
   supportEmail?: string;
 };
 
+// Logged with every send failure so it can be traced to a Booking or Checkout Attempt.
+type EmailRecord = { bookingId: string } | { checkoutAttemptId: string };
+
+type Email = { subject: string; text: string; html?: string };
+
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -317,85 +322,139 @@ Refund amount: ${currency.format(booking.total)}`,
   };
 }
 
-export async function sendBookingCommunication(booking: BookingCommunication) {
-  const resend = new Resend(requireEnv('RESEND_API_KEY'));
-  const email = createBookingCommunicationEmail(booking);
+function createBookingCommunicationFailedAlertEmail(
+  booking: BookingCommunication,
+  bookingId: string,
+) {
+  return {
+    subject: `Booking email failed: ${booking.tourName} on ${formatDate(booking.date)}`,
+    text: `The Booking email for this new Booking could not be sent. The Booker has no link to manage or cancel online, so please contact them directly.
 
+Booking ID: ${bookingId}
+Booker: ${booking.bookerName} <${booking.to}>
+Tour: ${booking.tourName}
+Date: ${formatDate(booking.date)}
+Time: ${booking.time}
+Party size: ${booking.guests}
+Total: ${currency.format(booking.total)}`,
+  };
+}
+
+async function sendEmail(
+  type: string,
+  record: EmailRecord,
+  to: string,
+  email: Email,
+) {
   try {
-    await resend.emails.send({
+    const resend = new Resend(requireEnv('RESEND_API_KEY'));
+    const { error } = await resend.emails.send({
       from: requireEnv('RESEND_FROM_EMAIL'),
-      to: booking.to,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
+      to,
+      ...email,
     });
-  } catch {}
+
+    if (!error) return true;
+
+    console.error('Email send failed', {
+      type,
+      ...record,
+      error: `${error.name}: ${error.message}`,
+    });
+  } catch (error) {
+    console.error('Email send failed', {
+      type,
+      ...record,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return false;
+}
+
+async function sendOperatorEmail(
+  type: string,
+  record: EmailRecord,
+  email: Email,
+) {
+  const to = process.env.OPERATOR_EMAIL;
+
+  if (!to) {
+    console.error('Email send failed', {
+      type,
+      ...record,
+      error: 'OPERATOR_EMAIL is required',
+    });
+    return false;
+  }
+
+  return sendEmail(type, record, to, email);
+}
+
+export async function sendBookingCommunication(
+  booking: BookingCommunication,
+  record: { bookingId: string },
+) {
+  const sent = await sendEmail(
+    'booking_communication',
+    record,
+    booking.to,
+    createBookingCommunicationEmail(booking),
+  );
+
+  if (!sent) {
+    await sendOperatorEmail(
+      'booking_communication_failed_alert',
+      record,
+      createBookingCommunicationFailedAlertEmail(booking, record.bookingId),
+    );
+  }
 }
 
 export async function sendFailedCapacityRefundCommunication(
   booking: FailedCapacityRefundCommunication,
+  record: { checkoutAttemptId: string },
 ) {
-  const resend = new Resend(requireEnv('RESEND_API_KEY'));
-  const email = createFailedCapacityRefundEmail(booking);
-
-  try {
-    await resend.emails.send({
-      from: requireEnv('RESEND_FROM_EMAIL'),
-      to: booking.to,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
-  } catch {}
+  await sendEmail(
+    'capacity_refund',
+    record,
+    booking.to,
+    createFailedCapacityRefundEmail(booking),
+  );
 }
 
 export async function sendBookingCancellationRefundRequestedCommunication(
   booking: CancellationRefundCommunication,
+  record: { bookingId: string },
 ) {
-  const resend = new Resend(requireEnv('RESEND_API_KEY'));
-  const email = createBookingCancellationRefundRequestedEmail(booking);
-
-  try {
-    await resend.emails.send({
-      from: requireEnv('RESEND_FROM_EMAIL'),
-      to: booking.to,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
-  } catch {}
+  await sendEmail(
+    'cancellation_refund_requested',
+    record,
+    booking.to,
+    createBookingCancellationRefundRequestedEmail(booking),
+  );
 }
 
 export async function sendBookingCancellationRefundFailedCommunication(
   booking: CancellationRefundCommunication,
+  record: { bookingId: string },
 ) {
-  const resend = new Resend(requireEnv('RESEND_API_KEY'));
-  const email = createBookingCancellationRefundFailedEmail(booking);
-
-  try {
-    await resend.emails.send({
-      from: requireEnv('RESEND_FROM_EMAIL'),
-      to: booking.to,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
-  } catch {}
+  await sendEmail(
+    'cancellation_refund_failed',
+    record,
+    booking.to,
+    createBookingCancellationRefundFailedEmail(booking),
+  );
 }
 
 export async function sendRefundFailedCommunication(
   booking: RefundFailedCommunication,
+  record: EmailRecord,
 ) {
-  const resend = new Resend(requireEnv('RESEND_API_KEY'));
-  const email = createRefundFailedEmail(booking);
-
-  try {
-    await resend.emails.send({
-      from: requireEnv('RESEND_FROM_EMAIL'),
-      to: booking.to,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
-  } catch {}
+  await sendEmail(
+    'refund_failed',
+    record,
+    booking.to,
+    createRefundFailedEmail(booking),
+  );
 }
