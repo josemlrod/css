@@ -266,7 +266,7 @@
         <div class="entity-grid">
           <div class="entity">
             <h3>Tour</h3>
-            <p>Catalog item with price, capacity, start times, meeting point.</p>
+            <p>Catalog item with price, capacity, start times, meeting point. Booking pages live at <code>/tour/:slug</code>. The seed updates tours in place by slug, so tour IDs on Checkout Attempts and Bookings stay valid.</p>
           </div>
           <div class="entity">
             <h3>Checkout Attempt</h3>
@@ -437,7 +437,7 @@
         <h2>Code Map</h2>
         <div class="code-map">
           <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
-          <div><code>app/routes/tour-booking.tsx</code><p>Validates Booker input, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
+          <div><code>app/routes/tour-booking.tsx</code><p>Looks up the tour by slug, validates Booker input, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
           <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, starts payment sessions, captures approved Orders, and handles cancellation.</p></div>
           <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and routes the result by payment status.</p></div>
           <div><code>app/lib/checkout-completion.ts</code><p>Creates paid Bookings and Booking Communication, or refunds captures after a capacity race.</p></div>

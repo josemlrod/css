@@ -6,7 +6,7 @@ import {
 } from '~/lib/checkout-attempts';
 import { getTodayInBookingTimeZone } from '~/lib/dates';
 import { createPayPalOrder } from '~/lib/paypal';
-import { getTourById } from '~/lib/tours';
+import { getTourBySlug } from '~/lib/tours';
 
 import { action } from './tour-booking';
 
@@ -16,7 +16,7 @@ vi.mock('~/lib/checkout-attempts', () => ({
 }));
 
 vi.mock('~/lib/tours', () => ({
-  getTourById: vi.fn(),
+  getTourBySlug: vi.fn(),
 }));
 
 vi.mock('~/lib/paypal', () => ({
@@ -26,10 +26,10 @@ vi.mock('~/lib/paypal', () => ({
 const saveCheckoutAttemptMock = vi.mocked(saveCheckoutAttempt);
 const updateCheckoutAttemptMock = vi.mocked(updateCheckoutAttempt);
 const createPayPalOrderMock = vi.mocked(createPayPalOrder);
-const getTourByIdMock = vi.mocked(getTourById);
+const getTourBySlugMock = vi.mocked(getTourBySlug);
 
 const tour = {
-  _id: 'southern-flavors-food',
+  _id: 'tour_123',
   _creationTime: 0,
   slug: 'southern-flavors-food',
   name: 'Southern Flavors Food Tour',
@@ -59,7 +59,7 @@ function bookingRequest(overrides: Record<string, string> = {}) {
     ...overrides,
   });
 
-  return new Request('https://example.com/tours/southern-flavors-food', {
+  return new Request('https://example.com/tour/southern-flavors-food', {
     method: 'POST',
     body,
   });
@@ -71,16 +71,35 @@ describe('tour booking action', () => {
     vi.clearAllMocks();
   });
 
+  it('returns 404 for an unknown tour slug', async () => {
+    getTourBySlugMock.mockResolvedValueOnce(null);
+
+    const response = await action({
+      request: bookingRequest(),
+      params: { slug: 'unknown-tour' },
+      context: {},
+      url: new URL('https://example.com/tour/unknown-tour'),
+      pattern: '/tour/:slug',
+    });
+
+    expect(getTourBySlugMock).toHaveBeenCalledWith('unknown-tour');
+    expect(response).toMatchObject({
+      data: { ok: false, error: 'Tour not found' },
+      init: { status: 404 },
+    });
+    expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid input without sending booking communication', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
-    getTourByIdMock.mockResolvedValueOnce(tour as never);
+    getTourBySlugMock.mockResolvedValueOnce(tour as never);
 
     const response = await action({
       request: bookingRequest({ email: 'not-an-email' }),
-      params: { tourId: 'southern-flavors-food' },
+      params: { slug: 'southern-flavors-food' },
       context: {},
-      url: new URL('https://example.com/tours/southern-flavors-food'),
-      pattern: '/tours/:tourId',
+      url: new URL('https://example.com/tour/southern-flavors-food'),
+      pattern: '/tour/:slug',
     });
 
     expect(response).toMatchObject({
@@ -93,7 +112,7 @@ describe('tour booking action', () => {
 
   it('persists a checkout attempt and returns the PayPal order', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
-    getTourByIdMock.mockResolvedValueOnce(tour as never);
+    getTourBySlugMock.mockResolvedValueOnce(tour as never);
     saveCheckoutAttemptMock.mockResolvedValueOnce({
       checkoutAttemptId: 'checkout-attempt-123' as never,
       accessToken: 'raw-token',
@@ -103,10 +122,10 @@ describe('tour booking action', () => {
 
     const response = await action({
       request: bookingRequest(),
-      params: { tourId: 'southern-flavors-food' },
+      params: { slug: 'southern-flavors-food' },
       context: {},
-      url: new URL('https://example.com/tours/southern-flavors-food'),
-      pattern: '/tours/:tourId',
+      url: new URL('https://example.com/tour/southern-flavors-food'),
+      pattern: '/tour/:slug',
     });
 
     expect(response).toMatchObject({
@@ -124,7 +143,7 @@ describe('tour booking action', () => {
       guests: 2,
       bookerName: 'Ada Lovelace',
       bookerEmail: 'ada@example.com',
-      tourId: 'southern-flavors-food',
+      tourId: 'tour_123',
       unitPrice: 79,
       total: 158,
       currency: 'usd',
@@ -148,7 +167,7 @@ describe('tour booking action', () => {
 
   it('returns an error when PayPal order creation fails', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
-    getTourByIdMock.mockResolvedValueOnce(tour as never);
+    getTourBySlugMock.mockResolvedValueOnce(tour as never);
     saveCheckoutAttemptMock.mockResolvedValueOnce({
       checkoutAttemptId: 'checkout-attempt-123' as never,
       accessToken: 'raw-token',
@@ -162,10 +181,10 @@ describe('tour booking action', () => {
 
     const response = await action({
       request: bookingRequest(),
-      params: { tourId: 'southern-flavors-food' },
+      params: { slug: 'southern-flavors-food' },
       context: {},
-      url: new URL('https://example.com/tours/southern-flavors-food'),
-      pattern: '/tours/:tourId',
+      url: new URL('https://example.com/tour/southern-flavors-food'),
+      pattern: '/tour/:slug',
     });
 
     expect(response).toMatchObject({
@@ -178,7 +197,7 @@ describe('tour booking action', () => {
 
   it('returns an error when PayPal omits the order ID', async () => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
-    getTourByIdMock.mockResolvedValueOnce(tour as never);
+    getTourBySlugMock.mockResolvedValueOnce(tour as never);
     saveCheckoutAttemptMock.mockResolvedValueOnce({
       checkoutAttemptId: 'checkout-attempt-123' as never,
       accessToken: 'raw-token',
@@ -189,10 +208,10 @@ describe('tour booking action', () => {
 
     const response = await action({
       request: bookingRequest(),
-      params: { tourId: 'southern-flavors-food' },
+      params: { slug: 'southern-flavors-food' },
       context: {},
-      url: new URL('https://example.com/tours/southern-flavors-food'),
-      pattern: '/tours/:tourId',
+      url: new URL('https://example.com/tour/southern-flavors-food'),
+      pattern: '/tour/:slug',
     });
 
     expect(response).toMatchObject({

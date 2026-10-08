@@ -8,7 +8,7 @@ import {
 export default [
   index('routes/home.tsx'),
   layout('routes/layout.tsx', [
-    route('/tour/:tourId', 'routes/tour-booking.tsx'),
+    route('/tour/:slug', 'routes/tour-booking.tsx'),
     route(
       '/checkout/success/:checkoutAttemptId',
       'routes/checkout-success.tsx',

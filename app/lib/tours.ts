@@ -1,6 +1,5 @@
 import { convexQuery } from './convex.server';
 import { tryCatch } from './utils';
-import type { TourId } from './types';
 
 import { api } from '../../convex/_generated/api';
 
@@ -12,9 +11,9 @@ export async function getTours() {
   return tours;
 }
 
-export async function getTourById(tourId: TourId) {
+export async function getTourBySlug(slug: string) {
   const [tour, err] = await tryCatch(
-    convexQuery(api.tours.getTourById, { tourId }),
+    convexQuery(api.tours.getTourBySlug, { slug }),
   );
 
   if (err) throw new Error('Something went wrong');

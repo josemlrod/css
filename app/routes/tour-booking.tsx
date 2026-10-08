@@ -5,15 +5,14 @@ import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
 import { BookingValidation } from '~/lib/booking-validation';
 
-import { tours } from '~/lib/mock-data';
 import type { Route } from './+types/tour-booking';
 import {
   saveCheckoutAttempt,
   updateCheckoutAttempt,
 } from '~/lib/checkout-attempts';
 import { createPayPalOrder } from '~/lib/paypal';
-import { getTourById } from '~/lib/tours';
-import type { TourId, Tour as TourType } from '~/lib/types';
+import { getTourBySlug } from '~/lib/tours';
+import type { Tour as TourType } from '~/lib/types';
 
 export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
@@ -89,16 +88,6 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
   );
 }
 
-function getTour(tourId: string | undefined) {
-  const tour = tours.find((t) => t.id === tourId || t.slug === tourId);
-
-  if (!tour) {
-    throw data('Tour not found', { status: 404 });
-  }
-
-  return tour;
-}
-
 export async function action({ request, params }: Route.ActionArgs) {
   const formData = await request.formData();
 
@@ -106,9 +95,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     return data({ ok: false, error: 'Invalid intent' }, { status: 400 });
   }
 
-  const tourId = params.tourId as TourId;
+  const tour = await getTourBySlug(params.slug);
 
-  const tour = (await getTourById(tourId)) as TourType;
+  if (!tour) {
+    return data({ ok: false, error: 'Tour not found' }, { status: 404 });
+  }
+
   const booking = BookingValidation.safeParse({
     date: String(formData.get('date') ?? ''),
     time: String(formData.get('time') ?? ''),
@@ -147,7 +139,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       guests,
       bookerName,
       bookerEmail,
-      tourId,
+      tourId: tour._id,
       unitPrice: tour.price,
       total: guests * tour.price,
       currency: 'usd',
@@ -187,8 +179,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 }
 
-export async function loader({ params: { tourId } }: Route.LoaderArgs) {
-  const tour = await getTourById(tourId as TourId);
+export async function loader({ params: { slug } }: Route.LoaderArgs) {
+  const tour = await getTourBySlug(slug);
 
   if (!tour) throw data('Tour not found', { status: 404 });
 

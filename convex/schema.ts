@@ -18,7 +18,7 @@ export default defineSchema({
     startTimes: v.array(v.string()),
     meetingPoint: v.string(),
     updatedAt: v.number(),
-  }),
+  }).index('by_slug', ['slug']),
 
   bookings: defineTable({
     cancelled: v.union(v.number(), v.null()),

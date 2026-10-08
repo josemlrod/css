@@ -32,7 +32,7 @@ Do this first, in its own PR.
 
 ### 2. Stable tour links (#60)
 
-- [ ] Done
+- [x] Done
 
 `seedTours` deletes each tour by slug and inserts a new one (`convex/tours.ts`, around lines 49-53). Every run creates new IDs. That breaks hard-coded WordPress links and orphans existing Bookings:
 
