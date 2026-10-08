@@ -7,7 +7,7 @@ export default function Home() {
         <p className='text-2xl'>Demo tour:</p>
         <Link
           className='text-2xl text-blue-400 underline'
-          to='/tour/jd7695dv5cyyxxgkrwyhntkzyn8dv7de'
+          to='/tour/haunted-savannah-ghost'
         >
           here
         </Link>

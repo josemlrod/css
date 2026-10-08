@@ -28,11 +28,13 @@ export const getTours = serverQuery({
   },
 });
 
-export const getTourById = serverQuery({
-  args: { tourId: v.id('tours') },
-  handler: async (ctx, { tourId }) => {
-    const tour = await ctx.db.get('tours', tourId);
-    return tour;
+export const getTourBySlug = serverQuery({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    return await ctx.db
+      .query('tours')
+      .withIndex('by_slug', (q) => q.eq('slug', slug))
+      .unique();
   },
 });
 
@@ -41,17 +43,18 @@ export const seedTours = internalMutation({
     tours: v.array(v.object(tourFields)),
   },
   handler: async (ctx, { tours }) => {
+    // Update tours in place by slug so tour IDs stay stable for Bookings and links.
     for (const tour of tours) {
-      const existingTours = await ctx.db
+      const existingTour = await ctx.db
         .query('tours')
-        .filter((q) => q.eq(q.field('slug'), tour.slug))
-        .collect();
+        .withIndex('by_slug', (q) => q.eq('slug', tour.slug))
+        .unique();
 
-      for (const existingTour of existingTours) {
-        await ctx.db.delete(existingTour._id);
+      if (existingTour) {
+        await ctx.db.patch(existingTour._id, { ...tour, updatedAt: Date.now() });
+      } else {
+        await ctx.db.insert('tours', { ...tour, updatedAt: Date.now() });
       }
-
-      await ctx.db.insert('tours', { ...tour, updatedAt: 0 });
     }
 
     return tours.length;

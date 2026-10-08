@@ -60,7 +60,7 @@ export default function CheckoutCancel({ loaderData }: Route.ComponentProps) {
         </dl>
 
         <Link
-          to={`/tour/${tour._id}`}
+          to={`/tour/${tour.slug}`}
           className='mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black sm:w-auto md:text-2xl'
         >
           Start a new Checkout Attempt
