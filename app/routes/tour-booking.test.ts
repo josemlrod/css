@@ -8,7 +8,7 @@ import { getTodayInBookingTimeZone } from '~/lib/dates';
 import { createPayPalOrder } from '~/lib/paypal';
 import { getTourBySlug } from '~/lib/tours';
 
-import { action } from './tour-booking';
+import { action, loader } from './tour-booking';
 
 vi.mock('~/lib/checkout-attempts', () => ({
   saveCheckoutAttempt: vi.fn(),
@@ -219,5 +219,25 @@ describe('tour booking action', () => {
       init: { status: 500 },
     });
     expect(updateCheckoutAttemptMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('tour booking loader', () => {
+  it('returns 404 for an unknown or malformed tour slug', async () => {
+    getTourBySlugMock.mockResolvedValueOnce(null);
+
+    await expect(
+      loader({
+        request: new Request('https://example.com/tour/not-a-tour%20id'),
+        params: { slug: 'not-a-tour id' },
+        context: {},
+        url: new URL('https://example.com/tour/not-a-tour%20id'),
+        pattern: '/tour/:slug',
+      }),
+    ).rejects.toMatchObject({
+      data: 'Tour not found',
+      init: { status: 404 },
+    });
+    expect(getTourBySlugMock).toHaveBeenCalledWith('not-a-tour id');
   });
 });
