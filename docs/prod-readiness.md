@@ -137,7 +137,7 @@ Domain language stays in code and docs. Bookers see plain words.
 ## Should do
 
 - [ ] **Check capacity before payment (#69).** Capacity is only checked after capture in `completeCheckoutAttempt` (`convex/checkoutAttempts.ts`). A full slot keeps taking payments and refunding them, and PayPal keeps its fixed fee on refunds. Add a capacity check in the `tour-booking.tsx` action before creating the PayPal order. Showing "full" on time buttons is a nice extra.
-- [ ] **Add Convex indexes (#68).** Every lookup in `convex/checkoutAttempts.ts` uses `.filter()`, which scans the whole table inside a mutation, so concurrent bookings conflict and retry. Add indexes for `paypalOrderId`, `checkoutAttemptId`, `paypalRefundId`, tour + date + time, and `slug`.
+- [x] **Add Convex indexes (#68).** Every lookup in `convex/checkoutAttempts.ts` uses `.filter()`, which scans the whole table inside a mutation, so concurrent bookings conflict and retry. Add indexes for `paypalOrderId`, `checkoutAttemptId`, `paypalRefundId`, and tour + date + time. The `slug` index ships with #60.
 - [ ] **Return 404 for bad tour IDs (#70).** A malformed ID fails Convex argument validation, and `getTourById` in `app/lib/tours.ts` rethrows it as a 500. The action reads `tour.startTimes` while `tour` can be null (`tour-booking.tsx`, around line 122).
 - [ ] **Better error page (#71).** `ErrorBoundary` in `app/root.tsx` has no styling, no link back to the main site, and no contact details.
 - [ ] **Redirect `/` in production (#72).** `app/routes/home.tsx` still shows the demo link. The manage page also redirects bad tokens to `/`. Send `/` to the WordPress tours page.

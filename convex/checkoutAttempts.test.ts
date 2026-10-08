@@ -73,7 +73,7 @@ describe('completeCheckoutAttempt', () => {
     const ctx = {
       db: {
         query: (table: string) => ({
-          filter: () => ({
+          withIndex: () => ({
             first: async () =>
               table === 'checkoutAttempts' ? checkoutAttempt : null,
             collect: async () => [],

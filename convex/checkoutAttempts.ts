@@ -130,7 +130,7 @@ export const updateRefundStatusByPayPalRefund = serverMutation({
   handler: async (ctx, { paypalRefundId, paymentStatus }) => {
     const booking = await ctx.db
       .query('bookings')
-      .filter((q) => q.eq(q.field('paypalRefundId'), paypalRefundId))
+      .withIndex('by_paypalRefundId', (q) => q.eq('paypalRefundId', paypalRefundId))
       .first();
 
     if (booking) {
@@ -150,7 +150,7 @@ export const updateRefundStatusByPayPalRefund = serverMutation({
 
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
-      .filter((q) => q.eq(q.field('paypalRefundId'), paypalRefundId))
+      .withIndex('by_paypalRefundId', (q) => q.eq('paypalRefundId', paypalRefundId))
       .first();
 
     if (checkoutAttempt) {
@@ -196,9 +196,7 @@ export const completeCheckoutAttempt = serverMutation({
   ) => {
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
-      .filter((q) =>
-        q.eq(q.field('paypalOrderId'), paypalOrderId),
-      )
+      .withIndex('by_paypalOrderId', (q) => q.eq('paypalOrderId', paypalOrderId))
       .first();
 
     if (!checkoutAttempt) {
@@ -207,7 +205,9 @@ export const completeCheckoutAttempt = serverMutation({
 
     const existingBooking = await ctx.db
       .query('bookings')
-      .filter((q) => q.eq(q.field('checkoutAttemptId'), checkoutAttempt._id))
+      .withIndex('by_checkoutAttemptId', (q) =>
+        q.eq('checkoutAttemptId', checkoutAttempt._id),
+      )
       .first();
 
     if (existingBooking) {
@@ -240,13 +240,12 @@ export const completeCheckoutAttempt = serverMutation({
 
     const bookings = await ctx.db
       .query('bookings')
-      .filter((q) =>
-        q.and(
-          q.eq(q.field('tourId'), checkoutAttempt.tourId),
-          q.eq(q.field('date'), checkoutAttempt.date),
-          q.eq(q.field('time'), checkoutAttempt.time),
-          q.eq(q.field('cancelled'), null),
-        ),
+      .withIndex('by_tour_date_time_cancelled', (q) =>
+        q
+          .eq('tourId', checkoutAttempt.tourId)
+          .eq('date', checkoutAttempt.date)
+          .eq('time', checkoutAttempt.time)
+          .eq('cancelled', null),
       )
       .collect();
     const bookedGuests = bookings.reduce((sum, booking) => sum + booking.guests, 0);
@@ -301,9 +300,7 @@ export const expireCheckoutAttempt = serverMutation({
   handler: async (ctx, { paypalOrderId }) => {
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
-      .filter((q) =>
-        q.eq(q.field('paypalOrderId'), paypalOrderId),
-      )
+      .withIndex('by_paypalOrderId', (q) => q.eq('paypalOrderId', paypalOrderId))
       .first();
 
     if (!checkoutAttempt) {
@@ -326,9 +323,7 @@ export const failCheckoutAttempt = serverMutation({
   handler: async (ctx, { paypalOrderId }) => {
     const checkoutAttempt = await ctx.db
       .query('checkoutAttempts')
-      .filter((q) =>
-        q.eq(q.field('paypalOrderId'), paypalOrderId),
-      )
+      .withIndex('by_paypalOrderId', (q) => q.eq('paypalOrderId', paypalOrderId))
       .first();
 
     if (!checkoutAttempt) {
