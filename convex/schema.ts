@@ -41,7 +41,10 @@ export default defineSchema({
     ),
     paypalRefundId: v.optional(v.string()),
     updatedAt: v.number(),
-  }),
+  })
+    .index('by_checkoutAttemptId', ['checkoutAttemptId'])
+    .index('by_paypalRefundId', ['paypalRefundId'])
+    .index('by_tour_date_time_cancelled', ['tourId', 'date', 'time', 'cancelled']),
 
   checkoutAttempts: defineTable({
     tourId: v.id('tours'),
@@ -68,5 +71,7 @@ export default defineSchema({
     failureReason: v.optional(v.literal('capacity_unavailable')),
     paypalRefundId: v.optional(v.string()),
     updatedAt: v.number(),
-  }),
+  })
+    .index('by_paypalOrderId', ['paypalOrderId'])
+    .index('by_paypalRefundId', ['paypalRefundId']),
 });
