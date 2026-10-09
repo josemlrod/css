@@ -4,10 +4,12 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
+import { useRouteLoaderData } from 'react-router';
 import {
   BookerValidation,
   BookingDetailsValidation,
 } from '~/lib/booking-validation';
+import { isDateBlocked } from '~/lib/dates';
 
 type Booker = {
   name: BookerValidation['bookerName'];
@@ -40,6 +42,8 @@ export function useStepper() {
 }
 
 export function StepperProvider({ children }: PropsWithChildren) {
+  const { tour } = useRouteLoaderData('routes/tour-booking');
+
   const [stepper, setStepper] = useState<Stepper>({
     step: 0,
     date: '',
@@ -62,6 +66,11 @@ export function StepperProvider({ children }: PropsWithChildren) {
         date: stepper.date,
         time: stepper.time,
       });
+
+      if (res.success && isDateBlocked(tour, stepper.date)) {
+        setStepper((prev) => ({ ...prev, errors: { date: true } }));
+        return false;
+      }
 
       if (res.success) return true;
       else {

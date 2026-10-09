@@ -4,7 +4,10 @@ import {
   saveCheckoutAttempt,
   updateCheckoutAttempt,
 } from '~/lib/checkout-attempts';
-import { getTodayInBookingTimeZone } from '~/lib/dates';
+import {
+  DATE_UNAVAILABLE_MESSAGE,
+  getTodayInBookingTimeZone,
+} from '~/lib/dates';
 import { createPayPalOrder } from '~/lib/paypal';
 import { getTourBySlug } from '~/lib/tours';
 
@@ -108,6 +111,27 @@ describe('tour booking action', () => {
     });
     expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
     expect(createPayPalOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a date the operator blocked', async () => {
+    getTourBySlugMock.mockResolvedValueOnce({
+      ...tour,
+      blockedDates: [getTodayInBookingTimeZone()],
+    } as never);
+
+    const response = await action({
+      request: bookingRequest(),
+      params: { slug: 'southern-flavors-food' },
+      context: {},
+      url: new URL('https://example.com/tour/southern-flavors-food'),
+      pattern: '/tour/:slug',
+    });
+
+    expect(response).toMatchObject({
+      data: { ok: false, error: DATE_UNAVAILABLE_MESSAGE },
+      init: { status: 400 },
+    });
+    expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 
   it('persists a checkout attempt and returns the PayPal order', async () => {

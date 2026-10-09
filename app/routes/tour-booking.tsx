@@ -4,6 +4,7 @@ import { Star, Users, Clock, Check } from 'lucide-react';
 import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
 import { BookingValidation } from '~/lib/booking-validation';
+import { DATE_UNAVAILABLE_MESSAGE, isDateBlocked } from '~/lib/dates';
 
 import type { Route } from './+types/tour-booking';
 import {
@@ -121,6 +122,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   const { date, time, guests, bookerName, bookerEmail } = booking.data;
+
+  if (isDateBlocked(tour, date)) {
+    return data(
+      { ok: false, error: DATE_UNAVAILABLE_MESSAGE },
+      { status: 400 },
+    );
+  }
 
   const origin = process.env.APP_ORIGIN;
 
