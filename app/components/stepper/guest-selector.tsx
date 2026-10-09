@@ -53,10 +53,10 @@ export function GuestSelector() {
         ) : null}
       </Field>
       <div className='mt-5 rounded-md bg-muted p-3 text-sm text-muted-foreground'>
-        Small group of{' '}
+        Small groups of up to{' '}
         <strong className='font-medium text-foreground'>{tour.maxGuests}</strong>{' '}
-        max keeps the experience intimate — perfect for asking questions and
-        chatting with the chefs.
+        keep the tour personal, with plenty of time for questions along the
+        way.
       </div>
     </div>
   );

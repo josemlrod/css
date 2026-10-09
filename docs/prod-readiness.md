@@ -48,7 +48,7 @@ Finish this before anyone writes the WordPress links.
 
 ### 3. Remove placeholder tour content (#61)
 
-- [ ] Done
+- [x] Done
 
 The tour page shows food-tour placeholder copy and a fake review count:
 
