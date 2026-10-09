@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   saveCheckoutAttempt,
@@ -66,7 +66,13 @@ function bookingRequest(overrides: Record<string, string> = {}) {
 }
 
 describe('tour booking action', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-25T14:00:00Z')); // 10:00 AM Eastern
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
@@ -108,6 +114,25 @@ describe('tour booking action', () => {
     });
     expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
     expect(createPayPalOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a start time that has already passed today', async () => {
+    vi.setSystemTime(new Date('2026-09-25T15:30:00Z')); // 11:30 AM Eastern
+    getTourBySlugMock.mockResolvedValueOnce(tour as never);
+
+    const response = await action({
+      request: bookingRequest(),
+      params: { slug: 'southern-flavors-food' },
+      context: {},
+      url: new URL('https://example.com/tour/southern-flavors-food'),
+      pattern: '/tour/:slug',
+    });
+
+    expect(response).toMatchObject({
+      data: { ok: false, error: 'Invalid booking details' },
+      init: { status: 400 },
+    });
+    expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 
   it('persists a checkout attempt and returns the PayPal order', async () => {
