@@ -17,6 +17,8 @@ export default defineSchema({
     highlights: v.array(v.string()),
     startTimes: v.array(v.string()),
     meetingPoint: v.string(),
+    // YYYY-MM-DD dates the operator closed, edited in the Convex dashboard. The seed never sets it.
+    blockedDates: v.optional(v.array(v.string())),
     updatedAt: v.number(),
   }).index('by_slug', ['slug']),
 

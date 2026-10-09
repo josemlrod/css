@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { getTourBySlug, seedTours } from './tours';
 
-type TourRow = { _id: string; slug: string; name: string };
+type TourRow = { _id: string; slug: string; name: string; blockedDates?: string[] };
 
 const seedHandler = (
   seedTours as unknown as {
@@ -50,7 +50,7 @@ describe('tours', () => {
     process.env.CONVEX_SERVER_SECRET = 'test-server-secret';
   });
 
-  it('reseeding updates tours in place, keeps IDs, and finds tours by slug', async () => {
+  it('reseeding updates tours in place, keeps IDs and blocked dates, and finds tours by slug', async () => {
     const { rows, ctx } = fakeCtx();
 
     await seedHandler(ctx, {
@@ -60,6 +60,7 @@ describe('tours', () => {
       ],
     });
     const firstIds = rows.map((row) => row._id);
+    rows[0].blockedDates = ['2026-12-25'];
 
     await seedHandler(ctx, {
       tours: [
@@ -72,7 +73,11 @@ describe('tours', () => {
     expect(rows.map((row) => row._id)).toEqual([...firstIds, 'tour_3']);
     await expect(
       getTourBySlugHandler(ctx, { slug: 'food', serverSecret: 'test-server-secret' }),
-    ).resolves.toMatchObject({ _id: firstIds[0], name: 'Food Tour v2' });
+    ).resolves.toMatchObject({
+      _id: firstIds[0],
+      name: 'Food Tour v2',
+      blockedDates: ['2026-12-25'],
+    });
     await expect(
       getTourBySlugHandler(ctx, { slug: 'missing', serverSecret: 'test-server-secret' }),
     ).resolves.toBeNull();

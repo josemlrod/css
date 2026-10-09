@@ -266,7 +266,7 @@
         <div class="entity-grid">
           <div class="entity">
             <h3>Tour</h3>
-            <p>Catalog item with price, capacity, start times, meeting point. Booking pages live at <code>/tour/:slug</code>. The seed updates tours in place by slug, so tour IDs on Checkout Attempts and Bookings stay valid.</p>
+            <p>Catalog item with price, capacity, start times, meeting point. Booking pages live at <code>/tour/:slug</code>. The seed updates tours in place by slug, so tour IDs on Checkout Attempts and Bookings stay valid. The operator closes dates with the optional <code>blockedDates</code> field in the Convex dashboard. The seed never overwrites it.</p>
           </div>
           <div class="entity">
             <h3>Checkout Attempt</h3>
@@ -300,7 +300,7 @@
         <div class="card">
           <h2>Checkout Start</h2>
           <div class="flow">
-            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker chooses PayPal or card</h3><p><code>paypal-buttons.tsx</code> validates the confirm-step data before posting date, time, guests, name, and email. The date step disables start times that have already passed in Eastern time.</p></div></div>
+            <div class="step"><div class="num">1</div><div class="step-body"><h3>Booker chooses PayPal or card</h3><p><code>paypal-buttons.tsx</code> validates the confirm-step data before posting date, time, guests, name, and email. The date step disables start times that have already passed in Eastern time. The action rejects a blocked date or a date past the 90-day window before any Checkout Attempt exists.</p></div></div>
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Checkout Attempt created</h3><p><code>saveCheckoutAttempt</code> stores pending status, 30-minute expiry, pricing snapshot, hashed access token.</p></div></div>
             <div class="step"><div class="num">3</div><div class="step-body"><h3>PayPal Order created</h3><p>The action computes the total from Tour price and guest count, calls <code>createPayPalOrder</code>, and stores <code>paypalOrderId</code>.</p></div></div>
             <div class="step"><div class="num">4</div><div class="step-body"><h3>SDK opens checkout</h3><p>The action returns the Order ID to SDK v6. PayPal or the guest card form opens over the confirm step.</p></div></div>
@@ -437,7 +437,7 @@
         <h2>Code Map</h2>
         <div class="code-map">
           <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
-          <div><code>app/routes/tour-booking.tsx</code><p>Looks up the tour by slug, validates Booker input, rejects start times that have already passed in <code>America/New_York</code>, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
+          <div><code>app/routes/tour-booking.tsx</code><p>Looks up the tour by slug, validates Booker input, rejects start times that have already passed in <code>America/New_York</code>, rejects blocked dates and dates more than 90 days out, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
           <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, starts payment sessions, captures approved Orders, and handles cancellation.</p></div>
           <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and routes the result by payment status.</p></div>
           <div><code>app/lib/checkout-completion.ts</code><p>Creates paid Bookings and Booking Communication, or refunds captures after a capacity race.</p></div>

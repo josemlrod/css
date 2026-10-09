@@ -4,7 +4,14 @@ import { Field, FieldDescription, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { useStepper } from './stepper-context';
 import { Button } from '../ui/button';
-import { getTodayInBookingTimeZone, isTourStartBookable } from '~/lib/dates';
+import {
+  DATE_UNAVAILABLE_MESSAGE,
+  MAX_BOOKING_WINDOW_DAYS,
+  getLastBookableDate,
+  getTodayInBookingTimeZone,
+  isDateBlocked,
+  isTourStartBookable,
+} from '~/lib/dates';
 
 export function DateSelector() {
   const { tour } = useRouteLoaderData('routes/tour-booking');
@@ -12,8 +19,15 @@ export function DateSelector() {
   const { date, time, setStepper, errors } = useStepper();
 
   const todaysDate = getTodayInBookingTimeZone();
+  const lastBookableDate = getLastBookableDate();
 
-  const dateError = errors.date;
+  const dateBlocked = isDateBlocked(tour, date);
+  const dateError = errors.date || dateBlocked;
+  const dateErrorMessage = dateBlocked
+    ? DATE_UNAVAILABLE_MESSAGE
+    : date > lastBookableDate
+      ? `Choose a date within the next ${MAX_BOOKING_WINDOW_DAYS} days`
+      : 'Choose today or a future date';
   const timeError = errors.time;
 
   return (
@@ -32,6 +46,7 @@ export function DateSelector() {
             id='date-selector'
             type='date'
             min={todaysDate}
+            max={lastBookableDate}
             defaultValue={date ?? ''}
             onChange={(e) => {
               const nextDate = e.target.value;
@@ -50,7 +65,7 @@ export function DateSelector() {
           />
           {dateError ? (
             <FieldDescription className='text-destructive/80'>
-              Choose today or a future date
+              {dateErrorMessage}
             </FieldDescription>
           ) : null}
         </Field>
