@@ -17,7 +17,7 @@ export default defineSchema({
     highlights: v.array(v.string()),
     startTimes: v.array(v.string()),
     meetingPoint: v.string(),
-    // YYYY-MM-DD dates the operator closed, edited in the Convex dashboard. The seed never sets it.
+    // YYYY-MM-DD dates the operator closed from /admin/closed-dates. The seed never sets it.
     blockedDates: v.optional(v.array(v.string())),
     updatedAt: v.number(),
   }).index('by_slug', ['slug']),
@@ -46,6 +46,7 @@ export default defineSchema({
   })
     .index('by_checkoutAttemptId', ['checkoutAttemptId'])
     .index('by_paypalRefundId', ['paypalRefundId'])
+    .index('by_paymentStatus', ['paymentStatus'])
     .index('by_tour_date_time_cancelled', ['tourId', 'date', 'time', 'cancelled']),
 
   checkoutAttempts: defineTable({

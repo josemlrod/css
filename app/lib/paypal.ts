@@ -204,12 +204,16 @@ export async function capturePayPalOrder(orderId: string) {
   return getCapture(order);
 }
 
-export async function refundPayPalCapture(captureId: string) {
+// PayPal replays the first response for a repeated request ID, so retrying a failed refund needs a new one.
+export async function refundPayPalCapture(
+  captureId: string,
+  requestId = `refund-${captureId}`,
+) {
   const refund = await payPalRequest<{ id: string; status: string }>(
     `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`,
     {
       method: 'POST',
-      headers: { 'PayPal-Request-Id': `refund-${captureId}` },
+      headers: { 'PayPal-Request-Id': requestId },
       body: '{}',
     },
   );

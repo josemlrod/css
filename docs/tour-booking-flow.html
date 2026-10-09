@@ -362,6 +362,22 @@
         </div>
 
         <div class="card">
+          <h2>Operator Cancellation</h2>
+          <p>
+            <code>/admin/bookings/:bookingId</code> lets the operator cancel a
+            paid Booking without the Booker's token and inside the 24-hour
+            cutoff. It follows the same order as self-service: PayPal must
+            accept the refund first, then the Booking becomes canceled with
+            <code>refund_pending</code>, and the Booker gets the cancellation
+            email. If PayPal rejects the refund, nothing changes and no email
+            is sent. For a <code>refund_failed</code> Booking the operator can
+            retry the refund, which uses a new PayPal request ID and stores the
+            new refund ID, or mark it <code>refunded</code> after refunding in
+            the PayPal dashboard. <code>/admin</code> has no sign-in yet.
+          </p>
+        </div>
+
+        <div class="card">
           <h2>Refund Lifecycle</h2>
           <p>
             Self-service cancellation stores <code>refund_pending</code> and the
@@ -418,6 +434,24 @@
               <td>Cancellation/refund requested email</td>
             </tr>
             <tr>
+              <td>Operator cancels from <code>/admin</code></td>
+              <td><code>Booking.cancelled != null</code>, <code>Booking.paymentStatus = refund_pending</code></td>
+              <td><span class="status-warn">Canceled</span></td>
+              <td>Cancellation/refund requested email</td>
+            </tr>
+            <tr>
+              <td>Operator retries a failed refund</td>
+              <td><code>refund_failed</code> → <code>refund_pending</code> with a new <code>paypalRefundId</code></td>
+              <td>Unchanged</td>
+              <td>Cancellation/refund requested email</td>
+            </tr>
+            <tr>
+              <td>Operator marks a failed refund as refunded</td>
+              <td><code>refund_failed</code> → <code>refunded</code></td>
+              <td>Unchanged</td>
+              <td>None</td>
+            </tr>
+            <tr>
               <td><code>PAYMENT.CAPTURE.REFUNDED</code></td>
               <td><code>paymentStatus = refunded</code></td>
               <td>Unchanged</td>
@@ -445,7 +479,8 @@
           <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, schedules pending-attempt expiry, and handles refund status by the persisted PayPal refund ID.</p></div>
           <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff, starts cancellation refunds.</p></div>
-          <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation.</p></div>
+          <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation, plus operator Booking list, cancellation, refund retry, and mark-refunded mutations.</p></div>
+          <div><code>app/routes/admin/</code><p>Operator console: Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
           <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
           <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
