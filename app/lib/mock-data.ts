@@ -9,8 +9,6 @@ export type Tour = {
   durationMinutes: number;
   price: number;
   maxGuests: number;
-  rating: number;
-  reviewCount: number;
   image: string;
   category: 'Historic' | 'Ghost' | 'Food' | 'Nature';
   highlights: string[];
@@ -32,8 +30,6 @@ export const tours: Tour[] = [
     durationMinutes: 120,
     price: 38,
     maxGuests: 12,
-    rating: 4.9,
-    reviewCount: 412,
     image: '/tours/historic-square.jpg',
     category: 'Historic',
     highlights: [
@@ -58,14 +54,12 @@ export const tours: Tour[] = [
     durationMinutes: 90,
     price: 32,
     maxGuests: 20,
-    rating: 4.8,
-    reviewCount: 1287,
     image: '/tours/ghost-tour.jpg',
     category: 'Ghost',
     highlights: [
       'Lantern-lit walking tour',
       'Six haunted locations',
-      'Featured on Travel Channel',
+      'Documented local legends',
       'Family-friendly storytelling',
     ],
     startTimes: ['7:30 PM', '9:00 PM', '10:30 PM'],
@@ -84,8 +78,6 @@ export const tours: Tour[] = [
     durationMinutes: 120,
     price: 45,
     maxGuests: 15,
-    rating: 4.7,
-    reviewCount: 638,
     image: '/tours/river-street.jpg',
     category: 'Historic',
     highlights: [
@@ -110,8 +102,6 @@ export const tours: Tour[] = [
     durationMinutes: 180,
     price: 79,
     maxGuests: 10,
-    rating: 4.9,
-    reviewCount: 524,
     image: '/tours/food-tour.jpg',
     category: 'Food',
     highlights: [
@@ -136,8 +126,6 @@ export const tours: Tour[] = [
     durationMinutes: 60,
     price: 52,
     maxGuests: 14,
-    rating: 4.6,
-    reviewCount: 891,
     image: '/tours/trolley.jpg',
     category: 'Historic',
     highlights: [
@@ -162,8 +150,6 @@ export const tours: Tour[] = [
     durationMinutes: 75,
     price: 28,
     maxGuests: 8,
-    rating: 4.8,
-    reviewCount: 207,
     image: '/tours/forsyth-park.jpg',
     category: 'Nature',
     highlights: [

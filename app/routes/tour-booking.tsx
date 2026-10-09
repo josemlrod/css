@@ -1,10 +1,14 @@
 import { data } from 'react-router';
-import { Star, Users, Clock, Check } from 'lucide-react';
+import { Users, Clock, Check } from 'lucide-react';
 
 import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
 import { BookingValidation } from '~/lib/booking-validation';
-import { DATE_UNAVAILABLE_MESSAGE, isDateBlocked } from '~/lib/dates';
+import {
+  DATE_UNAVAILABLE_MESSAGE,
+  isDateBlocked,
+  isTourStartBookable,
+} from '~/lib/dates';
 
 import type { Route } from './+types/tour-booking';
 import {
@@ -24,7 +28,7 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
       <div className='mb-8 flex flex-col items-start gap-4 md:mb-10 md:flex-row md:items-end md:justify-between'>
         <div>
           <p className='font-mono text-sm uppercase tracking-[0.18em] text-muted-foreground'>
-            Tour · Food
+            Tour · {tour.category}
           </p>
           <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
             {tour.name}
@@ -34,11 +38,6 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
           </p>
         </div>
         <div className='flex items-center gap-4 text-sm text-muted-foreground'>
-          <span className='inline-flex items-center gap-1'>
-            <Star className='size-3.5 fill-accent stroke-accent' />
-            <span className='font-medium text-foreground'>5</span>
-            <span>(500)</span>
-          </span>
           <span className='inline-flex items-center gap-1'>
             <Clock className='size-3.5' /> {tour.duration}
           </span>
@@ -58,15 +57,9 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
               className='object-cover aspect-[4/5] animate-in fade-in duration-300'
             />
           </div>
-          <div className='grid gap-3 text-sm sm:grid-cols-2'>
-            <div className='rounded-md border border-border p-3'>
-              <p className='text-muted-foreground'>Meeting point</p>
-              <p className='mt-1 font-medium'>{tour.meetingPoint}</p>
-            </div>
-            <div className='rounded-md border border-border p-3'>
-              <p className='text-muted-foreground'>Includes</p>
-              <p className='mt-1 font-medium'>Six tastings, recipe card</p>
-            </div>
+          <div className='rounded-md border border-border p-3 text-sm'>
+            <p className='text-muted-foreground'>Meeting point</p>
+            <p className='mt-1 font-medium'>{tour.meetingPoint}</p>
           </div>
           <ul className='grid gap-1.5 sm:grid-cols-2'>
             {tour.highlights.map((h) => (
@@ -113,6 +106,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (
     !booking.success ||
     !tour.startTimes.includes(booking.data.time) ||
+    !isTourStartBookable(booking.data.date, booking.data.time) ||
     booking.data.guests > tour.maxGuests
   ) {
     return data(

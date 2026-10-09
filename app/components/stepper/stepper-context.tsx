@@ -9,7 +9,7 @@ import {
   BookerValidation,
   BookingDetailsValidation,
 } from '~/lib/booking-validation';
-import { isDateBlocked } from '~/lib/dates';
+import { isDateBlocked, isTourStartBookable } from '~/lib/dates';
 
 type Booker = {
   name: BookerValidation['bookerName'];
@@ -67,13 +67,21 @@ export function StepperProvider({ children }: PropsWithChildren) {
         time: stepper.time,
       });
 
-      if (res.success && isDateBlocked(tour, stepper.date)) {
+      if (res.success && isDateBlocked(tour, res.data.date)) {
         setStepper((prev) => ({ ...prev, errors: { date: true } }));
         return false;
       }
 
-      if (res.success) return true;
-      else {
+      if (res.success) {
+        if (isTourStartBookable(res.data.date, res.data.time)) return true;
+
+        setStepper((prev) => ({
+          ...prev,
+          time: '',
+          errors: { time: true },
+        }));
+        return false;
+      } else {
         const messages = JSON.parse(res.error.message);
         const errors: Record<string, boolean> = {};
         for (const m of messages) {
