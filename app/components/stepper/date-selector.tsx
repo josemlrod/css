@@ -4,7 +4,7 @@ import { Field, FieldDescription, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { useStepper } from './stepper-context';
 import { Button } from '../ui/button';
-import { getTodayInBookingTimeZone } from '~/lib/dates';
+import { getTodayInBookingTimeZone, isTourStartBookable } from '~/lib/dates';
 
 export function DateSelector() {
   const { tour } = useRouteLoaderData('routes/tour-booking');
@@ -34,10 +34,15 @@ export function DateSelector() {
             min={todaysDate}
             defaultValue={date ?? ''}
             onChange={(e) => {
+              const nextDate = e.target.value;
               setStepper((prev) => {
                 return {
                   ...prev,
-                  date: e.target.value,
+                  date: nextDate,
+                  time:
+                    prev.time && isTourStartBookable(nextDate, prev.time)
+                      ? prev.time
+                      : '',
                   errors: { ...prev.errors, date: false },
                 };
               });
@@ -60,6 +65,7 @@ export function DateSelector() {
               aria-invalid={timeError}
               variant='secondary'
               key={t}
+              disabled={Boolean(date) && !isTourStartBookable(date, t)}
               onClick={() =>
                 setStepper((prev) => ({
                   ...prev,

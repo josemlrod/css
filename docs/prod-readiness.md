@@ -59,7 +59,7 @@ A made-up review count is an FTC problem, not only a copy problem. Use real tour
 
 ### 4. Block past time slots (#62)
 
-- [ ] Done
+- [x] Done
 
 `BookingDetailsValidation` only checks that the date is today or later (`app/lib/dates.ts`, `isDateOnOrAfterToday`). At 3 PM a Booker can still pay for today's 9 AM slot.
 

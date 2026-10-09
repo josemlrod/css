@@ -4,6 +4,7 @@ import { Users, Clock, Check } from 'lucide-react';
 import { Stepper } from '~/components/stepper';
 import { StepperProvider } from '~/components/stepper/stepper-context';
 import { BookingValidation } from '~/lib/booking-validation';
+import { isTourStartBookable } from '~/lib/dates';
 
 import type { Route } from './+types/tour-booking';
 import {
@@ -101,6 +102,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (
     !booking.success ||
     !tour.startTimes.includes(booking.data.time) ||
+    !isTourStartBookable(booking.data.date, booking.data.time) ||
     booking.data.guests > tour.maxGuests
   ) {
     return data(
