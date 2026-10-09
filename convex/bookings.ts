@@ -1,6 +1,50 @@
 import { v } from 'convex/values';
 
+import type { Doc } from './_generated/dataModel';
+import type { MutationCtx, QueryCtx } from './_generated/server';
 import { serverMutation, serverQuery } from './lib/serverFunctions';
+
+// The amount actually charged lives on the Checkout Attempt, so later price edits don't rewrite history.
+async function getBookingTotal(
+  ctx: QueryCtx,
+  booking: Doc<'bookings'>,
+  tourPrice: number,
+) {
+  const checkoutAttempt = booking.checkoutAttemptId
+    ? await ctx.db.get('checkoutAttempts', booking.checkoutAttemptId)
+    : null;
+
+  return checkoutAttempt?.total ?? tourPrice * booking.guests;
+}
+
+function withoutAccessToken({ accessTokenHash: _, ...booking }: Doc<'bookings'>) {
+  return booking;
+}
+
+async function cancelRefundableBooking(
+  ctx: MutationCtx,
+  existing: Doc<'bookings'>,
+  paypalRefundId: string,
+) {
+  if (existing.cancelled) {
+    return existing._id;
+  }
+
+  if (!existing.paypalCaptureId || existing.paymentStatus !== 'paid') {
+    throw new Error('Booking is not refundable');
+  }
+
+  const now = new Date().getTime();
+
+  await ctx.db.patch(existing._id, {
+    cancelled: now,
+    paymentStatus: 'refund_pending',
+    paypalRefundId,
+    updatedAt: now,
+  });
+
+  return existing._id;
+}
 
 export const getBookingWithTourForAccess = serverQuery({
   args: { bookingId: v.id('bookings'), accessTokenHash: v.string() },
@@ -28,21 +72,102 @@ export const cancelPaidBooking = serverMutation({
       throw new Error('Booking not found');
     }
 
-    if (existing.cancelled) {
-      return id;
-    }
+    return cancelRefundableBooking(ctx, existing, paypalRefundId);
+  },
+});
 
-    if (!existing.paypalCaptureId || existing.paymentStatus !== 'paid') {
-      throw new Error('Booking is not refundable');
-    }
+export const listBookingsForOperator = serverQuery({
+  args: {},
+  handler: async (ctx) => {
+    const [bookings, tours] = await Promise.all([
+      ctx.db.query('bookings').collect(),
+      ctx.db.query('tours').collect(),
+    ]);
+    const prices = new Map(tours.map((tour) => [tour._id, tour.price]));
 
-    const now = new Date().getTime();
+    return Promise.all(
+      bookings.map(async (booking) => ({
+        ...withoutAccessToken(booking),
+        total: await getBookingTotal(ctx, booking, prices.get(booking.tourId) ?? 0),
+      })),
+    );
+  },
+});
+
+export const getBookingForOperator = serverQuery({
+  args: { bookingId: v.string() },
+  handler: async (ctx, { bookingId }) => {
+    const id = ctx.db.normalizeId('bookings', bookingId);
+    const booking = id ? await ctx.db.get('bookings', id) : null;
+
+    if (!booking) return null;
+
+    const tour = await ctx.db.get('tours', booking.tourId);
+
+    return {
+      booking: withoutAccessToken(booking),
+      tour,
+      total: await getBookingTotal(ctx, booking, tour?.price ?? 0),
+    };
+  },
+});
+
+export const countRefundFailedBookings = serverQuery({
+  args: {},
+  handler: async (ctx) => {
+    const bookings = await ctx.db
+      .query('bookings')
+      .withIndex('by_paymentStatus', (q) => q.eq('paymentStatus', 'refund_failed'))
+      .collect();
+
+    return bookings.length;
+  },
+});
+
+export const cancelBookingAsOperator = serverMutation({
+  args: { id: v.id('bookings'), paypalRefundId: v.string() },
+  handler: async (ctx, { id, paypalRefundId }) => {
+    const existing = await ctx.db.get('bookings', id);
+
+    if (!existing) throw new Error('Booking not found');
+
+    return cancelRefundableBooking(ctx, existing, paypalRefundId);
+  },
+});
+
+// A canceled Booking whose refund PayPal rejected gets a fresh refund attempt.
+export const restartBookingRefund = serverMutation({
+  args: { id: v.id('bookings'), paypalRefundId: v.string() },
+  handler: async (ctx, { id, paypalRefundId }) => {
+    const existing = await ctx.db.get('bookings', id);
+
+    if (!existing?.cancelled || existing.paymentStatus !== 'refund_failed') {
+      throw new Error('Booking refund has not failed');
+    }
 
     await ctx.db.patch(id, {
-      cancelled: now,
       paymentStatus: 'refund_pending',
       paypalRefundId,
-      updatedAt: now,
+      updatedAt: new Date().getTime(),
+    });
+
+    return id;
+  },
+});
+
+// The operator refunded the Booker outside the app, for example in the PayPal dashboard.
+export const markBookingRefunded = serverMutation({
+  args: { id: v.id('bookings') },
+  handler: async (ctx, { id }) => {
+    const existing = await ctx.db.get('bookings', id);
+
+    if (!existing?.cancelled || existing.paymentStatus !== 'refund_failed') {
+      throw new Error('Booking refund has not failed');
+    }
+
+    await ctx.db.patch(id, {
+      paymentStatus: 'refunded',
+      updatedAt: new Date().getTime(),
     });
 
     return id;

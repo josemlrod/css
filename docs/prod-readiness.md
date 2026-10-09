@@ -84,11 +84,7 @@ The schedule answers from the operator may change this.
 
 Shipped: tours have an optional `blockedDates` field, and Bookers can book up to 90 days ahead (`MAX_BOOKING_WINDOW_DAYS` in `app/lib/dates.ts`). Change that constant once #58 settles the window. The booking action rejects both. The date selector sets `max` on the date input and tells the Booker when a picked date is closed.
 
-To block a date:
-
-1. Open the Convex dashboard for the deployment (production for live Bookers), then Data, then `tours`.
-2. Find the tour row by `slug` and edit `blockedDates`. Set it to an array of `YYYY-MM-DD` dates in Eastern time, for example `["2026-12-25", "2027-01-01"]`. Add the field if the row doesn't have it yet.
-3. Save. The next page load picks it up. Remove a date from the array to reopen it.
+To block a date, open `/admin/closed-dates`, pick the date and the tours, and select **Close date**. Use **Reopen** in the list to undo it. The next page load picks it up.
 
 Blocking a date only stops new checkouts. It doesn't cancel or refund existing Bookings on that date. Reseeding tours never touches `blockedDates`.
 
