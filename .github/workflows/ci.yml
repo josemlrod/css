@@ -1,0 +1,15 @@
+name: CI
+on:
+  pull_request:
+  workflow_call:
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      # `bun run test` runs vitest. Plain `bun test` would use Bun's own runner.
+      - run: bun run test

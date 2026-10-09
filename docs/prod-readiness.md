@@ -151,7 +151,7 @@ Domain language stays in code and docs. Bookers see plain words.
 - [ ] **Return 404 for bad tour IDs (#70).** A malformed ID fails Convex argument validation, and `getTourById` in `app/lib/tours.ts` rethrows it as a 500. The action reads `tour.startTimes` while `tour` can be null (`tour-booking.tsx`, around line 122).
 - [ ] **Better error page (#71).** `ErrorBoundary` in `app/root.tsx` has no styling, no link back to the main site, and no contact details.
 - [ ] **Redirect `/` in production (#72).** `app/routes/home.tsx` still shows the demo link. The manage page also redirects bad tokens to `/`. Send `/` to the WordPress tours page.
-- [ ] **Gate CI (#73).** `.github/workflows/fly-deploy.yml` deploys every push to `main` without running `bun run typecheck` or `bun test`. It never deploys Convex functions, so the app and backend can drift apart. Add both checks and a `npx convex deploy` step with `CONVEX_DEPLOY_KEY`.
+- [x] **Gate CI (#73).** `.github/workflows/fly-deploy.yml` deploys every push to `main` without running `bun run typecheck` or `bun run test`. It never deploys Convex functions, so the app and backend can drift apart. Add both checks and a `npx convex deploy` step with `CONVEX_DEPLOY_KEY`.
 - [ ] **Handle refunds made in the PayPal dashboard (#74).** If the operator refunds from PayPal, for example for a weather cancellation, the Booking stays active. The webhook returns 503 for unknown refund IDs (`PAYMENT.CAPTURE.REFUNDED` in `app/routes/paypal-webhook.ts`), so PayPal retries for days. Return 200 for unknown refunds, and write down the manual process: refund in PayPal, then set `cancelled` in the Convex dashboard.
 - [ ] **Cap name length (#75).** Add `.max(100)` to `bookerName` in `app/lib/booking-validation.ts`.
 - [ ] **Success page copy (#76).** In `app/routes/checkout-success.tsx`, tell paid Bookers their manage link is in their email. The pending state never refreshes. Add a manual refresh or a short poll.
@@ -178,6 +178,7 @@ Tracked in #79.
   Then set `PAYPAL_WEBHOOK_ID`.
 - [ ] Choose the final domain before launch, for example `book.cinematicsitesofsavannah.com`. `APP_ORIGIN` goes into PayPal return URLs and into manage links in sent emails, so changing it later breaks old links.
 - [ ] Set `VITE_CONVEX_URL` to the production deployment in GitHub repo variables.
+- [ ] Generate a production deploy key in the Convex dashboard (production deployment, then Settings, then Deploy Keys) and add it as the `CONVEX_DEPLOY_KEY` GitHub repository secret. Without it, every deploy from `main` fails at the Convex step (#73).
 - [ ] Generate `CONVEX_SERVER_SECRET` and set the same value on the production Convex deployment (`npx convex env set CONVEX_SERVER_SECRET <value> --prod`) and in Fly secrets.
 - [ ] Verify the sending domain in Resend (SPF and DKIM). Put `RESEND_FROM_EMAIL` on that domain and `RESEND_API_KEY` in Fly secrets.
 - [ ] Send test emails to Gmail and Outlook and confirm they don't land in spam.

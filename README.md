@@ -48,7 +48,7 @@ App available at `http://localhost:5173`.
 | `bun run dev` | Start dev server with HMR |
 | `bun run build` | Production build |
 | `bun run typecheck` | TypeScript check |
-| `bun test` | Run tests |
+| `bun run test` | Run tests (vitest) |
 | `bun run seed:tours` | Seed tours in Convex through `npx convex run` (add `--prod` for production) |
 
 ## Deployment
@@ -59,7 +59,11 @@ Build and deploy with Docker:
 docker build -t css-tours .
 ```
 
-CI/CD via GitHub Actions auto-deploys to Fly.io on push to `main`.
+CI/CD via GitHub Actions:
+
+- Every pull request runs `bun run typecheck` and `bun run test` (`.github/workflows/ci.yml`).
+- Every push to `main` runs the same checks, then deploys Convex functions (`npx convex deploy`) and then the app to Fly.io (`.github/workflows/fly-deploy.yml`). A failing check blocks both deploys.
+- The deploy needs a production Convex deploy key in the `CONVEX_DEPLOY_KEY` repository secret.
 
 ## Domain Language
 
