@@ -2,26 +2,14 @@ import { data } from 'react-router';
 
 import {
   getCheckoutAttempt,
-  updateCheckoutAttempt,
   verifyCheckoutAccessToken,
 } from '~/lib/checkout-attempts';
-import { finalizePaidCapture } from '~/lib/checkout-completion';
+import { completeCapture } from '~/lib/checkout-completion';
 import { logError, logEvent } from '~/lib/log';
 import { capturePayPalOrder } from '~/lib/paypal';
 import type { CheckoutAttemptId } from '~/lib/types';
 
 import type { Route } from './+types/paypal-capture';
-
-function completedPaymentStatus(
-  result: Awaited<ReturnType<typeof finalizePaidCapture>>,
-) {
-  if (result.status === 'booking_created' || result.status === 'booking_exists') {
-    return 'paid';
-  }
-  if (result.status === 'capacity_unavailable') return result.paymentStatus;
-
-  return result.status;
-}
 
 export async function action({ params, request }: Route.ActionArgs) {
   if (request.method !== 'POST') {
@@ -105,31 +93,15 @@ export async function action({ params, request }: Route.ActionArgs) {
       currency: capture.amount.currency_code,
     });
 
-    if (capture.status === 'COMPLETED') {
-      const result = await finalizePaidCapture({
-        paypalOrderId: orderId,
-        paypalCaptureId: capture.id,
-        amountValue: capture.amount.value,
-        currency: capture.amount.currency_code,
-      });
+    const status = await completeCapture({
+      status: capture.status,
+      paypalOrderId: orderId,
+      paypalCaptureId: capture.id,
+      amountValue: capture.amount.value,
+      currency: capture.amount.currency_code,
+    });
 
-      return data({
-        ok: true,
-        status: completedPaymentStatus(result),
-        checkoutAttemptId,
-      });
-    }
-
-    if (capture.status === 'PENDING') {
-      return data({ ok: true, status: 'pending', checkoutAttemptId });
-    }
-
-    if (capture.status === 'DECLINED' || capture.status === 'FAILED') {
-      await updateCheckoutAttempt({ id: checkoutAttemptId, paymentStatus: 'failed' });
-      return data({ ok: false, status: 'failed', checkoutAttemptId });
-    }
-
-    throw new Error(`Unsupported PayPal capture status: ${capture.status}`);
+    return data({ ok: status !== 'failed', status, checkoutAttemptId });
   } catch (error) {
     logError('checkout.capture_failed', error, {
       checkoutAttemptId,

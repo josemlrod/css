@@ -2,10 +2,9 @@ import { data } from 'react-router';
 
 import {
   expireCheckoutAttempt,
-  failCheckoutAttempt,
   updateRefundStatusByPayPalRefund,
 } from '~/lib/checkout-attempts';
-import { finalizePaidCapture } from '~/lib/checkout-completion';
+import { completeCapture } from '~/lib/checkout-completion';
 import { sendRefundFailedCommunication } from '~/lib/email';
 import { logError, logEvent } from '~/lib/log';
 import { verifyPayPalWebhook } from '~/lib/paypal';
@@ -118,7 +117,8 @@ export async function action({ request }: Route.ActionArgs) {
           );
         }
 
-        await finalizePaidCapture({
+        await completeCapture({
+          status: 'COMPLETED',
           paypalOrderId,
           paypalCaptureId,
           amountValue,
@@ -136,7 +136,7 @@ export async function action({ request }: Route.ActionArgs) {
           throw new Error('PayPal capture is missing its Order ID');
         }
 
-        await failCheckoutAttempt({ paypalOrderId });
+        await completeCapture({ status: 'DECLINED', paypalOrderId });
         break;
       }
       case 'CHECKOUT.PAYMENT-APPROVAL.REVERSED': {
