@@ -1,7 +1,16 @@
+import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 export default defineSchema({
+  ...authTables,
+  // Operators who can sign in to /admin. Convex Auth's default users table, trimmed to name and email.
+  users: defineTable({
+    name: v.optional(v.string()),
+    email: v.string(),
+    emailVerificationTime: v.optional(v.number()),
+  }).index('email', ['email']),
+
   tours: defineTable({
     slug: v.string(),
     name: v.string(),

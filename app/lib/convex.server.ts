@@ -10,8 +10,13 @@ type ServerArgs<Fn extends FunctionReference<'query' | 'mutation'>> = Omit<
   'serverSecret'
 >;
 
-function getConvex() {
-  return new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL);
+// `token` is an Operator's Convex Auth JWT, for functions that read ctx.auth.
+function getConvex(token?: string) {
+  const client = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL);
+
+  if (token) client.setAuth(token);
+
+  return client;
 }
 
 function getServerSecret() {
@@ -25,8 +30,9 @@ function getServerSecret() {
 export async function convexQuery<Query extends FunctionReference<'query'>>(
   query: Query,
   args: ServerArgs<Query>,
+  token?: string,
 ): Promise<FunctionReturnType<Query>> {
-  return getConvex().query(query, {
+  return getConvex(token).query(query, {
     ...args,
     serverSecret: getServerSecret(),
   } as FunctionArgs<Query>);
@@ -40,4 +46,13 @@ export async function convexMutation<Mutation extends FunctionReference<'mutatio
     ...args,
     serverSecret: getServerSecret(),
   } as FunctionArgs<Mutation>);
+}
+
+// Convex Auth's own sign-in and sign-out actions, which don't take CONVEX_SERVER_SECRET.
+export async function convexAuthAction<Action extends FunctionReference<'action'>>(
+  action: Action,
+  args: FunctionArgs<Action>,
+  token?: string,
+): Promise<FunctionReturnType<Action>> {
+  return getConvex(token).action(action, args);
 }

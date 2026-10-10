@@ -1,19 +1,22 @@
 import {
   CalendarOff,
   ExternalLink,
+  LogOut,
   Map as MapIcon,
   Monitor,
   Ticket,
 } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router';
+import { Form, NavLink, Outlet } from 'react-router';
 
 import { Eyebrow } from '~/components/admin/primitives';
 import { countRefundFailedBookings } from '~/lib/bookings';
+import { operatorContext, requireOperator } from '~/lib/operator-session.server';
 import { cn } from '~/lib/utils';
 
 import type { Route } from './+types/layout';
 
-// TODO: put /admin behind operator sign-in before launch. It is open for now.
+export const middleware: Route.MiddlewareFunction[] = [requireOperator];
+
 export function meta() {
   return [
     { title: 'Operator · Cinematic Sites of Savannah' },
@@ -21,8 +24,11 @@ export function meta() {
   ];
 }
 
-export async function loader() {
-  return { refundFailedCount: await countRefundFailedBookings() };
+export async function loader({ context }: Route.LoaderArgs) {
+  return {
+    operator: context.get(operatorContext),
+    refundFailedCount: await countRefundFailedBookings(),
+  };
 }
 
 export default function AdminLayout({ loaderData }: Route.ComponentProps) {
@@ -88,7 +94,26 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             >
               View tours site <ExternalLink className='size-3' />
             </a>
-            <p>No sign-in yet. Don&apos;t share this link.</p>
+            <div className='flex items-center gap-2 pt-1'>
+              <div className='min-w-0 flex-1'>
+                <p className='truncate font-medium text-foreground'>
+                  {loaderData.operator.name ?? loaderData.operator.email}
+                </p>
+                {loaderData.operator.name && (
+                  <p className='truncate'>{loaderData.operator.email}</p>
+                )}
+              </div>
+              <Form method='post' action='/admin/logout'>
+                <button
+                  type='submit'
+                  aria-label='Sign out'
+                  title='Sign out'
+                  className='flex size-8 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground'
+                >
+                  <LogOut className='size-4' />
+                </button>
+              </Form>
+            </div>
           </div>
         </aside>
 
