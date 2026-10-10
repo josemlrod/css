@@ -20,17 +20,20 @@ import {
   optionalOperatorContext,
 } from '~/lib/operator-session.server';
 import { logError, logEvent } from '~/lib/log';
+import { isTourReady } from '~/lib/operator';
 import { createPayPalOrder } from '~/lib/paypal';
 import { getTourBySlug } from '~/lib/tours';
 import type { CheckoutAttemptId, Tour as TourType } from '~/lib/types';
 
 export const middleware: Route.MiddlewareFunction[] = [loadOperator];
 
-// The test tour is for Operators testing production. Everyone else gets a 404.
+// The test tour is for Operators testing production, and a tour without start times, capacity,
+// or a meeting point isn't set up yet. Operators can preview both. Everyone else gets a 404.
 async function getVisibleTour(slug: string, context: Route.LoaderArgs['context']) {
   const tour = await getTourBySlug(slug);
+  const hidden = tour && (tour.test || !isTourReady(tour));
 
-  return tour?.test && !context.get(optionalOperatorContext) ? null : tour;
+  return hidden && !context.get(optionalOperatorContext) ? null : tour;
 }
 
 export default function Tour({ loaderData }: Route.ComponentProps) {

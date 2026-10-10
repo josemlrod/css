@@ -1,40 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-import { tours } from '../app/lib/mock-data';
-
-const seedTours = tours.map(
-  ({
-    slug,
-    name,
-    tagline,
-    description,
-    longDescription,
-    duration,
-    durationMinutes,
-    price,
-    maxGuests,
-    image,
-    category,
-    highlights,
-    startTimes,
-    meetingPoint,
-  }) => ({
-    slug,
-    name,
-    tagline,
-    description,
-    longDescription,
-    duration,
-    durationMinutes,
-    price,
-    maxGuests,
-    imageUrl: image,
-    category,
-    highlights,
-    startTimes,
-    meetingPoint,
-  }),
-);
+import { tours } from './tour-catalog';
 
 // seedTours is internal, so it runs through the Convex CLI with deploy credentials.
 // Extra arguments pass through, for example `bun run seed:tours --prod`.
@@ -44,7 +10,7 @@ const result = spawnSync(
     'convex',
     'run',
     'tours:seedTours',
-    JSON.stringify({ tours: seedTours }),
+    JSON.stringify({ tours }),
     ...process.argv.slice(2),
   ],
   { stdio: 'inherit' },

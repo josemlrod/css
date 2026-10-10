@@ -299,25 +299,27 @@ describe('tour booking loader', () => {
     expect(getTourBySlugMock).toHaveBeenCalledWith('not-a-tour id');
   });
 
-  it('shows the test tour only to signed-in Operators', async () => {
-    const testTour = { ...tour, slug: 'test-tour', test: true };
-    const loadTestTour = (operator: Operator | null) => {
+  it.each([
+    ['the test tour', { ...tour, test: true }],
+    ['a tour Operators have not set up', { ...tour, maxGuests: 0, startTimes: [], meetingPoint: '' }],
+  ])('shows %s only to signed-in Operators', async (_, hiddenTour) => {
+    const loadHiddenTour = (operator: Operator | null) => {
       const context = new RouterContextProvider();
       context.set(optionalOperatorContext, operator);
-      getTourBySlugMock.mockResolvedValueOnce(testTour as never);
+      getTourBySlugMock.mockResolvedValueOnce(hiddenTour as never);
 
       return loader({
-        request: new Request('https://example.com/tour/test-tour'),
-        params: { slug: 'test-tour' },
+        request: new Request('https://example.com/tour/hidden-tour'),
+        params: { slug: 'hidden-tour' },
         context,
-        url: new URL('https://example.com/tour/test-tour'),
+        url: new URL('https://example.com/tour/hidden-tour'),
         pattern: '/tour/:slug',
       });
     };
 
-    await expect(loadTestTour(null)).rejects.toMatchObject({ init: { status: 404 } });
-    await expect(loadTestTour({ name: 'Op' } as Operator)).resolves.toEqual({
-      tour: testTour,
+    await expect(loadHiddenTour(null)).rejects.toMatchObject({ init: { status: 404 } });
+    await expect(loadHiddenTour({ name: 'Op' } as Operator)).resolves.toEqual({
+      tour: hiddenTour,
     });
   });
 });
