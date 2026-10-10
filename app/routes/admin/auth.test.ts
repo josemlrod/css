@@ -141,6 +141,18 @@ describe('login action', () => {
     ).toEqual({ step: 'code', email: 'ops@example.com' });
   });
 
+  it('signs in when sign-up hits an existing account with the right password', async () => {
+    authAction.mockResolvedValueOnce({ tokens: { token: jwt(3600), refreshToken: 'r' } });
+    const response = (await login({
+      intent: 'sign-up',
+      name: 'Ana',
+      email: 'ops@example.com',
+      password: 'supersecret',
+    })) as Response;
+
+    expect(response.headers.get('Location')).toBe('/admin');
+  });
+
   it('rejects bad input and failed sign-ins without saying why', async () => {
     authAction.mockRejectedValue(new Error('InvalidSecret'));
 
@@ -151,6 +163,12 @@ describe('login action', () => {
     expect(
       await login({ intent: 'sign-in', email: 'ops@example.com', password: 'wrong-pass' }),
     ).toMatchObject({ mode: 'sign-in', error: expect.stringContaining("don't match") });
+    const signUp = { intent: 'sign-up', name: 'Ana', email: 'ops@example.com', password: 'supersecret' };
+    query.mockResolvedValueOnce(true);
+    expect(await login(signUp)).toMatchObject({ error: expect.stringContaining('already exists') });
+    expect(query).toHaveBeenCalledWith(expect.anything(), { email: 'ops@example.com' });
+    query.mockRejectedValueOnce(new Error('down'));
+    expect(await login(signUp)).toMatchObject({ error: expect.stringContaining('operator list') });
     expect(await login({ intent: 'link-sign-in', code: 'used' })).toMatchObject({ mode: 'link' });
     authAction.mockReset();
   });
