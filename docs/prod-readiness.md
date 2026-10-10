@@ -114,15 +114,17 @@ Durable retries are tracked in #54 and #56 and can wait.
 
 ### 8. Fix the cancellation cutoff timezone (#66)
 
-- [ ] Done
+- [x] Done
 
 `tourStartAt` in `app/routes/manage-tour.tsx` (around line 46) parses `"2026-09-25 9:00 AM"` in the server's local timezone. Fly runs in UTC, so a 9 AM tour is treated as 5 AM Eastern and the 24-hour cutoff lands 4 to 5 hours early. Confirmed locally: with `TZ=UTC`, `new Date("2026-09-25 9:00 AM")` returns `09:00Z`.
 
 Fix: either set `TZ=America/New_York` under `[env]` in `fly.toml`, or compute the start time in Eastern explicitly. The explicit version doesn't depend on deploy config. Item 4 needs the same helper.
 
+Shipped: the manage page uses `getTourStartAt` from `app/lib/dates.ts`, so the cutoff no longer depends on the server's `TZ`.
+
 ### 9. Customer-facing copy and dead links (#67)
 
-- [ ] Done
+- [x] Done
 
 Internal domain terms appear in customer-facing text:
 
@@ -139,6 +141,8 @@ Other fixes in the same pass:
 - "Contact support" on the manage page gives no contact details. Add the email address and phone number.
 
 Domain language stays in code and docs. Bookers see plain words.
+
+Shipped: support email, phone, and the WordPress tours URL live in `app/lib/contact.ts`. Update them there if #58 picks different contact details.
 
 ## Should do
 

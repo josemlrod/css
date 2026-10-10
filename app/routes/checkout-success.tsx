@@ -4,6 +4,7 @@ import {
   getCheckoutAttemptWithTour,
   verifyCheckoutAccessToken,
 } from '~/lib/checkout-attempts';
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
 import type { CheckoutAttempt, CheckoutAttemptId, Tour } from '~/lib/types';
 
 import type { Route } from './+types/checkout-success';
@@ -34,30 +35,29 @@ export default function CheckoutSuccess({ loaderData }: Route.ComponentProps) {
   const total = checkoutAttempt.total;
   let title = 'Payment processing';
   let message =
-    'Your payment is still processing with PayPal. A Booking will be created once PayPal confirms the payment. Your tour is not reserved while payment is pending.';
+    'Your payment is still processing with PayPal. Your tour is booked once PayPal confirms the payment, and your spot is not reserved until then.';
 
   if (status === 'paid') {
     title = 'Payment received';
-    message = 'PayPal confirmed your payment and your Booking is ready.';
+    message = 'PayPal confirmed your payment and your tour is booked.';
   } else if (status === 'expired') {
     title = 'Checkout expired';
     message =
-      'This Checkout Attempt expired before payment completed. No Booking was created.';
+      'This checkout timed out before payment went through, so your tour is not booked.';
   } else if (status === 'failed') {
     title = 'Payment not completed';
-    message = 'PayPal did not complete this payment. No Booking was created.';
+    message = 'PayPal did not complete this payment, so your tour is not booked.';
   } else if (status === 'refund_pending') {
     title = 'Refund processing';
     message =
-      'PayPal confirmed your payment, but capacity was no longer available. No Booking was created, and your full refund is processing.';
+      'PayPal confirmed your payment, but the tour filled up first. Your tour is not booked, and your full refund is processing.';
   } else if (status === 'refunded') {
     title = 'Payment refunded';
     message =
-      'No Booking was created because capacity was no longer available. PayPal refunded your payment.';
+      'The tour filled up before your payment went through, so your tour is not booked. PayPal refunded your payment.';
   } else if (status === 'refund_failed') {
     title = 'Refund needs attention';
-    message =
-      'No Booking was created, and the automatic refund did not complete. Please contact CSS Tours for help.';
+    message = `The tour filled up before your payment went through, and the automatic refund did not complete. Email ${SUPPORT_EMAIL} or call ${SUPPORT_PHONE} and we'll sort it out.`;
   }
 
   return (
