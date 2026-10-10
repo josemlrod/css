@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalMutation } from './_generated/server';
+import { getBookingTotal } from './lib/bookings';
 import { serverMutation, serverQuery } from './lib/serverFunctions';
 
 const paymentStatus = v.union(
@@ -145,7 +146,12 @@ export const updateRefundStatusByPayPalRefund = serverMutation({
 
       const tour = await ctx.db.get(booking.tourId);
 
-      return { status: 'updated_booking' as const, booking, tour };
+      return {
+        status: 'updated_booking' as const,
+        booking,
+        tour,
+        total: await getBookingTotal(ctx, booking, tour?.price ?? 0),
+      };
     }
 
     const checkoutAttempt = await ctx.db

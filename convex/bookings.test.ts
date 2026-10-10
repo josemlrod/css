@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   cancelBookingAsOperator,
   getBookingForOperator,
+  getBookingWithTourForAccess,
   listBookingActivity,
   markBookingRefunded,
   restartBookingRefund,
@@ -58,6 +59,15 @@ describe('operator Booking functions', () => {
     expect(res.total).toBe(80);
     expect(res.booking).not.toHaveProperty('accessTokenHash');
     await expect(get('not-an-id')).resolves.toBeNull();
+  });
+
+  it('gives the Booker the charged total only with the right access token', async () => {
+    const { ctx } = fakeCtx({ tour_1: tour, failed, attempt: { total: 70 } });
+    const get = (accessTokenHash: string) =>
+      handler(getBookingWithTourForAccess)(ctx, { bookingId: 'failed', accessTokenHash, serverSecret });
+
+    await expect(get('secret')).resolves.toMatchObject({ total: 70 });
+    await expect(get('wrong')).resolves.toBeNull();
   });
 
   it('lists Bookings made or canceled after a time, newest first', async () => {

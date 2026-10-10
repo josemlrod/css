@@ -221,6 +221,7 @@ describe('PayPal webhook action', () => {
       status: 'updated_booking',
       booking: { ...checkoutAttempt, _id: 'booking_123' },
       tour,
+      total: 150,
     } as never);
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
@@ -237,7 +238,7 @@ describe('PayPal webhook action', () => {
         date: '2026-07-04',
         time: '10:00 AM',
         guests: 2,
-        total: 158,
+        total: 150,
       },
       { bookingId: 'booking_123' },
     );

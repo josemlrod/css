@@ -64,7 +64,7 @@ const cancelReasons = [
 ];
 
 export default function ManageTour({ loaderData }: Route.ComponentProps) {
-  const { booking, tour } = loaderData;
+  const { booking, tour, total: originalTotal } = loaderData;
   const fetcher = useFetcher();
 
   const isSubmitting = fetcher.state !== 'idle';
@@ -75,7 +75,6 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
   );
   const [reason, setReason] = useState<string | null>(null);
 
-  const originalTotal = tour.price * booking.guests;
   const selfCancellationAllowed = canSelfCancel(booking.date, booking.time);
 
   return (
@@ -306,7 +305,7 @@ export async function loader({ request, params: { bookingId } }: Route.LoaderArg
     canSelfCancel: canSelfCancel(res.booking.date, res.booking.time),
   });
 
-  return res as { booking: Booking; tour: Tour };
+  return res as { booking: Booking; tour: Tour; total: number };
 }
 
 export async function action({ request, params: { bookingId } }: Route.ActionArgs) {
@@ -338,8 +337,7 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
   }
 
-  const { booking, tour } = res;
-  const total = tour.price * booking.guests;
+  const { booking, tour, total } = res;
 
   if (!canSelfCancel(booking.date, booking.time)) {
     logEvent('cancellation.rejected', {

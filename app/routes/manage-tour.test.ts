@@ -48,6 +48,9 @@ const tour = {
   price: 79,
 };
 
+// What the Booker paid before the tour price changed, not 2 × $79.
+const total = 150;
+
 const getBookingWithTourForAccessMock = vi.mocked(getBookingWithTourForAccess);
 const cancelPaidBookingMock = vi.mocked(cancelPaidBooking);
 const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
@@ -108,7 +111,7 @@ describe('manage tour cancellation', () => {
   });
 
   it('creates refund before canceling Booking', async () => {
-    getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
+    getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour, total } as never);
     refundPayPalCaptureMock.mockResolvedValueOnce({
       id: 'REFUND123',
       status: 'COMPLETED',
@@ -142,7 +145,7 @@ describe('manage tour cancellation', () => {
         date: '2099-07-04',
         time: '10:00 AM',
         guests: 2,
-        total: 158,
+        total: 150,
       },
       { bookingId: 'booking_123' },
     );
@@ -154,7 +157,7 @@ describe('manage tour cancellation', () => {
   });
 
   it('keeps Booking active when refund creation fails', async () => {
-    getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
+    getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour, total } as never);
     refundPayPalCaptureMock.mockRejectedValueOnce(new Error('refund failed'));
     const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -176,7 +179,7 @@ describe('manage tour cancellation', () => {
         date: '2099-07-04',
         time: '10:00 AM',
         guests: 2,
-        total: 158,
+        total: 150,
       },
       { bookingId: 'booking_123' },
     );
@@ -185,7 +188,7 @@ describe('manage tour cancellation', () => {
   it.each(['FAILED', 'CANCELLED'])(
     'keeps Booking active when PayPal returns %s',
     async (status) => {
-      getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
+      getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour, total } as never);
       refundPayPalCaptureMock.mockResolvedValueOnce({ id: 'REFUND123', status });
 
       await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
