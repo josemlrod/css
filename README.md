@@ -25,6 +25,7 @@ A tour booking app for Savannah, GA walking tours. Bookers select a tour, pay vi
 - **Refund processing**: PayPal refund on cancellation, with email notification on success or failure
 - **Booking Communication** — transactional emails via Resend (booking confirmed, refund issued, cancellation failed)
 - **Convex persistence** — `tours`, `checkoutAttempts` (30-min TTL), `bookings` tables with full CRUD + queries
+- **Operator sign-in** — `/admin` requires a Convex Auth session (password or magic link); only allowlisted emails can sign up
 - **Design parity** — fonts, color palette, and header/footer matching the marketing site
 
 ## Getting Started
@@ -40,6 +41,16 @@ bun run dev
 ```
 
 App available at `http://localhost:5173`.
+
+### Operator sign-in
+
+The operator console at `/admin` uses [Convex Auth](https://labs.convex.dev/auth). Set these on each Convex deployment (`npx convex env set <NAME> <value>`, add `--prod` for production):
+
+| Variable | Value |
+|---|---|
+| `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL` | Run `npx @convex-dev/auth` once per deployment to generate them. `SITE_URL` is the app origin, e.g. `http://localhost:5173` |
+| `OPERATOR_ALLOWED_EMAILS` | Comma-separated emails allowed to sign up and use `/admin`. Removing an email signs that Operator out on their next request |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Same values as the app. Convex sends the sign-in link and the sign-up code |
 
 ## Scripts
 
@@ -71,3 +82,4 @@ CI/CD via GitHub Actions:
 - **Checkout Attempt** — pre-payment record (not "booking")
 - **Booking** — confirmed, paid reservation
 - **Booking Communication** — email sent to the Booker
+- **Operator** — allowlisted staff member who signs in to `/admin`

@@ -19,8 +19,10 @@ export default [
     route('/paypal/webhook', 'routes/paypal-webhook.ts'),
     route('/manage/:bookingId', 'routes/manage-tour.tsx'),
   ]),
-  // Operator console. Open for now; needs operator sign-in before launch.
+  // Operator console. The layout's middleware sends signed-out visitors to /admin/login.
   ...prefix('admin', [
+    route('login', 'routes/admin/login.tsx'),
+    route('logout', 'routes/admin/logout.ts'),
     layout('routes/admin/layout.tsx', [
       index('routes/admin/index.ts'),
       route('bookings', 'routes/admin/bookings.tsx', [

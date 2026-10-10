@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RouterContextProvider } from 'react-router';
 
 import {
   saveCheckoutAttempt,
@@ -86,7 +87,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest(),
       params: { slug: 'unknown-tour' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/unknown-tour'),
       pattern: '/tour/:slug',
     });
@@ -106,7 +107,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest({ email: 'not-an-email' }),
       params: { slug: 'southern-flavors-food' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
       pattern: '/tour/:slug',
     });
@@ -128,7 +129,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest(),
       params: { slug: 'southern-flavors-food' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
       pattern: '/tour/:slug',
     });
@@ -147,7 +148,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest(),
       params: { slug: 'southern-flavors-food' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
       pattern: '/tour/:slug',
     });
@@ -172,7 +173,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest(),
       params: { slug: 'southern-flavors-food' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
       pattern: '/tour/:slug',
     });
@@ -231,7 +232,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest(),
       params: { slug: 'southern-flavors-food' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
       pattern: '/tour/:slug',
     });
@@ -258,7 +259,7 @@ describe('tour booking action', () => {
     const response = await action({
       request: bookingRequest(),
       params: { slug: 'southern-flavors-food' },
-      context: {},
+      context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
       pattern: '/tour/:slug',
     });
@@ -279,7 +280,7 @@ describe('tour booking loader', () => {
       loader({
         request: new Request('https://example.com/tour/not-a-tour%20id'),
         params: { slug: 'not-a-tour id' },
-        context: {},
+        context: new RouterContextProvider(),
         url: new URL('https://example.com/tour/not-a-tour%20id'),
         pattern: '/tour/:slug',
       }),

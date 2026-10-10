@@ -28,6 +28,10 @@ _Avoid_: Payment Status
 Whether payment or refund activity for a **Checkout Attempt** or **Booking** is pending, paid, refunded, or failed.
 _Avoid_: Booking Status
 
+**Operator**:
+An allowlisted staff member who signs in to the operator console at `/admin`. Stored with only a name and email.
+_Avoid_: Admin, User
+
 ## Relationships
 
 - A **Booker** provides contact information for a tour booking.
