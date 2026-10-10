@@ -11,7 +11,12 @@ import {
   outlineButtonClass,
   primaryButtonClass,
 } from '~/components/admin/primitives';
-import { TourSettingsValidation, timeToMinutes, toTourStartTime } from '~/lib/operator';
+import {
+  TourSettingsValidation,
+  isTourReady,
+  timeToMinutes,
+  toTourStartTime,
+} from '~/lib/operator';
 import { getTours, updateTourSettings } from '~/lib/tours';
 import type { Tour, TourId } from '~/lib/types';
 import { cn } from '~/lib/utils';
@@ -71,6 +76,12 @@ export default function AdminTours({ loaderData }: Route.ComponentProps) {
                   {tour.category} · {tour.duration}
                 </Eyebrow>
                 <p className='mt-0.5 truncate font-medium'>{tour.name}</p>
+                {!isTourReady(tour) && (
+                  <p className='mt-1 inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive'>
+                    <span className='size-1.5 rounded-full bg-destructive' />
+                    Needs setup · hidden from Bookers
+                  </p>
+                )}
               </div>
               <dl className='hidden gap-6 text-sm lg:flex'>
                 <div>
@@ -79,11 +90,11 @@ export default function AdminTours({ loaderData }: Route.ComponentProps) {
                 </div>
                 <div>
                   <dt className='text-xs text-muted-foreground'>Capacity</dt>
-                  <dd className='font-medium tabular-nums'>{tour.maxGuests}</dd>
+                  <dd className='font-medium tabular-nums'>{tour.maxGuests || '—'}</dd>
                 </div>
                 <div>
                   <dt className='text-xs text-muted-foreground'>Start times</dt>
-                  <dd className='font-medium tabular-nums'>{tour.startTimes.join(', ')}</dd>
+                  <dd className='font-medium tabular-nums'>{tour.startTimes.join(', ') || '—'}</dd>
                 </div>
               </dl>
               <button
@@ -111,7 +122,8 @@ export default function AdminTours({ loaderData }: Route.ComponentProps) {
 function TourEditor({ tour, onCancel }: { tour: Tour; onCancel: () => void }) {
   const fetcher = useFetcher<typeof action>({ key: SAVE_FETCHER_KEY });
   const [price, setPrice] = useState(String(tour.price));
-  const [maxGuests, setMaxGuests] = useState(String(tour.maxGuests));
+  // New tours are seeded with capacity 0, meaning not set. Start the field empty.
+  const [maxGuests, setMaxGuests] = useState(tour.maxGuests ? String(tour.maxGuests) : '');
   const [startTimes, setStartTimes] = useState(tour.startTimes);
   const [meetingPoint, setMeetingPoint] = useState(tour.meetingPoint);
   const [newTime, setNewTime] = useState('');
@@ -219,7 +231,7 @@ function TourEditor({ tour, onCancel }: { tour: Tour; onCancel: () => void }) {
           </span>
         </div>
         {startTimes.length === 0 && (
-          <p className='text-xs text-destructive'>Keep at least one start time.</p>
+          <p className='text-xs text-destructive'>Add at least one start time.</p>
         )}
       </div>
 

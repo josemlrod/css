@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { FunctionReturnType } from 'convex/server';
 
 import { BOOKING_TIME_ZONE } from './dates';
+import type { Tour } from './types';
 
 import type { api } from '../../convex/_generated/api';
 
@@ -130,6 +131,14 @@ export const TourSettingsValidation = z.object({
     ),
   meetingPoint: z.string().trim().min(1).max(200),
 });
+
+// The seed leaves start times, capacity, and meeting point empty on new tours. A tour opens to
+// Bookers once an Operator saves settings that pass the same rules as the /admin/tours editor.
+export function isTourReady(
+  tour: Pick<Tour, 'price' | 'maxGuests' | 'startTimes' | 'meetingPoint'>,
+) {
+  return TourSettingsValidation.safeParse(tour).success;
+}
 
 export const BlockedDateValidation = z.object({
   date: z.iso.date(),
