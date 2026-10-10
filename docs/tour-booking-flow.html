@@ -366,6 +366,16 @@
           from <code>/admin</code> don't send one. The <code>/admin/bookings</code>
           list is the roster.
         </p>
+        <p>
+          The console shows the same activity. <code>/admin/bookings</code> has a
+          Recent activity panel with the last 7 days of new Bookings and
+          cancellations, newest first, each linking to the Booking. Items after
+          the browser's last <strong>Mark all as seen</strong> are marked New, and
+          the Bookings menu item shows their count. The last-seen time is kept in
+          a per-browser cookie, not per Operator. The console refreshes every
+          minute while it's open. Capacity refunds create no Booking, so they
+          only appear in email.
+        </p>
       </section>
 
       <section class="grid">
@@ -504,7 +514,7 @@
           <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff measured from the tour start in Eastern time, starts cancellation refunds.</p></div>
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation, plus operator Booking list, cancellation, refund retry, and mark-refunded mutations.</p></div>
-          <div><code>app/routes/admin/</code><p>Operator console: Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
+          <div><code>app/routes/admin/</code><p>Operator console: Recent activity with New markers, Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
           <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
           <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions. Operator notifications for new Bookings, self-cancellations, capacity refunds, and refund failures. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>

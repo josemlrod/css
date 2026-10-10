@@ -99,7 +99,7 @@ Scrappy fix:
 - Send an email to the operator address on every Booking and every cancellation.
 - Use the Convex dashboard `bookings` table as the roster until the admin dashboard exists.
 
-Shipped: `OPERATOR_EMAIL` gets an email for each new Booking, Booker self-cancellation, self-cancellation whose refund PayPal rejects, capacity refund, and refund failure (`sendOperatorNotification` in `app/lib/email.ts`). Booking emails link to the Booking in the operator console, and sign-in returns the Operator to it. The operator console's `/admin/bookings` list is the roster, so the Convex dashboard isn't needed. Operator emails never include the Booker's manage link.
+Shipped: `OPERATOR_EMAIL` gets an email for each new Booking, Booker self-cancellation, self-cancellation whose refund PayPal rejects, capacity refund, and refund failure (`sendOperatorNotification` in `app/lib/email.ts`). Booking emails link to the Booking in the operator console, and sign-in returns the Operator to it. The operator console's `/admin/bookings` list is the roster, so the Convex dashboard isn't needed. Its Recent activity panel shows the last 7 days of new Bookings and cancellations, with New markers and a count on the Bookings menu item until the Operator marks them seen in that browser. Operator emails never include the Booker's manage link.
 
 ### 7. Stop swallowing email failures (#65)
 

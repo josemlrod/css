@@ -2,11 +2,49 @@ import { z } from 'zod';
 
 import type { FunctionReturnType } from 'convex/server';
 
+import { BOOKING_TIME_ZONE } from './dates';
+
 import type { api } from '../../convex/_generated/api';
 
 export type OperatorBooking = FunctionReturnType<
   typeof api.bookings.listBookingsForOperator
 >[number];
+
+export type BookingActivity = FunctionReturnType<
+  typeof api.bookings.listBookingActivity
+>[number];
+
+// Recent activity covers this long. Older Bookings and cancellations are never "new".
+export const ACTIVITY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const ACTIVITY_LIMIT = 6;
+
+// The latest Bookings and cancellations, marking those after `seenAt` (when this
+// browser last marked them seen) as new.
+export function summarizeActivity(events: BookingActivity[], seenAt: number, now: number) {
+  return {
+    newCount: events.filter((event) => event.at > seenAt).length,
+    items: events.slice(0, ACTIVITY_LIMIT).map((event) => ({
+      ...event,
+      isNew: event.at > seenAt,
+      age: formatActivityAge(event.at, now),
+    })),
+  };
+}
+
+function formatActivityAge(at: number, now: number) {
+  const minutes = Math.floor((now - at) / 60_000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} hr ago`;
+
+  return new Date(at).toLocaleDateString('en-US', {
+    timeZone: BOOKING_TIME_ZONE,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 export const OPERATOR_BOOKING_VIEWS = [
   { id: 'upcoming', label: 'Upcoming' },

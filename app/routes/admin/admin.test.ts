@@ -11,6 +11,7 @@ import { refundPayPalCapture } from '~/lib/paypal';
 import { setTourDateBlocked, updateTourSettings } from '~/lib/tours';
 
 import { action as bookingAction, loader as bookingLoader } from './booking';
+import { action as bookingsAction } from './bookings';
 import { action as closedDatesAction } from './closed-dates';
 import { action as toursAction } from './tours';
 
@@ -65,6 +66,15 @@ function withBooking(booking: object | null) {
 
 describe('admin Booking actions', () => {
   afterEach(() => vi.clearAllMocks());
+
+  it('marks Recent activity as seen for this browser', async () => {
+    const seen = (await bookingsAction(post({ intent: 'mark-seen' }))) as never as {
+      init: { headers: Record<string, string> };
+    };
+
+    expect(seen.init.headers['Set-Cookie']).toMatch(/^operator_activity_seen=/);
+    await expect(bookingsAction(post({}))).resolves.toMatchObject({ init: { status: 400 } });
+  });
 
   it('404s an unknown Booking', async () => {
     withBooking(null);

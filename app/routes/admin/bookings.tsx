@@ -1,9 +1,11 @@
-import { ChevronRight, Search, X } from 'lucide-react';
+import { CalendarPlus, CalendarX, ChevronRight, Search, X } from 'lucide-react';
 import { useRef } from 'react';
 import {
   Form,
   Link,
   Outlet,
+  data,
+  useFetcher,
   useLocation,
   useNavigate,
   useParams,
@@ -15,14 +17,20 @@ import {
   StatusPill,
   fieldClass,
 } from '~/components/admin/primitives';
-import { listBookingsForOperator } from '~/lib/bookings';
+import { listBookingActivity, listBookingsForOperator } from '~/lib/bookings';
 import { getTodayInBookingTimeZone } from '~/lib/dates';
 import {
+  ACTIVITY_WINDOW_MS,
   OPERATOR_BOOKING_VIEWS,
   filterOperatorBookings,
   parseBookingView,
+  summarizeActivity,
   summarizeNextWeek,
 } from '~/lib/operator';
+import {
+  readActivitySeenAt,
+  serializeActivitySeenAt,
+} from '~/lib/operator-session.server';
 import { getTours } from '~/lib/tours';
 import { cn } from '~/lib/utils';
 
@@ -48,10 +56,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     date: url.searchParams.get('date') ?? '',
   };
   const today = getTodayInBookingTimeZone();
-  const [bookings, tours] = await Promise.all([listBookingsForOperator(), getTours()]);
+  const now = Date.now();
+  const [bookings, tours, activity, seenAt] = await Promise.all([
+    listBookingsForOperator(),
+    getTours(),
+    listBookingActivity(now - ACTIVITY_WINDOW_MS),
+    readActivitySeenAt(request),
+  ]);
   const rows = filterOperatorBookings(bookings, filters, today);
 
   return {
+    activity: summarizeActivity(activity, seenAt, now),
     filters,
     tours: tours.map(({ _id, name }) => ({ _id, name })),
     rows: rows.slice(0, PAGE_SIZE),
@@ -61,8 +76,20 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
+export async function action({ request }: Route.ActionArgs) {
+  if ((await request.formData()).get('intent') !== 'mark-seen') {
+    return data({ ok: false }, { status: 400 });
+  }
+
+  return data(
+    { ok: true },
+    { headers: { 'Set-Cookie': await serializeActivitySeenAt(Date.now()) } },
+  );
+}
+
 export default function AdminBookings({ loaderData }: Route.ComponentProps) {
-  const { filters, tours, rows, rowCount, nextWeek, refundFailedCount } = loaderData;
+  const { activity, filters, tours, rows, rowCount, nextWeek, refundFailedCount } =
+    loaderData;
   const { search } = useLocation();
   const { bookingId } = useParams();
   const navigate = useNavigate();
@@ -105,6 +132,8 @@ export default function AdminBookings({ loaderData }: Route.ComponentProps) {
           </div>
         ))}
       </div>
+
+      <RecentActivity activity={activity} search={search} />
 
       <div className='overflow-hidden rounded-xl border border-border bg-card'>
         <div className='flex flex-wrap items-center gap-3 border-b border-border p-3'>
@@ -244,5 +273,100 @@ export default function AdminBookings({ loaderData }: Route.ComponentProps) {
 
       <Outlet />
     </>
+  );
+}
+
+function RecentActivity({
+  activity,
+  search,
+}: {
+  activity: Route.ComponentProps['loaderData']['activity'];
+  search: string;
+}) {
+  const fetcher = useFetcher<typeof action>();
+  const newCount = fetcher.state === 'idle' ? activity.newCount : 0;
+
+  return (
+    <section
+      aria-labelledby='recent-activity'
+      className='mb-6 overflow-hidden rounded-xl border border-border bg-card'
+    >
+      <div className='flex h-12 items-center gap-2 border-b border-border px-4'>
+        <h2 id='recent-activity' className='text-sm font-medium'>
+          Recent activity
+        </h2>
+        {newCount > 0 && (
+          <span className='rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold tabular-nums text-primary-foreground'>
+            {newCount} new
+          </span>
+        )}
+        {newCount > 0 && (
+          <fetcher.Form method='post' action='/admin/bookings' className='ml-auto'>
+            <button
+              name='intent'
+              value='mark-seen'
+              className='h-8 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
+            >
+              Mark all as seen
+            </button>
+          </fetcher.Form>
+        )}
+      </div>
+      {activity.items.length === 0 ? (
+        <p className='p-6 text-center text-sm text-muted-foreground'>
+          No Bookings or cancellations in the last 7 days.
+        </p>
+      ) : (
+        <ul>
+          {activity.items.map((item) => {
+            const isNew = item.isNew && newCount > 0;
+            const Icon = item.type === 'booked' ? CalendarPlus : CalendarX;
+
+            return (
+              <li
+                key={`${item.type}-${item.bookingId}`}
+                className='border-b border-border/70 last:border-0'
+              >
+                <Link
+                  to={`/admin/bookings/${item.bookingId}${search}`}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/60',
+                    isNew && 'bg-secondary/15',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-full',
+                      item.type === 'booked'
+                        ? 'bg-secondary/40 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    <Icon className='size-3.5' />
+                  </span>
+                  <p className='min-w-0 flex-1 truncate'>
+                    <span className='font-medium'>{item.bookerName}</span>{' '}
+                    {item.type === 'booked' ? 'booked' : 'canceled'} {item.tourName}
+                    <span className='text-muted-foreground'>
+                      {' '}
+                      · {formatShortDate(item.date)} · {item.time} · {item.guests}{' '}
+                      {item.guests === 1 ? 'guest' : 'guests'}
+                    </span>
+                  </p>
+                  {isNew && (
+                    <span className='rounded-full border border-primary/30 px-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary'>
+                      New
+                    </span>
+                  )}
+                  <span className='w-20 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>
+                    {item.age}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

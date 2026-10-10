@@ -1,4 +1,4 @@
-const BOOKING_TIME_ZONE = 'America/New_York';
+export const BOOKING_TIME_ZONE = 'America/New_York';
 
 // Bookers can book up to this many days ahead. Pending the operator's answer in #58.
 export const MAX_BOOKING_WINDOW_DAYS = 90;
