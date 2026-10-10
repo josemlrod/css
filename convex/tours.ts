@@ -70,6 +70,39 @@ export const seedTours = internalMutation({
   },
 });
 
+// A $1 tour Operators book, cancel, and refund to smoke-test production with real payments.
+// Its name labels its Bookings in the console and in operator emails.
+export const seedTestTour = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existingTour = await ctx.db
+      .query('tours')
+      .withIndex('by_slug', (q) => q.eq('slug', 'test-tour'))
+      .unique();
+
+    if (existingTour) return existingTour._id;
+
+    return await ctx.db.insert('tours', {
+      slug: 'test-tour',
+      name: 'Test tour',
+      tagline: 'For Operators testing production',
+      description: 'A $1 tour for testing Bookings, cancellations, refunds, and emails.',
+      longDescription: 'A $1 tour for testing Bookings, cancellations, refunds, and emails.',
+      duration: '1 hour',
+      durationMinutes: 60,
+      price: 1,
+      maxGuests: 10,
+      imageUrl: '/tours/trolley.jpg',
+      category: 'Test',
+      highlights: ['Real PayPal payment', 'Full refund on cancel'],
+      startTimes: ['9:00 AM', '12:00 PM', '3:00 PM', '6:00 PM'],
+      meetingPoint: 'Nowhere. This tour does not run.',
+      test: true,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const updateTourSettings = serverMutation({
   args: {
     id: v.id('tours'),

@@ -28,6 +28,8 @@ export default defineSchema({
     meetingPoint: v.string(),
     // YYYY-MM-DD dates the operator closed from /admin/closed-dates. The seed never sets it.
     blockedDates: v.optional(v.array(v.string())),
+    // Only seedTestTour sets it. Signed-in Operators can book it; everyone else gets a 404.
+    test: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index('by_slug', ['slug']),
 

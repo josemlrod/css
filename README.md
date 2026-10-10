@@ -61,6 +61,7 @@ The operator console at `/admin` uses [Convex Auth](https://labs.convex.dev/auth
 | `bun run typecheck` | TypeScript check |
 | `bun run test` | Run tests (vitest) |
 | `bun run seed:tours` | Seed tours in Convex through `npx convex run` (add `--prod` for production) |
+| `bun run seed:test-tour` | Create the $1 test tour (add `--prod` for production). See [Testing production](#testing-production) |
 
 ## Deployment
 
@@ -75,6 +76,17 @@ CI/CD via GitHub Actions:
 - Every pull request runs `bun run typecheck` and `bun run test` (`.github/workflows/ci.yml`).
 - Every push to `main` runs the same checks, then deploys Convex functions (`npx convex deploy`) and then the app to Fly.io (`.github/workflows/fly-deploy.yml`). A failing check blocks both deploys.
 - The deploy needs a production Convex deploy key in the `CONVEX_DEPLOY_KEY` repository secret.
+
+## Testing production
+
+The test tour at `/tour/test-tour` costs $1 per guest and runs through live PayPal, Resend, and webhooks. Only signed-in Operators can see or book it; everyone else gets a 404. Its Bookings show up as "Test tour" in the console and in operator emails.
+
+1. Create it once: `bun run seed:test-tour --prod`.
+2. Sign in at `/admin`, then open `/tour/test-tour`.
+3. Book a date at least two days out (self-cancel closes 24 hours before), using an email you can read.
+4. Check the Booking email and the new-Booking operator email, then cancel from the manage link and check the refund emails.
+
+PayPal returns the percentage fee on a refund but keeps the fixed fee, so each round costs about $0.50.
 
 ## Domain Language
 

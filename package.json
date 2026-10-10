@@ -8,7 +8,8 @@
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run",
-    "seed:tours": "bun run scripts/seed-tours.ts"
+    "seed:tours": "bun run scripts/seed-tours.ts",
+    "seed:test-tour": "convex run tours:seedTestTour"
   },
   "dependencies": {
     "@auth/core": "^0.41.1",

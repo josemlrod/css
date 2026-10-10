@@ -266,7 +266,7 @@
         <div class="entity-grid">
           <div class="entity">
             <h3>Tour</h3>
-            <p>Catalog item with price, capacity, start times, meeting point. Booking pages live at <code>/tour/:slug</code>. The seed updates tours in place by slug, so tour IDs on Checkout Attempts and Bookings stay valid. The operator closes dates with the optional <code>blockedDates</code> field in the Convex dashboard. The seed never overwrites it.</p>
+            <p>Catalog item with price, capacity, start times, meeting point. Booking pages live at <code>/tour/:slug</code>. The seed updates tours in place by slug, so tour IDs on Checkout Attempts and Bookings stay valid. The operator closes dates with the optional <code>blockedDates</code> field in the Convex dashboard. The seed never overwrites it. The tour with <code>test: true</code>, created by <code>seedTestTour</code>, costs $1 and goes through the real flow. Its page and checkout return 404 unless an Operator is signed in.</p>
           </div>
           <div class="entity">
             <h3>Checkout Attempt</h3>

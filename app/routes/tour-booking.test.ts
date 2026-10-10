@@ -9,6 +9,10 @@ import {
   DATE_UNAVAILABLE_MESSAGE,
   getTodayInBookingTimeZone,
 } from '~/lib/dates';
+import {
+  type Operator,
+  optionalOperatorContext,
+} from '~/lib/operator-session.server';
 import { createPayPalOrder } from '~/lib/paypal';
 import { getTourBySlug } from '~/lib/tours';
 
@@ -289,5 +293,27 @@ describe('tour booking loader', () => {
       init: { status: 404 },
     });
     expect(getTourBySlugMock).toHaveBeenCalledWith('not-a-tour id');
+  });
+
+  it('shows the test tour only to signed-in Operators', async () => {
+    const testTour = { ...tour, slug: 'test-tour', test: true };
+    const loadTestTour = (operator: Operator | null) => {
+      const context = new RouterContextProvider();
+      context.set(optionalOperatorContext, operator);
+      getTourBySlugMock.mockResolvedValueOnce(testTour as never);
+
+      return loader({
+        request: new Request('https://example.com/tour/test-tour'),
+        params: { slug: 'test-tour' },
+        context,
+        url: new URL('https://example.com/tour/test-tour'),
+        pattern: '/tour/:slug',
+      });
+    };
+
+    await expect(loadTestTour(null)).rejects.toMatchObject({ init: { status: 404 } });
+    await expect(loadTestTour({ name: 'Op' } as Operator)).resolves.toEqual({
+      tour: testTour,
+    });
   });
 });
