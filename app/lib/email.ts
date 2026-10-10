@@ -1,5 +1,7 @@
 import { Resend } from 'resend';
 
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
+
 type BookingCommunication = {
   to: string;
   bookerName: string;
@@ -23,13 +25,11 @@ type FailedCapacityRefundCommunication = {
   total: number;
 };
 
-type CancellationRefundCommunication = FailedCapacityRefundCommunication & {
-  supportEmail?: string;
-};
+type CancellationRefundCommunication = FailedCapacityRefundCommunication;
 
-type RefundFailedCommunication = FailedCapacityRefundCommunication & {
-  supportEmail?: string;
-};
+type RefundFailedCommunication = FailedCapacityRefundCommunication;
+
+const supportContact = `email ${SUPPORT_EMAIL} or call ${SUPPORT_PHONE}`;
 
 // Logged with every send failure so it can be traced to a Booking or Checkout Attempt.
 type EmailRecord = { bookingId: string } | { checkoutAttemptId: string };
@@ -237,7 +237,7 @@ export function createBookingCancellationRefundRequestedEmail(
     subject: `${booking.tourName} cancellation received`,
     text: `Hi ${booking.bookerName},
 
-Your Booking is canceled. We requested a full refund to your original payment method.
+Your booking is canceled. We requested a full refund to your original payment method.
 
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
@@ -249,7 +249,7 @@ Refund amount: ${currency.format(booking.total)}`,
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} cancellation received</title></head>
   <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Booking canceled</h1>
-    <p>Hi ${escapeHtml(booking.bookerName)}, your Booking is canceled. We requested a full refund to your original payment method.</p>
+    <p>Hi ${escapeHtml(booking.bookerName)}, your booking is canceled. We requested a full refund to your original payment method.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
     <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
     <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
@@ -263,13 +263,11 @@ Refund amount: ${currency.format(booking.total)}`,
 export function createBookingCancellationRefundFailedEmail(
   booking: CancellationRefundCommunication,
 ) {
-  const supportEmail = booking.supportEmail ?? 'support';
-
   return {
     subject: `${booking.tourName} cancellation needs support`,
     text: `Hi ${booking.bookerName},
 
-We could not request your refund, so your Booking remains active. Please try again or contact ${supportEmail} for help.
+We couldn't process your refund, so your booking is still active. Please try again later, or ${supportContact} and we'll help.
 
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
@@ -281,7 +279,7 @@ Refund amount: ${currency.format(booking.total)}`,
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} cancellation needs support</title></head>
   <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Cancellation needs support</h1>
-    <p>Hi ${escapeHtml(booking.bookerName)}, we could not request your refund, so your Booking remains active. Please try again or contact ${escapeHtml(supportEmail)} for help.</p>
+    <p>Hi ${escapeHtml(booking.bookerName)}, we couldn't process your refund, so your booking is still active. Please try again later, or ${escapeHtml(supportContact)} and we'll help.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
     <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
     <strong>Time:</strong> ${escapeHtml(booking.time)}<br />
@@ -293,13 +291,11 @@ Refund amount: ${currency.format(booking.total)}`,
 }
 
 export function createRefundFailedEmail(booking: RefundFailedCommunication) {
-  const supportEmail = booking.supportEmail ?? 'support';
-
   return {
     subject: `${booking.tourName} refund needs support`,
     text: `Hi ${booking.bookerName},
 
-PayPal reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${supportEmail} for help.
+PayPal let us know your refund didn't go through. Please ${supportContact} and we'll sort it out.
 
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
@@ -311,7 +307,7 @@ Refund amount: ${currency.format(booking.total)}`,
   <head><meta charset="utf-8" /><title>${escapeHtml(booking.tourName)} refund needs support</title></head>
   <body style="font-family:Arial,sans-serif;color:#171717;">
     <h1>Refund needs support</h1>
-    <p>Hi ${escapeHtml(booking.bookerName)}, PayPal reported that your refund failed. Your Booking Communication record now shows Payment Status: refund failed. Please contact ${escapeHtml(supportEmail)} for help.</p>
+    <p>Hi ${escapeHtml(booking.bookerName)}, PayPal let us know your refund didn't go through. Please ${escapeHtml(supportContact)} and we'll sort it out.</p>
     <p><strong>Tour:</strong> ${escapeHtml(booking.tourName)}<br />
     <strong>Date:</strong> ${escapeHtml(formatDate(booking.date))}<br />
     <strong>Time:</strong> ${escapeHtml(booking.time)}<br />

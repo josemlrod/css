@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { data, Link, redirect, useFetcher } from 'react-router';
+import { data, redirect, useFetcher } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
@@ -14,6 +14,13 @@ import {
 
 import { cancelPaidBooking, getBookingWithTourForAccess } from '~/lib/bookings';
 import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE,
+  SUPPORT_PHONE_HREF,
+  TOURS_URL,
+} from '~/lib/contact';
+import { getTourStartAt } from '~/lib/dates';
 import {
   sendBookingCancellationRefundFailedCommunication,
   sendBookingCancellationRefundRequestedCommunication,
@@ -42,12 +49,8 @@ export const formatLong = (iso: string) =>
     day: 'numeric',
   });
 
-function tourStartAt(date: string, time: string) {
-  return new Date(`${date} ${time}`).getTime();
-}
-
 function canSelfCancel(date: string, time: string) {
-  return tourStartAt(date, time) - Date.now() > 24 * 60 * 60 * 1000;
+  return getTourStartAt(date, time) - Date.now() > 24 * 60 * 60 * 1000;
 }
 
 const cancelReasons = [
@@ -57,11 +60,6 @@ const cancelReasons = [
   'Booked by mistake',
   'Other',
 ];
-
-export const manageCancellationCopy = {
-  heading: 'manage cancellation',
-  paymentStatus: 'Payment Status: refund pending',
-} as const;
 
 export default function ManageTour({ loaderData }: Route.ComponentProps) {
   const { booking, tour } = loaderData;
@@ -94,12 +92,11 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 Booking {booking._id}
               </p>
               <h1 className='mt-2 text-balance text-3xl font-medium tracking-tight md:text-4xl'>
-                Hi {booking.bookerName.split(' ')[0]},{' '}
-                {manageCancellationCopy.heading}.
+                Hi {booking.bookerName.split(' ')[0]}, here&apos;s your
+                booking.
               </h1>
               <p className='mt-2 max-w-xl text-base text-muted-foreground'>
                 You can cancel for a full refund until 24 hours before your tour.
-                Inside 24 hours, contact support so we can help.
               </p>
 
               <BookingCard
@@ -123,8 +120,8 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 </div>
               ) : (
                 <div className='mt-6 rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground'>
-                  This tour is inside the 24-hour cancellation cutoff. Contact
-                  support for cancellation help.
+                  Your tour starts within 24 hours, so it can&apos;t be canceled
+                  online. <SupportContact />
                 </div>
               )}
 
@@ -136,12 +133,12 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
             <ResultState
               key={View.CUTOFF_BLOCKED}
               icon={<ShieldCheck className='size-6 text-muted-foreground' />}
-              title='Contact support'
-              message='This tour is inside the 24-hour cancellation cutoff, so self-service cancellation is unavailable.'
+              title='Contact us to cancel'
+              message="Your tour starts within 24 hours, so it can't be canceled online."
               muted
             >
               <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
-                Your Booking remains active. Contact support if you need help.
+                Your booking is still active. <SupportContact />
               </div>
             </ResultState>
           )}
@@ -150,12 +147,12 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
             <ResultState
               key={View.REFUND_FAILED}
               icon={<ShieldCheck className='size-6 text-muted-foreground' />}
-              title='Refund needs support'
-              message='We could not request your refund, so your Booking remains active.'
+              title="We couldn't process your refund"
+              message='Your booking is still active.'
               muted
             >
               <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
-                Please try again or contact support. We sent details to your inbox.
+                Please try again later. <SupportContact />
               </div>
             </ResultState>
           )}
@@ -188,8 +185,7 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 <div className='text-sm'>
                   <p className='font-medium'>Full refund of ${originalTotal}</p>
                   <p className='mt-0.5 text-muted-foreground'>
-                    Payment Status becomes refund pending after PayPal accepts
-                    the refund request.
+                    PayPal returns it to your original payment method.
                   </p>
                 </div>
               </div>
@@ -259,8 +255,8 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
             <ResultState
               key={View.CANCELLED}
               icon={<X className='size-6 text-muted-foreground' />}
-              title='Booking Status: canceled'
-              message={`${manageCancellationCopy.paymentStatus}. A refund of $${originalTotal} was requested for ${booking.bookerEmail}.`}
+              title='Booking canceled'
+              message={`We requested a full refund of $${originalTotal} to your original payment method. Details are on their way to ${booking.bookerEmail}.`}
               muted
             >
               <div className='rounded-lg border border-border bg-muted p-4 text-left text-sm text-muted-foreground'>
@@ -269,12 +265,12 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                   plan another visit, Savannah will be waiting under the oaks.
                 </p>
               </div>
-              <Link
-                to='/v2/book'
+              <a
+                href={TOURS_URL}
                 className='mt-6 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black md:text-2xl'
               >
                 Browse tours
-              </Link>
+              </a>
             </ResultState>
           )}
         </AnimatePresence>
@@ -479,9 +475,31 @@ function PolicyNote() {
       <ShieldCheck className='mt-0.5 size-3.5 shrink-0 text-muted-foreground/80' />
       <p>
         Free cancellation up to 24 hours before your tour start time. This link
-        is unique to your Booking — no sign-in needed.
+        is unique to your booking — no sign-in needed.
       </p>
     </div>
+  );
+}
+
+function SupportContact() {
+  return (
+    <>
+      Email{' '}
+      <a
+        href={`mailto:${SUPPORT_EMAIL}`}
+        className='font-medium text-foreground underline underline-offset-2'
+      >
+        {SUPPORT_EMAIL}
+      </a>{' '}
+      or call{' '}
+      <a
+        href={SUPPORT_PHONE_HREF}
+        className='whitespace-nowrap font-medium text-foreground underline underline-offset-2'
+      >
+        {SUPPORT_PHONE}
+      </a>
+      .
+    </>
   );
 }
 

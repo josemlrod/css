@@ -34,10 +34,11 @@ export default function CheckoutCancel({ loaderData }: Route.ComponentProps) {
           Checkout canceled
         </p>
         <h1 className='mt-3 text-2xl font-medium tracking-tight'>
-          No Booking was created
+          Your tour isn&apos;t booked
         </h1>
         <p className='mt-2 text-base text-muted-foreground'>
-          Payment did not complete for this Checkout Attempt. Your card was not charged by this app, and no Booking was created.
+          You left PayPal before paying, so you weren&apos;t charged. Your spot
+          isn&apos;t reserved until payment goes through.
         </p>
 
         <dl className='mt-6 space-y-3 rounded-lg bg-muted p-4 text-sm'>
@@ -63,7 +64,7 @@ export default function CheckoutCancel({ loaderData }: Route.ComponentProps) {
           to={`/tour/${tour.slug}`}
           className='mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black sm:w-auto md:text-2xl'
         >
-          Start a new Checkout Attempt
+          Try booking again
         </Link>
       </section>
     </main>

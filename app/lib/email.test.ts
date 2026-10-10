@@ -84,7 +84,7 @@ describe('Booking Communication email content', () => {
     });
 
     expect(email.subject).toBe('Savannah Food Tour cancellation received');
-    expect(email.text).toContain('Your Booking is canceled');
+    expect(email.text).toContain('Your booking is canceled');
     expect(email.text).toContain('requested a full refund');
   });
 
@@ -97,12 +97,13 @@ describe('Booking Communication email content', () => {
       time: '10:00 AM',
       guests: 2,
       total: 158,
-      supportEmail: 'support@example.com',
     });
 
     expect(email.subject).toBe('Savannah Food Tour cancellation needs support');
-    expect(email.text).toContain('Booking remains active');
-    expect(email.text).toContain('support@example.com');
+    expect(email.text).toContain('booking is still active');
+    expect(email.text).toContain(
+      'email info@cinematicsitesofsavannah.com or call 912-644-0361',
+    );
   });
 
   it('explains PayPal refund lifecycle failure', () => {
@@ -114,13 +115,14 @@ describe('Booking Communication email content', () => {
       time: '10:00 AM',
       guests: 2,
       total: 158,
-      supportEmail: 'support@example.com',
     });
 
     expect(email.subject).toBe('Savannah Food Tour refund needs support');
-    expect(email.text).toContain('Payment Status: refund failed');
-    expect(email.text).toContain('PayPal reported that your refund failed');
-    expect(email.text).toContain('support@example.com');
+    expect(email.text).toContain("PayPal let us know your refund didn't go through");
+    expect(email.text).toContain(
+      'email info@cinematicsitesofsavannah.com or call 912-644-0361',
+    );
+    expect(email.text).not.toContain('Payment Status');
   });
 });
 

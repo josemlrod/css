@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { cancelPaidBooking, getBookingWithTourForAccess } from '~/lib/bookings';
 import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
@@ -8,7 +8,7 @@ import {
 } from '~/lib/email';
 import { refundPayPalCapture } from '~/lib/paypal';
 
-import { action, loader, manageCancellationCopy } from './manage-tour';
+import { action, loader } from './manage-tour';
 
 vi.mock('~/lib/bookings', () => ({
   cancelPaidBooking: vi.fn(),
@@ -169,11 +169,41 @@ describe('manage tour cancellation', () => {
       expect(sendBookingCancellationRefundRequestedCommunicationMock).not.toHaveBeenCalled();
     },
   );
-
-  it('keeps manage copy focused on cancellation-only v1', () => {
-    expect(manageCancellationCopy.heading).toBe('manage cancellation');
-    expect(manageCancellationCopy.paymentStatus).toBe(
-      'Payment Status: refund pending',
-    );
-  });
 });
+
+describe.each(['UTC', 'America/New_York'])(
+  'self-cancel cutoff with TZ=%s',
+  (tz) => {
+    // 9:00 AM Eastern the day after DST ends is 14:00Z, so the cutoff is 2026-11-01T14:00Z.
+    const dstBooking = { ...booking, date: '2026-11-02', time: '9:00 AM' };
+    const originalTz = process.env.TZ;
+
+    beforeEach(() => {
+      process.env.TZ = tz;
+      vi.useFakeTimers({ toFake: ['Date'] });
+      refundPayPalCaptureMock.mockResolvedValue({
+        id: 'REFUND123',
+        status: 'COMPLETED',
+      });
+    });
+
+    afterEach(() => {
+      process.env.TZ = originalTz;
+      vi.useRealTimers();
+      vi.resetAllMocks();
+    });
+
+    it.each([
+      ['2026-11-01T13:59:00Z', 'cancelled'],
+      ['2026-11-01T14:01:00Z', 'cutoff_blocked'],
+    ])('at %s returns %s', async (now, view) => {
+      vi.setSystemTime(new Date(now));
+      getBookingWithTourForAccessMock.mockResolvedValueOnce({
+        booking: dstBooking,
+        tour,
+      } as never);
+
+      await expect(action(args())).resolves.toEqual({ view });
+    });
+  },
+);

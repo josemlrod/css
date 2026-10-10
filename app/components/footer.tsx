@@ -1,6 +1,13 @@
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE,
+  SUPPORT_PHONE_HREF,
+  TOURS_URL,
+} from '~/lib/contact';
+
 const footerLinks = [
   ['Home', 'https://cinematicsitesofsavannah.com/'],
-  ['Tours', 'https://cinematicsitesofsavannah.com/savannah-movie-tours/'],
+  ['Tours', TOURS_URL],
   ['What to Expect', 'https://cinematicsitesofsavannah.com/what-to-expect/'],
   ['About', 'https://cinematicsitesofsavannah.com/about/'],
   ['Our Crew', 'https://cinematicsitesofsavannah.com/our-crew/'],
@@ -38,13 +45,13 @@ export function Footer() {
           <p>Cinematic Sites of Savannah ®</p>
           <p>Savannah, GA</p>
           <a
-            href='tel:+19126440361'
+            href={SUPPORT_PHONE_HREF}
             className='block transition-colors duration-300 hover:text-brand-teal-muted'
           >
-            912-644-0361
+            {SUPPORT_PHONE}
           </a>
           <a
-            href='mailto:info@cinematicsitesofsavannah.com'
+            href={`mailto:${SUPPORT_EMAIL}`}
             className='block transition-colors duration-300 hover:text-brand-teal-muted'
           >
             Email Us
