@@ -4,6 +4,7 @@ import {
   getCheckoutAttemptWithTour,
   verifyCheckoutAccessToken,
 } from '~/lib/checkout-attempts';
+import { logEvent } from '~/lib/log';
 import type { CheckoutAttempt, CheckoutAttemptId, Tour } from '~/lib/types';
 
 import type { Route } from './+types/checkout-cancel';
@@ -18,8 +19,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     !res.tour ||
     !verifyCheckoutAccessToken(token, res.checkoutAttempt.accessTokenHash)
   ) {
+    logEvent('checkout.page_not_found', { page: 'cancel', checkoutAttemptId });
     throw data('Checkout not found', { status: 404 });
   }
+
+  logEvent('checkout.paypal_canceled', {
+    checkoutAttemptId,
+    paymentStatus: res.checkoutAttempt.paymentStatus,
+  });
 
   return res as { checkoutAttempt: CheckoutAttempt; tour: Tour };
 }

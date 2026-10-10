@@ -26,6 +26,7 @@ import {
   sendBookingCancellationRefundRequestedCommunication,
   sendOperatorNotification,
 } from '~/lib/email';
+import { logError, logEvent } from '~/lib/log';
 import { refundPayPalCapture } from '~/lib/paypal';
 
 import type { Tour } from '~/lib/types';
@@ -230,10 +231,10 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
                 <button
                   disabled={isSubmitting}
                   onClick={() => {
-                    fetcher.submit(booking, {
-                      method: 'POST',
-                      encType: 'application/json',
-                    });
+                    fetcher.submit(
+                      { reason },
+                      { method: 'POST', encType: 'application/json' },
+                    );
                   }}
                   className='inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-destructive bg-destructive px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-destructive/80'
                 >
@@ -283,22 +284,48 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
 export async function loader({ request, params: { bookingId } }: Route.LoaderArgs) {
   const token = new URL(request.url).searchParams.get('token');
 
-  if (!token) throw redirect('/');
+  if (!token) {
+    logEvent('manage.rejected', { bookingId, reason: 'missing_token' });
+    throw redirect('/');
+  }
 
   const res = await getBookingWithTourForAccess(
     bookingId as Id<'bookings'>,
     hashCheckoutAccessToken(token),
   );
 
-  if (!res?.booking || !res.tour) throw redirect('/');
+  if (!res?.booking || !res.tour) {
+    logEvent('manage.rejected', { bookingId, reason: 'not_found' });
+    throw redirect('/');
+  }
+
+  logEvent('manage.viewed', {
+    bookingId,
+    cancelled: res.booking.cancelled !== null,
+    paymentStatus: res.booking.paymentStatus,
+    canSelfCancel: canSelfCancel(res.booking.date, res.booking.time),
+  });
 
   return res as { booking: Booking; tour: Tour };
 }
 
 export async function action({ request, params: { bookingId } }: Route.ActionArgs) {
   const token = new URL(request.url).searchParams.get('token');
+  const body: { reason?: unknown } | null = await request.json().catch(() => null);
 
-  if (!token) return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
+  // The reason the Booker picked on the cancel screen, or null if they skipped it.
+  logEvent('cancellation.requested', {
+    bookingId,
+    cancelReason:
+      typeof body?.reason === 'string' && cancelReasons.includes(body.reason)
+        ? body.reason
+        : null,
+  });
+
+  if (!token) {
+    logEvent('cancellation.rejected', { bookingId, reason: 'missing_token' });
+    return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
+  }
 
   const accessTokenHash = hashCheckoutAccessToken(token);
   const res = await getBookingWithTourForAccess(
@@ -307,6 +334,7 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
   );
 
   if (!res?.booking || !res.tour) {
+    logEvent('cancellation.rejected', { bookingId, reason: 'not_found' });
     return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
   }
 
@@ -314,10 +342,17 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
   const total = tour.price * booking.guests;
 
   if (!canSelfCancel(booking.date, booking.time)) {
+    logEvent('cancellation.rejected', {
+      bookingId,
+      reason: 'within_cutoff',
+      date: booking.date,
+      time: booking.time,
+    });
     return { view: View.CUTOFF_BLOCKED };
   }
 
   if (!booking.paypalCaptureId) {
+    logEvent('cancellation.refund_failed', { bookingId, reason: 'missing_capture' });
     return { view: View.REFUND_FAILED };
   }
 
@@ -329,7 +364,13 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     if (refund.status !== 'COMPLETED' && refund.status !== 'PENDING') {
       throw new Error(`PayPal refund returned ${refund.status}`);
     }
-  } catch {
+  } catch (error) {
+    logError('cancellation.refund_failed', error, {
+      bookingId,
+      paypalCaptureId: booking.paypalCaptureId,
+      paymentStatus: booking.paymentStatus,
+      cancelled: booking.cancelled !== null,
+    });
     await sendBookingCancellationRefundFailedCommunication(
       {
         to: booking.bookerEmail,
@@ -346,10 +387,27 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return { view: View.REFUND_FAILED };
   }
 
-  await cancelPaidBooking({
-    id: booking._id,
-    accessTokenHash,
+  try {
+    await cancelPaidBooking({
+      id: booking._id,
+      accessTokenHash,
+      paypalRefundId: refund.id,
+    });
+  } catch (error) {
+    // PayPal already took the refund, so the Booking needs fixing by hand.
+    logError('cancellation.record_failed', error, {
+      bookingId,
+      paypalCaptureId: booking.paypalCaptureId,
+      paypalRefundId: refund.id,
+    });
+    throw error;
+  }
+
+  logEvent('cancellation.completed', {
+    bookingId,
+    paypalCaptureId: booking.paypalCaptureId,
     paypalRefundId: refund.id,
+    refundStatus: refund.status,
   });
 
   const communication = {

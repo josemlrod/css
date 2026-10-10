@@ -88,6 +88,24 @@ The test tour at `/tour/test-tour` costs $1 per guest and runs through live PayP
 
 PayPal returns the percentage fee on a refund but keeps the fixed fee, so each round costs about $0.50.
 
+## Reading the logs
+
+The server writes one JSON line per step of the Booker's journey (`app/lib/log.ts`). Filter Fly logs by an id to follow one Booker: `fly logs | grep '"bookingId":"<id>"'`, or by `checkoutAttemptId` or `paypalOrderId` before a Booking exists. Error lines include PayPal's status code and response body, which has the `issue` and `debug_id`.
+
+| Step | Events |
+|---|---|
+| Form submitted | `checkout.rejected` (with `reason`), `checkout.start_failed`, or `checkout.started` (PayPal opens) |
+| PayPal closed | `checkout.paypal_canceled` |
+| PayPal approved | `checkout.capture_requested`, then `checkout.captured` or `checkout.capture_rejected`/`checkout.capture_failed` |
+| Booking | `booking.created`, or `checkout.finalized` for any other outcome (duplicate, capacity race), then `checkout.success_viewed` |
+| Webhooks | `paypal.webhook_received`, `refund.reconciled`, `paypal.webhook_failed` |
+| Manage page | `manage.viewed` or `manage.rejected` |
+| Cancel | `cancellation.requested` (with the Booker's reason), then `cancellation.completed`, `cancellation.rejected`, `cancellation.refund_failed`, or `cancellation.record_failed` (refunded in PayPal but the Booking wasn't updated) |
+| Operator | `operator.refund_requested`, `operator.refund_failed`, `operator.marked_refunded` |
+| Email | `email.sent` or `email.failed` |
+
+Logs never include access tokens, emails, or names.
+
 ## Domain Language
 
 - **Booker** — the person booking (not "user")

@@ -59,8 +59,11 @@ const sendBookingCancellationRefundRequestedCommunicationMock = vi.mocked(
   sendBookingCancellationRefundRequestedCommunication,
 );
 
-function request(url = 'https://example.com/manage/booking_123?token=raw_token') {
-  return new Request(url, { method: 'POST', body: '{}' });
+function request(
+  url = 'https://example.com/manage/booking_123?token=raw_token',
+  body = '{}',
+) {
+  return new Request(url, { method: 'POST', body });
 }
 
 function args(req = request()) {
@@ -110,8 +113,16 @@ describe('manage tour cancellation', () => {
       id: 'REFUND123',
       status: 'COMPLETED',
     });
+    const consoleLogMock = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    await expect(action(args())).resolves.toEqual({ view: 'cancelled' });
+    await expect(
+      action(args(request(undefined, JSON.stringify({ reason: 'Weather concerns' })))),
+    ).resolves.toEqual({ view: 'cancelled' });
+
+    expect(consoleLogMock.mock.calls.map(([line]) => JSON.parse(line))).toMatchObject([
+      { event: 'cancellation.requested', cancelReason: 'Weather concerns' },
+      { event: 'cancellation.completed', paypalRefundId: 'REFUND123' },
+    ]);
 
     expect(hashCheckoutAccessTokenMock).toHaveBeenCalledWith('raw_token');
     expect(refundPayPalCaptureMock).toHaveBeenCalledWith('CAPTURE123');
@@ -145,8 +156,16 @@ describe('manage tour cancellation', () => {
   it('keeps Booking active when refund creation fails', async () => {
     getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour } as never);
     refundPayPalCaptureMock.mockRejectedValueOnce(new Error('refund failed'));
+    const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
+
+    expect(JSON.parse(consoleErrorMock.mock.calls[0][0])).toMatchObject({
+      event: 'cancellation.refund_failed',
+      bookingId: 'booking_123',
+      paypalCaptureId: 'CAPTURE123',
+      error: { message: 'refund failed' },
+    });
 
     expect(cancelPaidBookingMock).not.toHaveBeenCalled();
     expect(sendBookingCancellationRefundFailedCommunicationMock).toHaveBeenCalledWith(

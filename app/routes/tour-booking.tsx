@@ -19,9 +19,10 @@ import {
   loadOperator,
   optionalOperatorContext,
 } from '~/lib/operator-session.server';
+import { logError, logEvent } from '~/lib/log';
 import { createPayPalOrder } from '~/lib/paypal';
 import { getTourBySlug } from '~/lib/tours';
-import type { Tour as TourType } from '~/lib/types';
+import type { CheckoutAttemptId, Tour as TourType } from '~/lib/types';
 
 export const middleware: Route.MiddlewareFunction[] = [loadOperator];
 
@@ -97,14 +98,22 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const formData = await request.formData();
+  const selection = {
+    tourSlug: params.slug,
+    date: formData.get('date'),
+    time: formData.get('time'),
+    guests: formData.get('guests'),
+  };
 
   if (formData.get('intent') !== 'confirm-booking') {
+    logEvent('checkout.rejected', { ...selection, reason: 'invalid_intent' });
     return data({ ok: false, error: 'Invalid intent' }, { status: 400 });
   }
 
   const tour = await getVisibleTour(params.slug, context);
 
   if (!tour) {
+    logEvent('checkout.rejected', { ...selection, reason: 'tour_not_found' });
     return data({ ok: false, error: 'Tour not found' }, { status: 404 });
   }
 
@@ -122,6 +131,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     !isTourStartBookable(booking.data.date, booking.data.time) ||
     booking.data.guests > tour.maxGuests
   ) {
+    logEvent('checkout.rejected', {
+      ...selection,
+      reason: 'invalid_details',
+      invalidFields: booking.error?.issues.map(({ path }) => path.join('.')),
+    });
     return data(
       { ok: false, error: 'Invalid booking details' },
       { status: 400 },
@@ -131,6 +145,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const { date, time, guests, bookerName, bookerEmail } = booking.data;
 
   if (isDateBlocked(tour, date)) {
+    logEvent('checkout.rejected', { ...selection, reason: 'date_unavailable' });
     return data(
       { ok: false, error: DATE_UNAVAILABLE_MESSAGE },
       { status: 400 },
@@ -140,15 +155,17 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const origin = process.env.APP_ORIGIN;
 
   if (!origin) {
-    console.error(new Error('APP_ORIGIN is required'));
+    logError('checkout.start_failed', new Error('APP_ORIGIN is required'), selection);
     return data(
       { ok: false, error: 'Unable to start checkout' },
       { status: 500 },
     );
   }
 
+  let checkoutAttemptId: CheckoutAttemptId | undefined;
+
   try {
-    const { checkoutAttemptId, accessToken } = await saveCheckoutAttempt({
+    const checkoutAttempt = await saveCheckoutAttempt({
       date,
       time,
       guests,
@@ -159,6 +176,8 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       total: guests * tour.price,
       currency: 'usd',
     });
+    const { accessToken } = checkoutAttempt;
+    checkoutAttemptId = checkoutAttempt.checkoutAttemptId;
 
     const order = await createPayPalOrder({
       checkoutAttemptId,
@@ -179,6 +198,13 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       paypalOrderId: order.id,
     });
 
+    logEvent('checkout.started', {
+      ...selection,
+      checkoutAttemptId,
+      paypalOrderId: order.id,
+      total: guests * tour.price,
+    });
+
     return data({
       ok: true,
       orderId: order.id,
@@ -186,7 +212,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       accessToken,
     });
   } catch (error) {
-    console.error(error);
+    logError('checkout.start_failed', error, { ...selection, checkoutAttemptId });
     return data(
       { ok: false, error: 'Unable to start checkout' },
       { status: 500 },

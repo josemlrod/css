@@ -217,6 +217,10 @@ describe('PayPal capture action', () => {
       data: { ok: false, error: 'Unable to complete payment' },
       init: { status: 500 },
     });
-    expect(consoleErrorMock).toHaveBeenCalledWith(captureError);
+    expect(JSON.parse(consoleErrorMock.mock.calls[0][0])).toMatchObject({
+      event: 'checkout.capture_failed',
+      checkoutAttemptId: 'checkout-attempt-123',
+      error: { message: 'PayPal unavailable' },
+    });
   });
 });

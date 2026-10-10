@@ -212,23 +212,19 @@ describe('Booking Communication sending', () => {
       }),
     );
     expect(JSON.stringify(sendMock.mock.lastCall)).not.toContain('raw_token');
-    expect(consoleErrorMock.mock.calls).toEqual([
-      [
-        'Email send failed',
-        {
-          type: 'booking_communication',
-          bookingId: 'booking_123',
-          error: 'validation_error: Invalid `to` field',
-        },
-      ],
-      [
-        'Email send failed',
-        {
-          type: 'operator_booking_email_failed',
-          bookingId: 'booking_123',
-          error: 'Network down',
-        },
-      ],
+    expect(consoleErrorMock.mock.calls.map(([line]) => JSON.parse(line))).toMatchObject([
+      {
+        event: 'email.failed',
+        type: 'booking_communication',
+        bookingId: 'booking_123',
+        error: { message: 'validation_error: Invalid `to` field' },
+      },
+      {
+        event: 'email.failed',
+        type: 'operator_booking_email_failed',
+        bookingId: 'booking_123',
+        error: { message: 'Network down' },
+      },
     ]);
   });
 });

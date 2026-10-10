@@ -5,6 +5,7 @@ import {
   verifyCheckoutAccessToken,
 } from '~/lib/checkout-attempts';
 import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
+import { logEvent } from '~/lib/log';
 import type { CheckoutAttempt, CheckoutAttemptId, Tour } from '~/lib/types';
 
 import type { Route } from './+types/checkout-success';
@@ -19,8 +20,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     !res.tour ||
     !verifyCheckoutAccessToken(token, res.checkoutAttempt.accessTokenHash)
   ) {
+    logEvent('checkout.page_not_found', { page: 'success', checkoutAttemptId });
     throw data('Checkout not found', { status: 404 });
   }
+
+  logEvent('checkout.success_viewed', {
+    checkoutAttemptId,
+    paymentStatus: res.checkoutAttempt.paymentStatus,
+  });
 
   return res as { checkoutAttempt: CheckoutAttempt; tour: Tour };
 }

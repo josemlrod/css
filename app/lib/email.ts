@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
 import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
+import { logError, logEvent } from '~/lib/log';
 
 type BookingCommunication = {
   to: string;
@@ -456,19 +457,17 @@ async function sendEmail(
       ...email,
     });
 
-    if (!error) return true;
+    if (!error) {
+      logEvent('email.sent', { type, ...record });
+      return true;
+    }
 
-    console.error('Email send failed', {
+    logError('email.failed', new Error(`${error.name}: ${error.message}`), {
       type,
       ...record,
-      error: `${error.name}: ${error.message}`,
     });
   } catch (error) {
-    console.error('Email send failed', {
-      type,
-      ...record,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logError('email.failed', error, { type, ...record });
   }
 
   return false;
@@ -485,10 +484,9 @@ export async function sendOperatorNotification(
   const to = process.env.OPERATOR_EMAIL;
 
   if (!to) {
-    console.error('Email send failed', {
+    logError('email.failed', new Error('OPERATOR_EMAIL is required'), {
       type,
       ...record,
-      error: 'OPERATOR_EMAIL is required',
     });
     return false;
   }
