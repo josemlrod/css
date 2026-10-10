@@ -75,21 +75,12 @@ describe('completeCapture', () => {
     });
     expect(generateCheckoutAccessTokenMock).toHaveBeenCalledOnce();
     expect(hashCheckoutAccessTokenMock).toHaveBeenCalledWith('raw_booking_token');
-    expect(sendBookingCommunicationMock).toHaveBeenCalledWith(
-      {
-        to: 'booker@example.com',
-        bookerName: 'Test Booker',
-        tourName: 'Savannah Food Tour',
-        date: '2026-07-04',
-        time: '10:00 AM',
-        guests: 2,
-        total: 158,
-        meetingPoint: 'City Market',
-        editUrl: 'https://example.com/manage/booking_123?token=raw_booking_token',
-        cancelUrl: 'https://example.com/manage/booking_123?token=raw_booking_token',
-      },
-      { bookingId: 'booking_123' },
-    );
+    expect(sendBookingCommunicationMock).toHaveBeenCalledWith('booking_communication', {
+      checkoutAttempt,
+      tour,
+      bookingId: 'booking_123',
+      manageUrl: 'https://example.com/manage/booking_123?token=raw_booking_token',
+    });
   });
 
   it('does not repeat side effects when the Booking already exists', async () => {

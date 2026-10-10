@@ -2,8 +2,43 @@ import { Resend } from 'resend';
 
 import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
 import { logError, logEvent } from '~/lib/log';
+import type { Booking, CheckoutAttempt, Tour } from '~/lib/types';
 
-type BookingCommunication = {
+type BookerDetails = Pick<Booking, 'bookerName' | 'bookerEmail' | 'date' | 'time' | 'guests'>;
+
+// A Booking doesn't store what the Booker paid, so it travels with the total Convex reads
+// for it (getBookingTotal). A Checkout Attempt carries its own.
+type BookingRecords = {
+  booking: BookerDetails & Pick<Booking, '_id'>;
+  tour: Pick<Tour, 'name'>;
+  total: number;
+};
+type CheckoutAttemptRecords = {
+  checkoutAttempt: BookerDetails & Pick<CheckoutAttempt, '_id' | 'total'>;
+  tour: Pick<Tour, 'name'>;
+};
+// A new Booking is announced from the Checkout Attempt it was made from.
+type NewBookingRecords = {
+  checkoutAttempt: BookerDetails & Pick<CheckoutAttempt, 'total'>;
+  tour: Pick<Tour, 'name' | 'meetingPoint'>;
+  bookingId: string;
+  manageUrl: string;
+};
+
+type CommunicationRecords = BookingRecords | CheckoutAttemptRecords;
+
+type RecordsByKind = {
+  booking_communication: NewBookingRecords;
+  capacity_refund: CheckoutAttemptRecords;
+  cancellation_refund_requested: BookingRecords;
+  cancellation_refund_failed: BookingRecords;
+  refund_failed: CommunicationRecords;
+};
+
+type CommunicationKind = keyof RecordsByKind;
+
+// What every email shows about the Booker, the tour, and what they paid.
+type Communication = {
   to: string;
   bookerName: string;
   tourName: string;
@@ -11,29 +46,44 @@ type BookingCommunication = {
   time: string;
   guests: number;
   total: number;
-  meetingPoint: string;
-  editUrl: string;
-  cancelUrl: string;
 };
 
-type FailedCapacityRefundCommunication = {
-  to: string;
-  bookerName: string;
-  tourName: string;
-  date: string;
-  time: string;
-  guests: number;
-  total: number;
-};
-
-type CancellationRefundCommunication = FailedCapacityRefundCommunication;
-
-type RefundFailedCommunication = FailedCapacityRefundCommunication;
+type NewBookingCommunication = Communication & { meetingPoint: string; cancelUrl: string };
 
 const supportContact = `email ${SUPPORT_EMAIL} or call ${SUPPORT_PHONE}`;
 
 // Logged with every send failure so it can be traced to a Booking or Checkout Attempt.
 type EmailRecord = { bookingId: string } | { checkoutAttemptId: string };
+
+// The one place a Booking or Checkout Attempt becomes the fields its emails show.
+function fromRecords(records: CommunicationRecords | NewBookingRecords): {
+  communication: Communication;
+  record: EmailRecord;
+} {
+  const [details, total, record] =
+    'booking' in records
+      ? [records.booking, records.total, { bookingId: records.booking._id }]
+      : [
+          records.checkoutAttempt,
+          records.checkoutAttempt.total,
+          'bookingId' in records
+            ? { bookingId: records.bookingId }
+            : { checkoutAttemptId: records.checkoutAttempt._id },
+        ];
+
+  return {
+    communication: {
+      to: details.bookerEmail,
+      bookerName: details.bookerName,
+      tourName: records.tour.name,
+      date: details.date,
+      time: details.time,
+      guests: details.guests,
+      total,
+    },
+    record,
+  };
+}
 
 type Email = { subject: string; text: string; html?: string };
 
@@ -69,7 +119,7 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#39;');
 }
 
-function bookingCommunicationText(booking: BookingCommunication) {
+function newBookingText(booking: NewBookingCommunication) {
   return `Hi there! Thank you so much for booking with Cinematic Sites of Savannah. We're excited to have you join us!
 
 Your tour is all set, and we can't wait to share Savannah's most iconic film locations and behind-the-scenes stories with you. If you have any questions before the tour, need directions, or have special requests, feel free to reach out anytime.
@@ -89,7 +139,7 @@ Cinematic Sites of Savannah Team
 Manage or cancel booking: ${booking.cancelUrl}`;
 }
 
-function bookingCommunicationHtml(booking: BookingCommunication) {
+function newBookingHtml(booking: NewBookingCommunication) {
   const tourName = escapeHtml(booking.tourName);
   const date = escapeHtml(formatDate(booking.date));
   const time = escapeHtml(booking.time);
@@ -191,17 +241,15 @@ function bookingCommunicationHtml(booking: BookingCommunication) {
 </html>`;
 }
 
-export function createBookingCommunicationEmail(booking: BookingCommunication) {
+function newBookingEmail(booking: NewBookingCommunication) {
   return {
     subject: `Your ${booking.tourName} is all set`,
-    text: bookingCommunicationText(booking),
-    html: bookingCommunicationHtml(booking),
+    text: newBookingText(booking),
+    html: newBookingHtml(booking),
   };
 }
 
-export function createFailedCapacityRefundEmail(
-  booking: FailedCapacityRefundCommunication,
-) {
+function capacityRefundEmail(booking: Communication) {
   const details = `Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
 Time: ${booking.time}
@@ -231,9 +279,7 @@ ${details}`,
   };
 }
 
-export function createBookingCancellationRefundRequestedEmail(
-  booking: CancellationRefundCommunication,
-) {
+function cancellationRefundRequestedEmail(booking: Communication) {
   return {
     subject: `${booking.tourName} cancellation received`,
     text: `Hi ${booking.bookerName},
@@ -261,9 +307,7 @@ Refund amount: ${currency.format(booking.total)}`,
   };
 }
 
-export function createBookingCancellationRefundFailedEmail(
-  booking: CancellationRefundCommunication,
-) {
+function cancellationRefundFailedEmail(booking: Communication) {
   return {
     subject: `${booking.tourName} cancellation needs support`,
     text: `Hi ${booking.bookerName},
@@ -291,7 +335,7 @@ Refund amount: ${currency.format(booking.total)}`,
   };
 }
 
-export function createRefundFailedEmail(booking: RefundFailedCommunication) {
+function refundFailedEmail(booking: Communication) {
   return {
     subject: `${booking.tourName} refund needs support`,
     text: `Hi ${booking.bookerName},
@@ -327,8 +371,6 @@ type OperatorEvent =
   | 'capacity_refund'
   | 'refund_failed'
   | 'refund_record_failed';
-
-type OperatorNotification = FailedCapacityRefundCommunication;
 
 const operatorEvents: Record<
   OperatorEvent,
@@ -383,9 +425,9 @@ function operatorBookingUrl(bookingId: string) {
 }
 
 // Never includes the manage link: it carries the Booker's access token.
-export function createOperatorNotificationEmail(
+function createOperatorNotificationEmail(
   event: OperatorEvent,
-  booking: OperatorNotification,
+  booking: Communication,
   record: EmailRecord,
 ) {
   const { subject, message } = operatorEvents[event];
@@ -481,11 +523,9 @@ async function sendEmail(
   return false;
 }
 
-// Tells the operator about a Booking event. Never throws, so it can't change a payment
-// or cancellation response.
-export async function sendOperatorNotification(
+async function notifyOperator(
   event: OperatorEvent,
-  booking: OperatorNotification,
+  communication: Communication,
   record: EmailRecord,
 ) {
   const type = `operator_${event}`;
@@ -503,81 +543,69 @@ export async function sendOperatorNotification(
     type,
     record,
     to,
-    createOperatorNotificationEmail(event, booking, record),
+    createOperatorNotificationEmail(event, communication, record),
   );
 }
 
-export async function sendBookingCommunication(
-  booking: BookingCommunication,
-  record: { bookingId: string },
+// Tells the operator about a Booking event. Never throws, so it can't change a payment
+// or cancellation response.
+export async function sendOperatorNotification(
+  event: OperatorEvent,
+  records: CommunicationRecords,
 ) {
-  const sent = await sendEmail(
-    'booking_communication',
+  const { communication, record } = fromRecords(records);
+
+  return notifyOperator(event, communication, record);
+}
+
+const bookerEmails: {
+  [K in CommunicationKind]: (communication: Communication, records: RecordsByKind[K]) => Email;
+} = {
+  booking_communication: (communication, { tour, manageUrl }) =>
+    newBookingEmail({ ...communication, meetingPoint: tour.meetingPoint, cancelUrl: manageUrl }),
+  capacity_refund: capacityRefundEmail,
+  cancellation_refund_requested: cancellationRefundRequestedEmail,
+  cancellation_refund_failed: cancellationRefundFailedEmail,
+  refund_failed: refundFailedEmail,
+};
+
+// The operator hears about these alongside the Booker. A new Booking's alert depends on
+// whether the Booker's email went out.
+const operatorAlerts: Partial<Record<CommunicationKind, OperatorEvent>> = {
+  capacity_refund: 'capacity_refund',
+  cancellation_refund_failed: 'cancellation_refund_failed',
+  refund_failed: 'refund_failed',
+};
+
+export function createBookingCommunicationEmail<K extends CommunicationKind>(
+  kind: K,
+  records: RecordsByKind[K],
+) {
+  return bookerEmails[kind](fromRecords(records).communication, records);
+}
+
+// Emails the Booker about a Booking or Checkout Attempt. Never throws.
+export async function sendBookingCommunication<K extends CommunicationKind>(
+  kind: K,
+  records: RecordsByKind[K],
+) {
+  const { communication, record } = fromRecords(records);
+  const sent = sendEmail(
+    kind,
     record,
-    booking.to,
-    createBookingCommunicationEmail(booking),
+    communication.to,
+    bookerEmails[kind](communication, records),
   );
+  const alert = operatorAlerts[kind];
 
-  await sendOperatorNotification(
-    sent ? 'new_booking' : 'booking_email_failed',
-    booking,
-    record,
-  );
-}
-
-export async function sendFailedCapacityRefundCommunication(
-  booking: FailedCapacityRefundCommunication,
-  record: { checkoutAttemptId: string },
-) {
-  await Promise.all([
-    sendEmail(
-      'capacity_refund',
+  if (kind === 'booking_communication') {
+    await notifyOperator(
+      (await sent) ? 'new_booking' : 'booking_email_failed',
+      communication,
       record,
-      booking.to,
-      createFailedCapacityRefundEmail(booking),
-    ),
-    sendOperatorNotification('capacity_refund', booking, record),
-  ]);
-}
+    );
+    return;
+  }
 
-export async function sendBookingCancellationRefundRequestedCommunication(
-  booking: CancellationRefundCommunication,
-  record: { bookingId: string },
-) {
-  await sendEmail(
-    'cancellation_refund_requested',
-    record,
-    booking.to,
-    createBookingCancellationRefundRequestedEmail(booking),
-  );
-}
-
-export async function sendBookingCancellationRefundFailedCommunication(
-  booking: CancellationRefundCommunication,
-  record: { bookingId: string },
-) {
-  await Promise.all([
-    sendEmail(
-      'cancellation_refund_failed',
-      record,
-      booking.to,
-      createBookingCancellationRefundFailedEmail(booking),
-    ),
-    sendOperatorNotification('cancellation_refund_failed', booking, record),
-  ]);
-}
-
-export async function sendRefundFailedCommunication(
-  booking: RefundFailedCommunication,
-  record: EmailRecord,
-) {
-  await Promise.all([
-    sendEmail(
-      'refund_failed',
-      record,
-      booking.to,
-      createRefundFailedEmail(booking),
-    ),
-    sendOperatorNotification('refund_failed', booking, record),
-  ]);
+  await Promise.all([sent, alert && notifyOperator(alert, communication, record)]);
 }
