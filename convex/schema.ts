@@ -56,6 +56,7 @@ export default defineSchema({
     .index('by_checkoutAttemptId', ['checkoutAttemptId'])
     .index('by_paypalRefundId', ['paypalRefundId'])
     .index('by_paymentStatus', ['paymentStatus'])
+    .index('by_cancelled', ['cancelled'])
     .index('by_tour_date_time_cancelled', ['tourId', 'date', 'time', 'cancelled']),
 
   checkoutAttempts: defineTable({

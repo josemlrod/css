@@ -6,6 +6,7 @@ import {
   filterOperatorBookings,
   groupUpcomingClosedDates,
   parseBookingView,
+  summarizeActivity,
   summarizeNextWeek,
   toTourStartTime,
   type OperatorBooking,
@@ -61,6 +62,26 @@ describe('operator booking views', () => {
       [today]: { ghost: { bookings: 1, guests: 2 }, food: { bookings: 1, guests: 2 } },
       '2026-10-30': { ghost: { bookings: 1, guests: 2 } },
     });
+  });
+});
+
+describe('operator recent activity', () => {
+  it('marks activity after the last seen time as new and labels its age', () => {
+    const now = Date.parse('2026-10-09T18:00:00Z');
+    const event = (minutesAgo: number) => ({ at: now - minutesAgo * 60_000 }) as never;
+    const { newCount, items } = summarizeActivity(
+      [event(0), event(5), event(180), event(3000)],
+      now - 60 * 60_000,
+      now,
+    );
+
+    expect(newCount).toBe(2);
+    expect(items.map(({ isNew, age }) => [isNew, age])).toEqual([
+      [true, 'Just now'],
+      [true, '5 min ago'],
+      [false, '3 hr ago'],
+      [false, 'Wed, Oct 7'],
+    ]);
   });
 });
 

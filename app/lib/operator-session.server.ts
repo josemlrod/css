@@ -21,7 +21,31 @@ const sessionCookie = createCookie('operator_session', {
   maxAge: 60 * 60 * 24 * 30,
 });
 
+// When this browser last marked Recent activity as seen. Per browser, not per Operator.
+const activitySeenCookie = createCookie('operator_activity_seen', {
+  path: '/',
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 60 * 60 * 24 * 365,
+});
+
 export const operatorContext = createContext<Operator>();
+
+export async function readActivitySeenAt(request: Request) {
+  return Number(await activitySeenCookie.parse(request.headers.get('Cookie'))) || 0;
+}
+
+export function serializeActivitySeenAt(seenAt: number) {
+  return activitySeenCookie.serialize(seenAt);
+}
+
+// Where to go after sign-in. Only console pages, so the login can't bounce anywhere else.
+export function getOperatorReturnPath(redirectTo: unknown) {
+  return typeof redirectTo === 'string' && /^\/admin\/(?!\/)/.test(redirectTo)
+    ? redirectTo
+    : '/admin';
+}
 
 export function serializeOperatorSession(tokens: OperatorTokens | null) {
   return tokens
@@ -79,7 +103,10 @@ export const requireOperator: MiddlewareFunction<Response> = async (
   const { operator, tokens, refreshed } = await getOperatorSession(request);
 
   if (!operator) {
-    throw redirect('/admin/login', {
+    const { pathname, search } = new URL(request.url);
+    const returnTo = pathname === '/admin' ? '' : `?${new URLSearchParams({ redirectTo: pathname + search })}`;
+
+    throw redirect(`/admin/login${returnTo}`, {
       headers: { 'Set-Cookie': await serializeOperatorSession(null) },
     });
   }

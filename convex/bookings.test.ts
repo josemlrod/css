@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   cancelBookingAsOperator,
   getBookingForOperator,
+  listBookingActivity,
   markBookingRefunded,
   restartBookingRefund,
 } from './bookings';
@@ -18,6 +19,22 @@ function fakeCtx(docs: Record<string, Record<string, unknown>>) {
     get: async (_table: string, id: string) => docs[id] ?? null,
     patch: async (id: string, fields: Record<string, unknown>) => {
       patches.push([id, fields]);
+    },
+    // Only the `gt` index ranges the activity query uses.
+    query: () => {
+      const rows = Object.values(docs);
+      return {
+        collect: async () => rows,
+        withIndex: (_index: string, range: (q: object) => unknown) => {
+          let keep = (_doc: Record<string, unknown>) => true;
+          range({
+            gt: (field: string, value: number) => {
+              keep = (doc) => typeof doc[field] === 'number' && (doc[field] as number) > value;
+            },
+          });
+          return { collect: async () => rows.filter(keep) };
+        },
+      };
     },
   };
   return { patches, ctx: { db } as never };
@@ -41,6 +58,21 @@ describe('operator Booking functions', () => {
     expect(res.total).toBe(80);
     expect(res.booking).not.toHaveProperty('accessTokenHash');
     await expect(get('not-an-id')).resolves.toBeNull();
+  });
+
+  it('lists Bookings made or canceled after a time, newest first', async () => {
+    const { ctx } = fakeCtx({
+      tour_1: { ...tour, name: 'Ghost Tour' },
+      paid: { ...paid, _creationTime: 30 },
+      failed: { ...failed, _creationTime: 10, cancelled: 40 },
+      old: { ...paid, _id: 'old', _creationTime: 5 },
+    });
+    const activity = (await handler(listBookingActivity)(ctx, { since: 20, serverSecret })) as object[];
+
+    expect(activity).toEqual([
+      expect.objectContaining({ type: 'canceled', at: 40, bookingId: 'failed', tourName: 'Ghost Tour' }),
+      expect.objectContaining({ type: 'booked', at: 30, bookingId: 'paid' }),
+    ]);
   });
 
   it('cancels a paid Booking without its access token', async () => {

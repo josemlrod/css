@@ -6,11 +6,17 @@ import {
   Monitor,
   Ticket,
 } from 'lucide-react';
-import { Form, NavLink, Outlet } from 'react-router';
+import { useEffect } from 'react';
+import { Form, NavLink, Outlet, useRevalidator } from 'react-router';
 
 import { Eyebrow } from '~/components/admin/primitives';
-import { countRefundFailedBookings } from '~/lib/bookings';
-import { operatorContext, requireOperator } from '~/lib/operator-session.server';
+import { countRefundFailedBookings, listBookingActivity } from '~/lib/bookings';
+import { ACTIVITY_WINDOW_MS } from '~/lib/operator';
+import {
+  operatorContext,
+  readActivitySeenAt,
+  requireOperator,
+} from '~/lib/operator-session.server';
 import { cn } from '~/lib/utils';
 
 import type { Route } from './+types/layout';
@@ -24,27 +30,54 @@ export function meta() {
   ];
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const since = Math.max(await readActivitySeenAt(request), Date.now() - ACTIVITY_WINDOW_MS);
+  const [refundFailedCount, newActivity] = await Promise.all([
+    countRefundFailedBookings(),
+    listBookingActivity(since),
+  ]);
+
   return {
     operator: context.get(operatorContext),
-    refundFailedCount: await countRefundFailedBookings(),
+    refundFailedCount,
+    newActivityCount: newActivity.length,
   };
 }
 
+// Picks up new Bookings and cancellations while the console stays open.
+const REFRESH_MS = 60_000;
+
+function useRefreshWhileVisible() {
+  const revalidator = useRevalidator();
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && revalidator.state === 'idle') {
+        revalidator.revalidate();
+      }
+    }, REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [revalidator]);
+}
+
 export default function AdminLayout({ loaderData }: Route.ComponentProps) {
+  useRefreshWhileVisible();
+
   const nav = [
     {
       to: '/admin/bookings',
       label: 'Bookings',
       icon: Ticket,
       badge: loaderData.refundFailedCount,
+      newCount: loaderData.newActivityCount,
     },
-    { to: '/admin/tours', label: 'Tours', icon: MapIcon, badge: 0 },
+    { to: '/admin/tours', label: 'Tours', icon: MapIcon, badge: 0, newCount: 0 },
     {
       to: '/admin/closed-dates',
       label: 'Closed dates',
       icon: CalendarOff,
       badge: 0,
+      newCount: 0,
     },
   ];
 
@@ -79,11 +112,21 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
               >
                 <item.icon className='size-4' />
                 {item.label}
-                {item.badge > 0 && (
-                  <span className='ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white'>
-                    {item.badge}
-                  </span>
-                )}
+                <span className='ml-auto flex gap-1'>
+                  {item.newCount > 0 && (
+                    <span
+                      title={`${item.newCount} new since you last checked`}
+                      className='flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground'
+                    >
+                      {item.newCount}
+                    </span>
+                  )}
+                  {item.badge > 0 && (
+                    <span className='flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-semibold tabular-nums text-white'>
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
               </NavLink>
             ))}
           </nav>

@@ -90,7 +90,7 @@ Blocking a date only stops new checkouts. It doesn't cancel or refund existing B
 
 ### 6. Tell the business about new Bookings (#64)
 
-- [ ] Done
+- [x] Done
 
 Nobody at the business is notified of a new Booking or cancellation, and there is no roster view. The admin dashboard is item 3 in `docs/tour-booking-roadmap.md`, and it's out of scope for launch.
 
@@ -98,6 +98,8 @@ Scrappy fix:
 
 - Send an email to the operator address on every Booking and every cancellation.
 - Use the Convex dashboard `bookings` table as the roster until the admin dashboard exists.
+
+Shipped: `OPERATOR_EMAIL` gets an email for each new Booking, Booker self-cancellation, self-cancellation whose refund PayPal rejects, capacity refund, and refund failure (`sendOperatorNotification` in `app/lib/email.ts`). Booking emails link to the Booking in the operator console, and sign-in returns the Operator to it. The operator console's `/admin/bookings` list is the roster, so the Convex dashboard isn't needed. Its Recent activity panel shows the last 7 days of new Bookings and cancellations, with New markers and a count on the Bookings menu item until the Operator marks them seen in that browser. Operator emails never include the Booker's manage link.
 
 ### 7. Stop swallowing email failures (#65)
 
@@ -183,7 +185,7 @@ Tracked in #79.
 - [ ] Verify the sending domain in Resend (SPF and DKIM). Put `RESEND_FROM_EMAIL` on that domain and `RESEND_API_KEY` in Fly secrets.
 - [ ] Send test emails to Gmail and Outlook and confirm they don't land in spam.
 - [ ] Set `APP_ORIGIN` in Fly secrets.
-- [ ] Set `OPERATOR_EMAIL` in Fly secrets once #58 names the recipient. Without it, failed Booking emails are only logged.
+- [ ] Set `OPERATOR_EMAIL` in Fly secrets once #58 names the recipient. Without it, operator notifications are only logged.
 - [ ] Run one real live-mode purchase at a low test price, then self-cancel it for a refund. Check webhook deliveries in the PayPal dashboard.
 - [ ] Update the WordPress tour links to the production slugs from item 2.
 - [ ] Add a privacy policy link to the footer. The app collects names, emails, and payments.

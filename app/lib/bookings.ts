@@ -39,6 +39,16 @@ export async function listBookingsForOperator() {
   return bookings;
 }
 
+export async function listBookingActivity(since: number) {
+  const [activity, err] = await tryCatch(
+    convexQuery(api.bookings.listBookingActivity, { since }),
+  );
+
+  if (err) throw new Error('Something went wrong');
+
+  return activity;
+}
+
 export async function getBookingForOperator(bookingId: string) {
   const [res, err] = await tryCatch(
     convexQuery(api.bookings.getBookingForOperator, { bookingId }),

@@ -314,7 +314,7 @@
             <div class="step"><div class="num">1</div><div class="step-body"><h3>Order captured</h3><p>The SDK approval callback posts the private Checkout Attempt token and Order ID to <code>/paypal/capture/:checkoutAttemptId</code>. The server verifies both before calling PayPal.</p></div></div>
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p>A completed capture passes its amount, currency, Order ID, and Capture ID to <code>finalizePaidCapture</code>. <code>completeCheckoutAttempt</code> checks idempotency and current capacity.</p></div></div>
             <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, the app inserts the Booking with <code>paymentStatus: paid</code> and marks the attempt <code>paid</code>. A pending PayPal capture leaves the attempt pending.</p></div></div>
-            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link. If Resend rejects or fails the send, the app emails <code>OPERATOR_EMAIL</code> the Booking ID and Booker contact details, without the link, so the operator can reach the Booker.</p></div></div>
+            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link. Then it emails <code>OPERATOR_EMAIL</code> a "New Booking" notification. If the Booker's email failed, that notification is a "Booking email failed" alert instead, so the operator can reach the Booker.</p></div></div>
           </div>
         </div>
       </section>
@@ -345,9 +345,37 @@
             Checkout Attempts do not reserve capacity. If payment succeeds after
             capacity fills, the shared finalizer creates no Booking, marks the attempt
             <code>refund_pending</code>, creates a full PayPal refund, stores the
-            refund ID, and emails the Booker.
+            refund ID, and emails the Booker and the operator.
           </p>
         </div>
+      </section>
+
+      <section class="card">
+        <h2>Operator Notifications</h2>
+        <p>
+          The app emails <code>OPERATOR_EMAIL</code> for each new Booking, Booker
+          self-cancellation, self-cancellation whose refund PayPal rejects,
+          capacity refund, and refund failure. Each email lists the tour, date,
+          time, party size, Booker name and email, total, and the Booking or
+          Checkout Attempt ID. Booking emails link to
+          <code>/admin/bookings/:bookingId</code>. A signed-out Operator signs in
+          and lands back on that Booking. Operator emails never include the
+          manage link, because it carries the Booker's access token. A failed
+          or unconfigured operator send is only logged, so it never changes a
+          payment or cancellation response. Cancellations the operator starts
+          from <code>/admin</code> don't send one. The <code>/admin/bookings</code>
+          list is the roster.
+        </p>
+        <p>
+          The console shows the same activity. <code>/admin/bookings</code> has a
+          Recent activity panel with the last 7 days of new Bookings and
+          cancellations, newest first, each linking to the Booking. Items after
+          the browser's last <strong>Mark all as seen</strong> are marked New, and
+          the Bookings menu item shows their count. The last-seen time is kept in
+          a per-browser cookie, not per Operator. The console refreshes every
+          minute while it's open. Capacity refunds create no Booking, so they
+          only appear in email.
+        </p>
       </section>
 
       <section class="grid">
@@ -373,7 +401,7 @@
             is sent. For a <code>refund_failed</code> Booking the operator can
             retry the refund, which uses a new PayPal request ID and stores the
             new refund ID, or mark it <code>refunded</code> after refunding in
-            the PayPal dashboard. <code>/admin</code> has no sign-in yet.
+            the PayPal dashboard.
           </p>
         </div>
 
@@ -413,13 +441,13 @@
               <td>Payment succeeds, capacity available</td>
               <td><code>Checkout Attempt = paid</code>, <code>Booking = paid</code></td>
               <td><span class="status-ok">Yes</span></td>
-              <td>Booking details email with manage link; operator alert if it fails</td>
+              <td>Booking details email with manage link; operator New Booking email, or an alert if the Booker's email fails</td>
             </tr>
             <tr>
               <td>Payment succeeds, capacity full</td>
               <td><code>Checkout Attempt = refund_pending</code>, then <code>refunded</code> or <code>refund_failed</code></td>
               <td><span class="status-bad">No</span></td>
-              <td>Capacity refund email; failure email if PayPal fails refund</td>
+              <td>Capacity refund email to Booker and operator; failure email to both if PayPal fails refund</td>
             </tr>
             <tr>
               <td>Scheduled expiry or PayPal approval reversal</td>
@@ -431,7 +459,13 @@
               <td>Booker cancels before cutoff</td>
               <td><code>Booking.cancelled != null</code>, <code>Booking.paymentStatus = refund_pending</code></td>
               <td><span class="status-warn">Canceled</span></td>
-              <td>Cancellation/refund requested email</td>
+              <td>Cancellation/refund requested email; operator Booking canceled email</td>
+            </tr>
+            <tr>
+              <td>Booker cancels, PayPal rejects the refund</td>
+              <td>Unchanged</td>
+              <td><span class="status-ok">Still active</span></td>
+              <td>Cancellation needs support email; operator Cancellation needs you email</td>
             </tr>
             <tr>
               <td>Operator cancels from <code>/admin</code></td>
@@ -461,7 +495,7 @@
               <td><code>PAYMENT.REFUND.FAILED</code></td>
               <td><code>paymentStatus = refund_failed</code></td>
               <td>Unchanged</td>
-              <td>Refund failure email</td>
+              <td>Refund failure email to Booker and operator</td>
             </tr>
           </tbody>
         </table>
@@ -480,10 +514,10 @@
           <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff measured from the tour start in Eastern time, starts cancellation refunds.</p></div>
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation, plus operator Booking list, cancellation, refund retry, and mark-refunded mutations.</p></div>
-          <div><code>app/routes/admin/</code><p>Operator console: Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
+          <div><code>app/routes/admin/</code><p>Operator console: Recent activity with New markers, Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
           <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
-          <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
+          <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions. Operator notifications for new Bookings, self-cancellations, capacity refunds, and refund failures. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
         </div>
       </section>
     </main>

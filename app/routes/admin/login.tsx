@@ -11,6 +11,7 @@ import {
 } from '~/components/admin/primitives';
 import { convexAuthAction } from '~/lib/convex.server';
 import {
+  getOperatorReturnPath,
   getOperatorSession,
   serializeOperatorSession,
   type OperatorTokens,
@@ -33,19 +34,21 @@ export function meta() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { operator } = await getOperatorSession(request);
+  const { searchParams } = new URL(request.url);
+  const redirectTo = getOperatorReturnPath(searchParams.get('redirectTo'));
 
-  if (operator) throw redirect('/admin');
+  if (operator) throw redirect(redirectTo);
 
-  // Set when the Operator opens a magic link.
-  return { code: new URL(request.url).searchParams.get('code') };
+  // `code` is set when the Operator opens a magic link.
+  return { code: searchParams.get('code'), redirectTo };
 }
 
 function signIn(provider: string | undefined, params: Record<string, string>) {
   return convexAuthAction(api.auth.signIn, { provider, params });
 }
 
-async function startSession(tokens: OperatorTokens) {
-  return redirect('/admin', {
+async function startSession(tokens: OperatorTokens, redirectTo: string) {
+  return redirect(redirectTo, {
     headers: { 'Set-Cookie': await serializeOperatorSession(tokens) },
   });
 }
@@ -55,11 +58,12 @@ export async function action({ request }: Route.ActionArgs) {
   const intent = form.get('intent');
   const email = EmailField.safeParse(form.get('email')).data ?? '';
   const field = (name: string) => String(form.get(name) ?? '').trim();
+  const redirectTo = getOperatorReturnPath(form.get('redirectTo'));
 
   if (intent === 'link-sign-in') {
     const result = await signIn(undefined, { code: field('code') }).catch(() => null);
 
-    if (result?.tokens) return startSession(result.tokens);
+    if (result?.tokens) return startSession(result.tokens, redirectTo);
 
     return { mode: 'link' as const, error: 'This sign-in link expired or was already used. Request a new one.' };
   }
@@ -68,7 +72,9 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (intent === 'send-link') {
     // Same answer whether or not the email is on the operator list.
-    await signIn('magic-link', { email, redirectTo: '/admin/login' }).catch((error) =>
+    const linkTarget = `/admin/login?${new URLSearchParams({ redirectTo })}`;
+
+    await signIn('magic-link', { email, redirectTo: linkTarget }).catch((error) =>
       console.error('Could not send an Operator sign-in link', error),
     );
 
@@ -82,7 +88,7 @@ export async function action({ request }: Route.ActionArgs) {
       code: field('code'),
     }).catch(() => null);
 
-    if (result?.tokens) return startSession(result.tokens);
+    if (result?.tokens) return startSession(result.tokens, redirectTo);
 
     return { step: 'code' as const, email, error: "That code didn't work. Check it and try again." };
   }
@@ -115,7 +121,7 @@ export async function action({ request }: Route.ActionArgs) {
     () => null,
   );
 
-  if (result?.tokens) return startSession(result.tokens);
+  if (result?.tokens) return startSession(result.tokens, redirectTo);
   // Accounts that never confirmed their email get a fresh code instead of a session.
   if (result) return { step: 'code' as const, email };
 
@@ -150,6 +156,7 @@ export default function OperatorLogin({ loaderData, actionData }: Route.Componen
           description={`We emailed an 8-digit code to ${step.email}. It expires in 15 minutes.`}
         />
         <input type='hidden' name='intent' value='verify-code' />
+        <input type='hidden' name='redirectTo' value={loaderData.redirectTo} />
         <input type='hidden' name='email' value={step.email} />
         <label className='grid gap-1.5'>
           <span className={labelClass}>Code</span>
@@ -176,6 +183,7 @@ export default function OperatorLogin({ loaderData, actionData }: Route.Componen
           description='Continue to open the operator console in this browser.'
         />
         <input type='hidden' name='intent' value='link-sign-in' />
+        <input type='hidden' name='redirectTo' value={loaderData.redirectTo} />
         <input type='hidden' name='code' value={loaderData.code} />
         <ErrorText error={error} />
         <button type='submit' disabled={busy} className={primaryButtonClass}>
@@ -219,6 +227,7 @@ export default function OperatorLogin({ loaderData, actionData }: Route.Componen
             name='intent'
             value={mode === 'link' ? 'send-link' : mode}
           />
+          <input type='hidden' name='redirectTo' value={loaderData.redirectTo} />
           {mode === 'sign-up' && (
             <label className='grid gap-1.5'>
               <span className={labelClass}>Name</span>

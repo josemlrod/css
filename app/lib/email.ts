@@ -318,21 +318,127 @@ Refund amount: ${currency.format(booking.total)}`,
   };
 }
 
-function createBookingCommunicationFailedAlertEmail(
-  booking: BookingCommunication,
-  bookingId: string,
-) {
-  return {
-    subject: `Booking email failed: ${booking.tourName} on ${formatDate(booking.date)}`,
-    text: `The Booking email for this new Booking could not be sent. The Booker has no link to manage or cancel online, so please contact them directly.
+type OperatorEvent =
+  | 'new_booking'
+  | 'booking_email_failed'
+  | 'booker_canceled'
+  | 'cancellation_refund_failed'
+  | 'capacity_refund'
+  | 'refund_failed';
 
-Booking ID: ${bookingId}
-Booker: ${booking.bookerName} <${booking.to}>
-Tour: ${booking.tourName}
-Date: ${formatDate(booking.date)}
-Time: ${booking.time}
-Party size: ${booking.guests}
-Total: ${currency.format(booking.total)}`,
+type OperatorNotification = FailedCapacityRefundCommunication;
+
+const operatorEvents: Record<
+  OperatorEvent,
+  { subject: string; message: (record: EmailRecord) => string }
+> = {
+  new_booking: {
+    subject: 'New Booking',
+    message: () => 'A new Booking just came in. The Booker has their confirmation email.',
+  },
+  booking_email_failed: {
+    subject: 'Booking email failed',
+    message: () =>
+      'The Booking email for this new Booking could not be sent. The Booker has no link to manage or cancel online, so please contact them directly.',
+  },
+  booker_canceled: {
+    subject: 'Booking canceled',
+    message: () =>
+      'The Booker canceled online. PayPal is refunding the full amount, and their spots are open again.',
+  },
+  cancellation_refund_failed: {
+    subject: 'Cancellation needs you',
+    message: () =>
+      "The Booker tried to cancel, but PayPal didn't accept the refund, so the Booking is still active. Cancel and refund it from the operator console, or contact the Booker.",
+  },
+  capacity_refund: {
+    subject: 'Tour full, payment refunded',
+    message: () =>
+      'This time slot filled before the payment finished, so no Booking was made. We requested a full refund and emailed the Booker.',
+  },
+  refund_failed: {
+    subject: 'Refund failed',
+    message: (record) =>
+      'bookingId' in record
+        ? 'PayPal says the refund for this canceled Booking failed. Retry it from the operator console, or refund in PayPal.'
+        : "This time slot filled before the payment finished, so no Booking was made, but PayPal didn't accept the refund. Refund the Booker in PayPal and let them know.",
+  },
+};
+
+// Signed-in Operators land on the Booking; everyone else signs in first and comes back.
+function operatorBookingUrl(bookingId: string) {
+  const path = `/admin/bookings/${bookingId}`;
+  const origin = process.env.APP_ORIGIN;
+
+  return origin ? new URL(path, origin).toString() : path;
+}
+
+// Never includes the manage link: it carries the Booker's access token.
+export function createOperatorNotificationEmail(
+  event: OperatorEvent,
+  booking: OperatorNotification,
+  record: EmailRecord,
+) {
+  const { subject, message } = operatorEvents[event];
+  const consoleUrl =
+    'bookingId' in record ? operatorBookingUrl(record.bookingId) : null;
+  const details: [string, string][] = [
+    'bookingId' in record
+      ? ['Booking ID', record.bookingId]
+      : ['Checkout Attempt ID', record.checkoutAttemptId],
+    ['Booker', `${booking.bookerName} <${booking.to}>`],
+    ['Tour', booking.tourName],
+    ['Date', formatDate(booking.date)],
+    ['Time', booking.time],
+    ['Party size', String(booking.guests)],
+    ['Total', currency.format(booking.total)],
+  ];
+  const fullSubject = `${subject}: ${booking.tourName} on ${formatDate(booking.date)} at ${booking.time}`;
+  const rows = details
+    .map(
+      ([label, value], index) => `<tr>
+                  <td style="padding:10px 14px;${index ? 'border-top:1px solid #e5e5e5;' : ''}color:#737373;font-size:14px;">${label}</td>
+                  <td align="right" style="padding:10px 14px;${index ? 'border-top:1px solid #e5e5e5;' : ''}font-size:14px;font-weight:600;color:#171717;">${escapeHtml(value)}</td>
+                </tr>`,
+    )
+    .join('\n                ');
+
+  return {
+    subject: fullSubject,
+    text: `${message(record)}
+
+${details.map(([label, value]) => `${label}: ${value}`).join('\n')}${
+      consoleUrl ? `\n\nOpen in the operator console: ${consoleUrl}` : ''
+    }`,
+    html: `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>${escapeHtml(fullSubject)}</title></head>
+  <body style="margin:0;background:#f7f7f7;color:#171717;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;">
+            <tr>
+              <td style="padding:24px;">
+                <p style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#737373;">Operator</p>
+                <h1 style="margin:6px 0 0;font-size:22px;line-height:1.25;color:#123449;">${escapeHtml(subject)}</h1>
+                <p style="margin:10px 0 18px;font-size:15px;line-height:1.55;color:#404040;">${escapeHtml(message(record))}</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e5e5;border-radius:8px;">
+                ${rows}
+                </table>${
+                  consoleUrl
+                    ? `
+                <a href="${escapeHtml(consoleUrl)}" style="display:inline-block;margin-top:18px;padding:10px 16px;border-radius:6px;background:#123449;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;">Open in the operator console</a>`
+                    : ''
+                }
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`,
   };
 }
 
@@ -368,11 +474,14 @@ async function sendEmail(
   return false;
 }
 
-async function sendOperatorEmail(
-  type: string,
+// Tells the operator about a Booking event. Never throws, so it can't change a payment
+// or cancellation response.
+export async function sendOperatorNotification(
+  event: OperatorEvent,
+  booking: OperatorNotification,
   record: EmailRecord,
-  email: Email,
 ) {
+  const type = `operator_${event}`;
   const to = process.env.OPERATOR_EMAIL;
 
   if (!to) {
@@ -384,7 +493,12 @@ async function sendOperatorEmail(
     return false;
   }
 
-  return sendEmail(type, record, to, email);
+  return sendEmail(
+    type,
+    record,
+    to,
+    createOperatorNotificationEmail(event, booking, record),
+  );
 }
 
 export async function sendBookingCommunication(
@@ -398,25 +512,26 @@ export async function sendBookingCommunication(
     createBookingCommunicationEmail(booking),
   );
 
-  if (!sent) {
-    await sendOperatorEmail(
-      'booking_communication_failed_alert',
-      record,
-      createBookingCommunicationFailedAlertEmail(booking, record.bookingId),
-    );
-  }
+  await sendOperatorNotification(
+    sent ? 'new_booking' : 'booking_email_failed',
+    booking,
+    record,
+  );
 }
 
 export async function sendFailedCapacityRefundCommunication(
   booking: FailedCapacityRefundCommunication,
   record: { checkoutAttemptId: string },
 ) {
-  await sendEmail(
-    'capacity_refund',
-    record,
-    booking.to,
-    createFailedCapacityRefundEmail(booking),
-  );
+  await Promise.all([
+    sendEmail(
+      'capacity_refund',
+      record,
+      booking.to,
+      createFailedCapacityRefundEmail(booking),
+    ),
+    sendOperatorNotification('capacity_refund', booking, record),
+  ]);
 }
 
 export async function sendBookingCancellationRefundRequestedCommunication(
@@ -435,22 +550,28 @@ export async function sendBookingCancellationRefundFailedCommunication(
   booking: CancellationRefundCommunication,
   record: { bookingId: string },
 ) {
-  await sendEmail(
-    'cancellation_refund_failed',
-    record,
-    booking.to,
-    createBookingCancellationRefundFailedEmail(booking),
-  );
+  await Promise.all([
+    sendEmail(
+      'cancellation_refund_failed',
+      record,
+      booking.to,
+      createBookingCancellationRefundFailedEmail(booking),
+    ),
+    sendOperatorNotification('cancellation_refund_failed', booking, record),
+  ]);
 }
 
 export async function sendRefundFailedCommunication(
   booking: RefundFailedCommunication,
   record: EmailRecord,
 ) {
-  await sendEmail(
-    'refund_failed',
-    record,
-    booking.to,
-    createRefundFailedEmail(booking),
-  );
+  await Promise.all([
+    sendEmail(
+      'refund_failed',
+      record,
+      booking.to,
+      createRefundFailedEmail(booking),
+    ),
+    sendOperatorNotification('refund_failed', booking, record),
+  ]);
 }

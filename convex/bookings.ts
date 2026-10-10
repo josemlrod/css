@@ -94,6 +94,40 @@ export const listBookingsForOperator = serverQuery({
   },
 });
 
+// Bookings made or canceled after `since`, newest first, for the console's Recent activity.
+export const listBookingActivity = serverQuery({
+  args: { since: v.number() },
+  handler: async (ctx, { since }) => {
+    const [booked, canceled, tours] = await Promise.all([
+      ctx.db
+        .query('bookings')
+        .withIndex('by_creation_time', (q) => q.gt('_creationTime', since))
+        .collect(),
+      ctx.db
+        .query('bookings')
+        .withIndex('by_cancelled', (q) => q.gt('cancelled', since))
+        .collect(),
+      ctx.db.query('tours').collect(),
+    ]);
+    const tourNames = new Map(tours.map((tour) => [tour._id, tour.name]));
+    const event = (type: 'booked' | 'canceled', at: number, booking: Doc<'bookings'>) => ({
+      type,
+      at,
+      bookingId: booking._id,
+      bookerName: booking.bookerName,
+      tourName: tourNames.get(booking.tourId) ?? 'Unknown tour',
+      date: booking.date,
+      time: booking.time,
+      guests: booking.guests,
+    });
+
+    return [
+      ...booked.map((booking) => event('booked', booking._creationTime, booking)),
+      ...canceled.map((booking) => event('canceled', booking.cancelled!, booking)),
+    ].sort((a, b) => b.at - a.at);
+  },
+});
+
 export const getBookingForOperator = serverQuery({
   args: { bookingId: v.string() },
   handler: async (ctx, { bookingId }) => {
