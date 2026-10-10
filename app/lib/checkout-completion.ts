@@ -62,23 +62,12 @@ async function finalizePaidCapture({
         bookingId: result.bookingId,
       });
 
-      const manageUrl = manageBookingUrl(result.bookingId, bookingAccessToken);
-
-      await sendBookingCommunication(
-        {
-          to: result.checkoutAttempt.bookerEmail,
-          bookerName: result.checkoutAttempt.bookerName,
-          tourName: result.tour.name,
-          date: result.checkoutAttempt.date,
-          time: result.checkoutAttempt.time,
-          guests: result.checkoutAttempt.guests,
-          total: result.checkoutAttempt.total,
-          meetingPoint: result.tour.meetingPoint,
-          editUrl: manageUrl,
-          cancelUrl: manageUrl,
-        },
-        { bookingId: result.bookingId },
-      );
+      await sendBookingCommunication('booking_communication', {
+        checkoutAttempt: result.checkoutAttempt,
+        tour: result.tour,
+        bookingId: result.bookingId,
+        manageUrl: manageBookingUrl(result.bookingId, bookingAccessToken),
+      });
       return 'paid';
     }
     case 'booking_exists':

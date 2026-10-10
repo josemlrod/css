@@ -2,28 +2,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { recordBookingRefund } from './bookings';
 import { updateCheckoutAttemptRefundStatus } from './checkout-attempts';
-import {
-  sendBookingCancellationRefundFailedCommunication,
-  sendBookingCancellationRefundRequestedCommunication,
-  sendFailedCapacityRefundCommunication,
-  sendOperatorNotification,
-  sendRefundFailedCommunication,
-} from './email';
+import { sendBookingCommunication, sendOperatorNotification } from './email';
 import { refundPayPalCapture } from './paypal';
 import { refundBooking, refundCheckoutAttempt } from './refunds';
 
 vi.mock('./bookings', () => ({ recordBookingRefund: vi.fn() }));
 vi.mock('./checkout-attempts', () => ({ updateCheckoutAttemptRefundStatus: vi.fn() }));
 vi.mock('./email', () => ({
-  sendBookingCancellationRefundFailedCommunication: vi.fn(),
-  sendBookingCancellationRefundRequestedCommunication: vi.fn(),
-  sendFailedCapacityRefundCommunication: vi.fn(),
+  sendBookingCommunication: vi.fn(),
   sendOperatorNotification: vi.fn(),
-  sendRefundFailedCommunication: vi.fn(),
 }));
 vi.mock('./paypal', () => ({ refundPayPalCapture: vi.fn() }));
 
 const paypal = vi.mocked(refundPayPalCapture);
+const notifyBooker = vi.mocked(sendBookingCommunication);
 const notifyOperator = vi.mocked(sendOperatorNotification);
 
 const details = {
@@ -43,15 +35,6 @@ const paid = {
 };
 const failed = { ...paid, cancelled: 1, paymentStatus: 'refund_failed', paypalRefundId: 'REFUND_OLD' };
 const tour = { name: 'Savannah Food Tour' };
-const communication = {
-  to: 'booker@example.com',
-  bookerName: 'Test Booker',
-  tourName: 'Savannah Food Tour',
-  date: '2099-07-04',
-  time: '10:00 AM',
-  guests: 2,
-  total: 150,
-};
 
 function refund(
   booking: object,
@@ -89,14 +72,10 @@ describe('refundBooking', () => {
       attempt: 'first',
       paypalRefundId: 'REFUND1',
     });
-    expect(sendBookingCancellationRefundRequestedCommunication).toHaveBeenCalledWith(
-      communication,
-      { bookingId: 'booking_1' },
-    );
+    const records = { booking: paid, tour, total: 150 };
+    expect(notifyBooker).toHaveBeenCalledWith('cancellation_refund_requested', records);
     expect(notifyOperator).toHaveBeenCalledOnce();
-    expect(notifyOperator).toHaveBeenCalledWith('booker_canceled', communication, {
-      bookingId: 'booking_1',
-    });
+    expect(notifyOperator).toHaveBeenCalledWith('booker_canceled', records);
   });
 
   it('retries a failed refund with a new PayPal request ID and no operator email', async () => {
@@ -108,7 +87,7 @@ describe('refundBooking', () => {
     expect(recordBookingRefund).toHaveBeenCalledWith(
       expect.objectContaining({ attempt: 'retry', paypalRefundId: 'REFUND2' }),
     );
-    expect(sendBookingCancellationRefundRequestedCommunication).toHaveBeenCalledOnce();
+    expect(notifyBooker).toHaveBeenCalledWith('cancellation_refund_requested', expect.anything());
     expect(notifyOperator).not.toHaveBeenCalled();
   });
 
@@ -129,9 +108,10 @@ describe('refundBooking', () => {
         requestedBy: by,
       });
       expect(recordBookingRefund).not.toHaveBeenCalled();
-      expect(sendBookingCancellationRefundRequestedCommunication).not.toHaveBeenCalled();
-      expect(sendBookingCancellationRefundFailedCommunication).toHaveBeenCalledTimes(
-        failureEmails,
+      expect(notifyBooker.mock.calls).toEqual(
+        failureEmails
+          ? [['cancellation_refund_failed', { booking: paid, tour, total: 150 }]]
+          : [],
       );
     },
   );
@@ -149,9 +129,11 @@ describe('refundBooking', () => {
         event: 'refund.record_failed',
         paypalRefundId: 'REFUND1',
       });
-      expect(sendBookingCancellationRefundRequestedCommunication).toHaveBeenCalledOnce();
-      expect(notifyOperator).toHaveBeenCalledWith('refund_record_failed', communication, {
-        bookingId: 'booking_1',
+      expect(notifyBooker).toHaveBeenCalledWith('cancellation_refund_requested', expect.anything());
+      expect(notifyOperator).toHaveBeenCalledWith('refund_record_failed', {
+        booking: paid,
+        tour,
+        total: 150,
       });
     },
   );
@@ -161,7 +143,7 @@ describe('refundCheckoutAttempt', () => {
   afterEach(() => vi.clearAllMocks());
 
   const checkoutAttempt = { ...details, _id: 'attempt_1', total: 150 };
-  const record = { checkoutAttemptId: 'attempt_1' };
+  const records = { checkoutAttempt, tour };
   const refundAttempt = () =>
     refundCheckoutAttempt({
       checkoutAttempt: checkoutAttempt as never,
@@ -186,12 +168,9 @@ describe('refundCheckoutAttempt', () => {
       paymentStatus,
       paypalRefundId,
     });
-    const [sent, skipped] =
-      paymentStatus === 'refund_failed'
-        ? [sendRefundFailedCommunication, sendFailedCapacityRefundCommunication]
-        : [sendFailedCapacityRefundCommunication, sendRefundFailedCommunication];
-    expect(sent).toHaveBeenCalledWith(communication, record);
-    expect(skipped).not.toHaveBeenCalled();
+    expect(notifyBooker.mock.calls).toEqual([
+      [paymentStatus === 'refund_failed' ? 'refund_failed' : 'capacity_refund', records],
+    ]);
     expect(notifyOperator).not.toHaveBeenCalled();
   });
 
@@ -202,7 +181,7 @@ describe('refundCheckoutAttempt', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(refundAttempt()).resolves.toBe('refund_pending');
-    expect(sendFailedCapacityRefundCommunication).toHaveBeenCalledWith(communication, record);
-    expect(notifyOperator).toHaveBeenCalledWith('refund_record_failed', communication, record);
+    expect(notifyBooker).toHaveBeenCalledWith('capacity_refund', records);
+    expect(notifyOperator).toHaveBeenCalledWith('refund_record_failed', records);
   });
 });

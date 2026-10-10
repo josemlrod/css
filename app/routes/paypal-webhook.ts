@@ -5,7 +5,7 @@ import {
   updateRefundStatusByPayPalRefund,
 } from '~/lib/checkout-attempts';
 import { completeCapture } from '~/lib/checkout-completion';
-import { sendRefundFailedCommunication } from '~/lib/email';
+import { sendBookingCommunication } from '~/lib/email';
 import { logError, logEvent } from '~/lib/log';
 import { verifyPayPalWebhook } from '~/lib/paypal';
 
@@ -37,33 +37,15 @@ async function processRefundFailure(paypalRefundId: string) {
   });
 
   if (result.status === 'updated_booking' && result.tour) {
-    await sendRefundFailedCommunication(
-      {
-        to: result.booking.bookerEmail,
-        bookerName: result.booking.bookerName,
-        tourName: result.tour.name,
-        date: result.booking.date,
-        time: result.booking.time,
-        guests: result.booking.guests,
-        total: result.total,
-      },
-      { bookingId: result.booking._id },
-    );
+    const { booking, tour, total } = result;
+
+    await sendBookingCommunication('refund_failed', { booking, tour, total });
   }
 
   if (result.status === 'updated_checkout_attempt' && result.tour) {
-    await sendRefundFailedCommunication(
-      {
-        to: result.checkoutAttempt.bookerEmail,
-        bookerName: result.checkoutAttempt.bookerName,
-        tourName: result.tour.name,
-        date: result.checkoutAttempt.date,
-        time: result.checkoutAttempt.time,
-        guests: result.checkoutAttempt.guests,
-        total: result.checkoutAttempt.total,
-      },
-      { checkoutAttemptId: result.checkoutAttempt._id },
-    );
+    const { checkoutAttempt, tour } = result;
+
+    await sendBookingCommunication('refund_failed', { checkoutAttempt, tour });
   }
 
   return result;

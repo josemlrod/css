@@ -1,13 +1,7 @@
 import { bookingRefundAttempt } from '../../convex/lib/bookings';
 import { recordBookingRefund } from './bookings';
 import { updateCheckoutAttemptRefundStatus } from './checkout-attempts';
-import {
-  sendBookingCancellationRefundFailedCommunication,
-  sendBookingCancellationRefundRequestedCommunication,
-  sendFailedCapacityRefundCommunication,
-  sendOperatorNotification,
-  sendRefundFailedCommunication,
-} from './email';
+import { sendBookingCommunication, sendOperatorNotification } from './email';
 import { logError, logEvent } from './log';
 import { refundPayPalCapture } from './paypal';
 import type { Booking, CheckoutAttempt, Tour } from './types';
@@ -88,16 +82,7 @@ export async function refundBooking({
   }
 
   const details = { bookingId: booking._id, requestedBy: by, attempt, paypalCaptureId };
-  const communication = {
-    to: booking.bookerEmail,
-    bookerName: booking.bookerName,
-    tourName: tour.name,
-    date: booking.date,
-    time: booking.time,
-    guests: booking.guests,
-    total,
-  };
-  const record = { bookingId: booking._id };
+  const records = { booking, tour, total };
   const refund = await requestRefund(
     paypalCaptureId,
     // A new request ID per failed refund, so PayPal makes a fresh attempt instead of replaying the failure.
@@ -108,7 +93,7 @@ export async function refundBooking({
   if (refund.paymentStatus === 'refund_failed') {
     // An operator sees the failure in the console; a Booker needs to hear it.
     if (by === 'booker') {
-      await sendBookingCancellationRefundFailedCommunication(communication, record);
+      await sendBookingCommunication('cancellation_refund_failed', records);
     }
     return 'refund_failed';
   }
@@ -120,9 +105,9 @@ export async function refundBooking({
   );
 
   await Promise.all([
-    sendBookingCancellationRefundRequestedCommunication(communication, record),
-    by === 'booker' && sendOperatorNotification('booker_canceled', communication, record),
-    !saved && sendOperatorNotification('refund_record_failed', communication, record),
+    sendBookingCommunication('cancellation_refund_requested', records),
+    by === 'booker' && sendOperatorNotification('booker_canceled', records),
+    !saved && sendOperatorNotification('refund_record_failed', records),
   ]);
 
   return saved ? 'refund_requested' : 'record_failed';
@@ -143,16 +128,7 @@ export async function refundCheckoutAttempt({
     reason: 'capacity_unavailable',
     paypalCaptureId,
   };
-  const communication = {
-    to: checkoutAttempt.bookerEmail,
-    bookerName: checkoutAttempt.bookerName,
-    tourName: tour.name,
-    date: checkoutAttempt.date,
-    time: checkoutAttempt.time,
-    guests: checkoutAttempt.guests,
-    total: checkoutAttempt.total,
-  };
-  const record = { checkoutAttemptId: checkoutAttempt._id };
+  const records = { checkoutAttempt, tour };
   const { paymentStatus, paypalRefundId } = await requestRefund(
     paypalCaptureId,
     undefined,
@@ -169,12 +145,13 @@ export async function refundCheckoutAttempt({
   );
 
   await Promise.all([
-    paymentStatus === 'refund_failed'
-      ? sendRefundFailedCommunication(communication, record)
-      : sendFailedCapacityRefundCommunication(communication, record),
+    sendBookingCommunication(
+      paymentStatus === 'refund_failed' ? 'refund_failed' : 'capacity_refund',
+      records,
+    ),
     !saved &&
       paymentStatus !== 'refund_failed' &&
-      sendOperatorNotification('refund_record_failed', communication, record),
+      sendOperatorNotification('refund_record_failed', records),
   ]);
 
   return paymentStatus;

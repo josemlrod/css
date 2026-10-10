@@ -5,7 +5,7 @@ import {
   updateRefundStatusByPayPalRefund,
 } from '~/lib/checkout-attempts';
 import { completeCapture } from '~/lib/checkout-completion';
-import { sendRefundFailedCommunication } from '~/lib/email';
+import { sendBookingCommunication } from '~/lib/email';
 import { verifyPayPalWebhook } from '~/lib/paypal';
 
 import { action } from './paypal-webhook';
@@ -19,7 +19,7 @@ vi.mock('~/lib/checkout-attempts', () => ({
   updateRefundStatusByPayPalRefund: vi.fn(),
 }));
 vi.mock('~/lib/email', () => ({
-  sendRefundFailedCommunication: vi.fn(),
+  sendBookingCommunication: vi.fn(),
 }));
 
 const verifyPayPalWebhookMock = vi.mocked(verifyPayPalWebhook);
@@ -28,9 +28,7 @@ const expireCheckoutAttemptMock = vi.mocked(expireCheckoutAttempt);
 const updateRefundStatusByPayPalRefundMock = vi.mocked(
   updateRefundStatusByPayPalRefund,
 );
-const sendRefundFailedCommunicationMock = vi.mocked(
-  sendRefundFailedCommunication,
-);
+const sendBookingCommunicationMock = vi.mocked(sendBookingCommunication);
 
 const completedCapture = {
   event_type: 'PAYMENT.CAPTURE.COMPLETED',
@@ -67,7 +65,7 @@ function expectNoProcessing() {
   expect(completeCaptureMock).not.toHaveBeenCalled();
   expect(expireCheckoutAttemptMock).not.toHaveBeenCalled();
   expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
-  expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+  expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
 }
 
 describe('PayPal webhook action', () => {
@@ -149,7 +147,7 @@ describe('PayPal webhook action', () => {
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
     expect(completeCaptureMock).toHaveBeenCalledTimes(2);
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+    expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
   it.each(['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED'])(
@@ -184,7 +182,7 @@ describe('PayPal webhook action', () => {
     });
     expect(completeCaptureMock).not.toHaveBeenCalled();
       expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+    expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
   it('marks completed refunds refunded without communication', async () => {
@@ -202,7 +200,7 @@ describe('PayPal webhook action', () => {
       paypalRefundId: 'REFUND-123',
       paymentStatus: 'refunded',
     });
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+    expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
   it('sends Booking Communication when a Booking refund fails', async () => {
@@ -210,9 +208,10 @@ describe('PayPal webhook action', () => {
       event_type: 'PAYMENT.REFUND.FAILED',
       resource: { id: 'REFUND-123' },
     });
+    const booking = { ...checkoutAttempt, _id: 'booking_123' };
     updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_booking',
-      booking: { ...checkoutAttempt, _id: 'booking_123' },
+      booking,
       tour,
       total: 150,
     } as never);
@@ -223,41 +222,31 @@ describe('PayPal webhook action', () => {
       paypalRefundId: 'REFUND-123',
       paymentStatus: 'refund_failed',
     });
-    expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith(
-      {
-        to: 'booker@example.com',
-        bookerName: 'Test Booker',
-        tourName: 'Savannah Food Tour',
-        date: '2026-07-04',
-        time: '10:00 AM',
-        guests: 2,
-        total: 150,
-      },
-      { bookingId: 'booking_123' },
-    );
+    expect(sendBookingCommunicationMock).toHaveBeenCalledWith('refund_failed', {
+      booking,
+      tour,
+      total: 150,
+    });
   });
 
-  it('uses Checkout Attempt totals when its refund fails', async () => {
+  it('sends Booking Communication when a Checkout Attempt refund fails', async () => {
     verifyPayPalWebhookMock.mockResolvedValueOnce({
       event_type: 'PAYMENT.REFUND.FAILED',
       resource: { id: 'REFUND-123' },
     });
+    const attempt = { ...checkoutAttempt, _id: 'checkout_attempt_123', total: 150 };
     updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
       status: 'updated_checkout_attempt',
-      checkoutAttempt: {
-        ...checkoutAttempt,
-        _id: 'checkout_attempt_123',
-        total: 150,
-      },
+      checkoutAttempt: attempt,
       tour,
     } as never);
 
     await action(actionArgs());
 
-    expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith(
-      expect.objectContaining({ total: 150 }),
-      { checkoutAttemptId: 'checkout_attempt_123' },
-    );
+    expect(sendBookingCommunicationMock).toHaveBeenCalledWith('refund_failed', {
+      checkoutAttempt: attempt,
+      tour,
+    });
   });
 
   it('does not repeat communication for an already updated refund', async () => {
@@ -271,7 +260,7 @@ describe('PayPal webhook action', () => {
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+    expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
   it.each(['PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.REFUND.FAILED'])(
@@ -294,7 +283,7 @@ describe('PayPal webhook action', () => {
         },
         init: { status: 503 },
       });
-      expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
+      expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
     },
   );
 

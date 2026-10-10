@@ -553,7 +553,7 @@
           <div><code>app/routes/admin/</code><p>Operator console: Recent activity with New markers, Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
           <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
-          <div><code>app/lib/email.ts</code><p>Booking Communication content and send functions. Operator notifications for new Bookings, self-cancellations, capacity refunds, and refund failures. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
+          <div><code>app/lib/email.ts</code><p>Booking Communication content and one send function. Callers pass the kind of communication and the Booking or Checkout Attempt with its tour, and this module works out the Booker, tour, and total fields in one place. Operator notifications for new Bookings, self-cancellations, capacity refunds, and refund failures. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
         </div>
       </section>
     </main>
