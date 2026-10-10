@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getBookingWithTourForAccess } from '~/lib/bookings';
-import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
+import { hashAccessToken } from '~/lib/access-tokens';
+import { convexQuery } from '~/lib/convex.server';
+import { convexCalls } from '~/lib/convex.test-helpers';
 import { refundBooking } from '~/lib/refunds';
 
 import { action, loader } from './manage-tour';
 
-vi.mock('~/lib/bookings', () => ({
-  getBookingWithTourForAccess: vi.fn(),
+vi.mock('~/lib/convex.server', () => ({
+  convexQuery: vi.fn(),
 }));
 
-vi.mock('~/lib/checkout-attempts', () => ({
-  hashCheckoutAccessToken: vi.fn(() => 'hashed_token'),
+vi.mock('~/lib/access-tokens', () => ({
+  hashAccessToken: vi.fn(() => 'hashed_token'),
 }));
 
 vi.mock('~/lib/refunds', () => ({
@@ -39,8 +40,8 @@ const tour = {
 // What the Booker paid before the tour price changed, not 2 × $79.
 const total = 150;
 
-const getBookingWithTourForAccessMock = vi.mocked(getBookingWithTourForAccess);
-const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
+const getBookingWithTourForAccessMock = vi.mocked(convexQuery);
+const hashAccessTokenMock = vi.mocked(hashAccessToken);
 const refundBookingMock = vi.mocked(refundBooking);
 
 function request(
@@ -102,7 +103,13 @@ describe('manage tour cancellation', () => {
       event: 'cancellation.requested',
       cancelReason: 'Weather concerns',
     });
-    expect(hashCheckoutAccessTokenMock).toHaveBeenCalledWith('raw_token');
+    expect(hashAccessTokenMock).toHaveBeenCalledWith('raw_token');
+    expect(convexCalls(getBookingWithTourForAccessMock)).toEqual([
+      [
+        'bookings:getBookingWithTourForAccess',
+        { bookingId: 'booking_123', accessTokenHash: 'hashed_token' },
+      ],
+    ]);
     expect(refundBookingMock).toHaveBeenCalledWith({
       booking,
       tour,

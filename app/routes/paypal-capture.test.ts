@@ -1,24 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  getCheckoutAttempt,
-  verifyCheckoutAccessToken,
-} from '~/lib/checkout-attempts';
+import { verifyAccessToken } from '~/lib/access-tokens';
 import { completeCapture } from '~/lib/checkout-completion';
+import { convexQuery } from '~/lib/convex.server';
 import { capturePayPalOrder } from '~/lib/paypal';
 
 import { action } from './paypal-capture';
 
-vi.mock('~/lib/checkout-attempts', () => ({
-  getCheckoutAttempt: vi.fn(),
-  verifyCheckoutAccessToken: vi.fn(),
-}));
+vi.mock('~/lib/convex.server', () => ({ convexQuery: vi.fn() }));
+vi.mock('~/lib/access-tokens', () => ({ verifyAccessToken: vi.fn() }));
 
 vi.mock('~/lib/checkout-completion', () => ({ completeCapture: vi.fn() }));
 vi.mock('~/lib/paypal', () => ({ capturePayPalOrder: vi.fn() }));
 
-const getCheckoutAttemptMock = vi.mocked(getCheckoutAttempt);
-const verifyCheckoutAccessTokenMock = vi.mocked(verifyCheckoutAccessToken);
+const getCheckoutAttemptMock = vi.mocked(convexQuery);
+const verifyAccessTokenMock = vi.mocked(verifyAccessToken);
 const completeCaptureMock = vi.mocked(completeCapture);
 const capturePayPalOrderMock = vi.mocked(capturePayPalOrder);
 
@@ -53,7 +49,7 @@ describe('PayPal capture action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getCheckoutAttemptMock.mockResolvedValue(checkoutAttempt as never);
-    verifyCheckoutAccessTokenMock.mockReturnValue(true);
+    verifyAccessTokenMock.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -74,7 +70,7 @@ describe('PayPal capture action', () => {
   });
 
   it('returns 404 for an invalid token without calling PayPal', async () => {
-    verifyCheckoutAccessTokenMock.mockReturnValueOnce(false);
+    verifyAccessTokenMock.mockReturnValueOnce(false);
 
     const response = await action(actionArgs(captureRequest()));
 

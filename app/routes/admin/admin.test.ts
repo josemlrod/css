@@ -1,25 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getBookingForOperator, markBookingRefunded } from '~/lib/bookings';
+import { convexMutation, convexQuery } from '~/lib/convex.server';
+import { convexCalls } from '~/lib/convex.test-helpers';
 import { refundBooking } from '~/lib/refunds';
-import { setTourDateBlocked, updateTourSettings } from '~/lib/tours';
 
 import { action as bookingAction, loader as bookingLoader } from './booking';
 import { action as bookingsAction } from './bookings';
 import { action as closedDatesAction } from './closed-dates';
 import { action as toursAction } from './tours';
 
-vi.mock('~/lib/bookings', () => ({
-  getBookingForOperator: vi.fn(),
-  listBookingsForOperator: vi.fn(),
-  markBookingRefunded: vi.fn(),
-}));
+vi.mock('~/lib/convex.server', () => ({ convexMutation: vi.fn(), convexQuery: vi.fn() }));
 vi.mock('~/lib/refunds', () => ({ refundBooking: vi.fn() }));
-vi.mock('~/lib/tours', () => ({
-  getTours: vi.fn(),
-  setTourDateBlocked: vi.fn(),
-  updateTourSettings: vi.fn(),
-}));
+
+const mutation = vi.mocked(convexMutation);
 
 const paid = {
   _id: 'booking_1',
@@ -48,7 +41,7 @@ function post(fields: Record<string, string | string[]>) {
 }
 
 function withBooking(booking: object | null) {
-  vi.mocked(getBookingForOperator).mockResolvedValue(
+  vi.mocked(convexQuery).mockResolvedValue(
     (booking && { booking, tour, total: 96 }) as never,
   );
 }
@@ -107,14 +100,14 @@ describe('admin Booking actions', () => {
 
     await expect(bookingAction(post({ intent: 'mark-refunded' }))).resolves.toMatchObject({ ok: false });
     await expect(bookingAction(post({ intent: 'nope' }))).resolves.toMatchObject({ ok: false });
-    expect(markBookingRefunded).not.toHaveBeenCalled();
+    expect(mutation).not.toHaveBeenCalled();
     expect(refundBooking).not.toHaveBeenCalled();
   });
 
   it('marks a failed refund as refunded outside the app', async () => {
     withBooking(failed);
     await expect(bookingAction(post({ intent: 'mark-refunded' }))).resolves.toMatchObject({ ok: true });
-    expect(markBookingRefunded).toHaveBeenCalledWith('booking_1');
+    expect(convexCalls(mutation)).toEqual([['bookings:markBookingRefunded', { id: 'booking_1' }]]);
   });
 });
 
@@ -128,14 +121,18 @@ describe('admin tour actions', () => {
     await expect(
       toursAction(post({ ...settings, startTimes: ['9:00 PM', '7:30 PM'] })),
     ).resolves.toMatchObject({ ok: true });
-    expect(updateTourSettings).toHaveBeenCalledOnce();
-    expect(updateTourSettings).toHaveBeenCalledWith({
-      id: 'tour_1',
-      price: 35,
-      maxGuests: 18,
-      startTimes: ['7:30 PM', '9:00 PM'],
-      meetingPoint: 'Reynolds Square',
-    });
+    expect(convexCalls(mutation)).toEqual([
+      [
+        'tours:updateTourSettings',
+        {
+          id: 'tour_1',
+          price: 35,
+          maxGuests: 18,
+          startTimes: ['7:30 PM', '9:00 PM'],
+          meetingPoint: 'Reynolds Square',
+        },
+      ],
+    ]);
   });
 
   it('closes future dates and reopens any date', async () => {
@@ -150,9 +147,9 @@ describe('admin tour actions', () => {
     await expect(
       closedDatesAction(post({ ...fields, intent: 'reopen', date: '2000-01-01' })),
     ).resolves.toMatchObject({ ok: true });
-    expect(vi.mocked(setTourDateBlocked).mock.calls).toEqual([
-      [{ tourIds: ['tour_1', 'tour_2'], date: '2099-12-25', blocked: true }],
-      [{ tourIds: ['tour_1', 'tour_2'], date: '2000-01-01', blocked: false }],
+    expect(convexCalls(mutation)).toEqual([
+      ['tours:setTourDateBlocked', { tourIds: ['tour_1', 'tour_2'], date: '2099-12-25', blocked: true }],
+      ['tours:setTourDateBlocked', { tourIds: ['tour_1', 'tour_2'], date: '2000-01-01', blocked: false }],
     ]);
   });
 });

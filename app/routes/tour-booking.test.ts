@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RouterContextProvider } from 'react-router';
 
-import {
-  saveCheckoutAttempt,
-  updateCheckoutAttempt,
-} from '~/lib/checkout-attempts';
+import { saveCheckoutAttempt } from '~/lib/checkout-attempts';
+import { convexMutation, convexQuery } from '~/lib/convex.server';
+import { convexCalls } from '~/lib/convex.test-helpers';
 import {
   DATE_UNAVAILABLE_MESSAGE,
   getTodayInBookingTimeZone,
@@ -14,17 +13,16 @@ import {
   optionalOperatorContext,
 } from '~/lib/operator-session.server';
 import { createPayPalOrder } from '~/lib/paypal';
-import { getTourBySlug } from '~/lib/tours';
 
 import { action, loader } from './tour-booking';
 
 vi.mock('~/lib/checkout-attempts', () => ({
   saveCheckoutAttempt: vi.fn(),
-  updateCheckoutAttempt: vi.fn(),
 }));
 
-vi.mock('~/lib/tours', () => ({
-  getTourBySlug: vi.fn(),
+vi.mock('~/lib/convex.server', () => ({
+  convexMutation: vi.fn(),
+  convexQuery: vi.fn(),
 }));
 
 vi.mock('~/lib/paypal', () => ({
@@ -32,9 +30,9 @@ vi.mock('~/lib/paypal', () => ({
 }));
 
 const saveCheckoutAttemptMock = vi.mocked(saveCheckoutAttempt);
-const updateCheckoutAttemptMock = vi.mocked(updateCheckoutAttempt);
+const updateCheckoutAttemptMock = vi.mocked(convexMutation);
 const createPayPalOrderMock = vi.mocked(createPayPalOrder);
-const getTourBySlugMock = vi.mocked(getTourBySlug);
+const getTourBySlugMock = vi.mocked(convexQuery);
 
 const tour = {
   _id: 'tour_123',
@@ -96,7 +94,7 @@ describe('tour booking action', () => {
       pattern: '/tour/:slug',
     });
 
-    expect(getTourBySlugMock).toHaveBeenCalledWith('unknown-tour');
+    expect(convexCalls(getTourBySlugMock)).toEqual([['tours:getTourBySlug', { slug: 'unknown-tour' }]]);
     expect(response).toMatchObject({
       data: { ok: false, error: 'Tour not found' },
       init: { status: 404 },
@@ -213,10 +211,9 @@ describe('tour booking action', () => {
       total: 158,
       bookerEmail: 'ada@example.com',
     });
-    expect(updateCheckoutAttemptMock).toHaveBeenCalledWith({
-      id: 'checkout-attempt-123',
-      paypalOrderId: 'ORDER123',
-    });
+    expect(convexCalls(updateCheckoutAttemptMock)).toEqual([
+      ['checkoutAttempts:updateCheckoutAttempt', { id: 'checkout-attempt-123', paypalOrderId: 'ORDER123' }],
+    ]);
   });
 
   it('returns an error when PayPal order creation fails', async () => {
@@ -296,7 +293,7 @@ describe('tour booking loader', () => {
       data: 'Tour not found',
       init: { status: 404 },
     });
-    expect(getTourBySlugMock).toHaveBeenCalledWith('not-a-tour id');
+    expect(convexCalls(getTourBySlugMock)).toEqual([['tours:getTourBySlug', { slug: 'not-a-tour id' }]]);
   });
 
   it.each([

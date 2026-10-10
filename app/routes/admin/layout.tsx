@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { Form, NavLink, Outlet, useRevalidator } from 'react-router';
 
 import { Eyebrow } from '~/components/admin/primitives';
-import { countRefundFailedBookings, listBookingActivity } from '~/lib/bookings';
+import { convexQuery } from '~/lib/convex.server';
 import { ACTIVITY_WINDOW_MS } from '~/lib/operator';
 import {
   operatorContext,
@@ -19,6 +19,7 @@ import {
 } from '~/lib/operator-session.server';
 import { cn } from '~/lib/utils';
 
+import { api } from '../../../convex/_generated/api';
 import type { Route } from './+types/layout';
 
 export const middleware: Route.MiddlewareFunction[] = [requireOperator];
@@ -33,8 +34,8 @@ export function meta() {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const since = Math.max(await readActivitySeenAt(request), Date.now() - ACTIVITY_WINDOW_MS);
   const [refundFailedCount, newActivity] = await Promise.all([
-    countRefundFailedBookings(),
-    listBookingActivity(since),
+    convexQuery(api.bookings.countRefundFailedBookings, {}),
+    convexQuery(api.bookings.listBookingActivity, { since }),
   ]);
 
   return {

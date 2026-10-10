@@ -10,15 +10,16 @@ import {
   outlineButtonClass,
   primaryButtonClass,
 } from '~/components/admin/primitives';
-import { getBookingForOperator, markBookingRefunded } from '~/lib/bookings';
+import { convexMutation, convexQuery } from '~/lib/convex.server';
 import { logEvent } from '~/lib/log';
 import { refundBooking } from '~/lib/refunds';
 import { cn } from '~/lib/utils';
 
+import { api } from '../../../convex/_generated/api';
 import type { Route } from './+types/booking';
 
-export async function loader({ params }: Route.LoaderArgs) {
-  const res = await getBookingForOperator(params.bookingId);
+export async function loader({ params: { bookingId } }: Route.LoaderArgs) {
+  const res = await convexQuery(api.bookings.getBookingForOperator, { bookingId });
 
   if (!res?.tour) throw data('Booking not found', { status: 404 });
 
@@ -29,10 +30,10 @@ type ActionResult = { ok: true; message: string } | { ok: false; error: string }
 
 export async function action({
   request,
-  params,
+  params: { bookingId },
 }: Route.ActionArgs): Promise<ActionResult> {
   const intent = (await request.formData()).get('intent');
-  const res = await getBookingForOperator(params.bookingId);
+  const res = await convexQuery(api.bookings.getBookingForOperator, { bookingId });
 
   if (!res?.tour) throw data('Booking not found', { status: 404 });
 
@@ -43,7 +44,7 @@ export async function action({
       return { ok: false, error: 'Only a failed refund can be marked as refunded.' };
     }
 
-    await markBookingRefunded(booking._id);
+    await convexMutation(api.bookings.markBookingRefunded, { id: booking._id });
     logEvent('operator.marked_refunded', { bookingId: booking._id });
     return { ok: true, message: 'Marked as refunded' };
   }
