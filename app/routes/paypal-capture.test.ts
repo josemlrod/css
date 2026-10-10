@@ -2,27 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   getCheckoutAttempt,
-  updateCheckoutAttempt,
   verifyCheckoutAccessToken,
 } from '~/lib/checkout-attempts';
-import { finalizePaidCapture } from '~/lib/checkout-completion';
+import { completeCapture } from '~/lib/checkout-completion';
 import { capturePayPalOrder } from '~/lib/paypal';
 
 import { action } from './paypal-capture';
 
 vi.mock('~/lib/checkout-attempts', () => ({
   getCheckoutAttempt: vi.fn(),
-  updateCheckoutAttempt: vi.fn(),
   verifyCheckoutAccessToken: vi.fn(),
 }));
 
-vi.mock('~/lib/checkout-completion', () => ({ finalizePaidCapture: vi.fn() }));
+vi.mock('~/lib/checkout-completion', () => ({ completeCapture: vi.fn() }));
 vi.mock('~/lib/paypal', () => ({ capturePayPalOrder: vi.fn() }));
 
 const getCheckoutAttemptMock = vi.mocked(getCheckoutAttempt);
-const updateCheckoutAttemptMock = vi.mocked(updateCheckoutAttempt);
 const verifyCheckoutAccessTokenMock = vi.mocked(verifyCheckoutAccessToken);
-const finalizePaidCaptureMock = vi.mocked(finalizePaidCapture);
+const completeCaptureMock = vi.mocked(completeCapture);
 const capturePayPalOrderMock = vi.mocked(capturePayPalOrder);
 
 const checkoutAttempt = {
@@ -108,20 +105,19 @@ describe('PayPal capture action', () => {
     expect(capturePayPalOrderMock).not.toHaveBeenCalled();
   });
 
-  it('finalizes a completed capture with PayPal payment details', async () => {
+  it('hands the PayPal capture to Checkout completion and returns its Payment Status', async () => {
     capturePayPalOrderMock.mockResolvedValueOnce({
       id: 'CAPTURE123',
       status: 'COMPLETED',
       amount: { value: '158.00', currency_code: 'USD' },
       custom_id: 'checkout-attempt-123',
     });
-    finalizePaidCaptureMock.mockResolvedValueOnce({
-      status: 'booking_created',
-    } as never);
+    completeCaptureMock.mockResolvedValueOnce('paid');
 
     const response = await action(actionArgs(captureRequest()));
 
-    expect(finalizePaidCaptureMock).toHaveBeenCalledWith({
+    expect(completeCaptureMock).toHaveBeenCalledWith({
+      status: 'COMPLETED',
       paypalOrderId: 'ORDER123',
       paypalCaptureId: 'CAPTURE123',
       amountValue: '158.00',
@@ -136,59 +132,17 @@ describe('PayPal capture action', () => {
     });
   });
 
-  it('returns an immediately completed capacity refund status', async () => {
-    capturePayPalOrderMock.mockResolvedValueOnce({
-      id: 'CAPTURE123',
-      status: 'COMPLETED',
-      amount: { value: '158.00', currency_code: 'USD' },
-      custom_id: 'checkout-attempt-123',
-    });
-    finalizePaidCaptureMock.mockResolvedValueOnce({
-      status: 'capacity_unavailable',
-      paymentStatus: 'refunded',
-    } as never);
-
-    const response = await action(actionArgs(captureRequest()));
-
-    expect(response).toMatchObject({
-      data: {
-        ok: true,
-        status: 'refunded',
-        checkoutAttemptId: 'checkout-attempt-123',
-      },
-    });
-  });
-
-  it('leaves a pending capture pending', async () => {
-    capturePayPalOrderMock.mockResolvedValueOnce({
-      id: 'CAPTURE123',
-      status: 'PENDING',
-      amount: { value: '158.00', currency_code: 'USD' },
-      custom_id: 'checkout-attempt-123',
-    });
-
-    const response = await action(actionArgs(captureRequest()));
-
-    expect(response).toMatchObject({ data: { ok: true, status: 'pending' } });
-    expect(finalizePaidCaptureMock).not.toHaveBeenCalled();
-    expect(updateCheckoutAttemptMock).not.toHaveBeenCalled();
-  });
-
-  it('marks a declined capture failed without sending Booking Communication', async () => {
+  it('reports a failed capture as not ok', async () => {
     capturePayPalOrderMock.mockResolvedValueOnce({
       id: 'CAPTURE123',
       status: 'DECLINED',
       amount: { value: '158.00', currency_code: 'USD' },
       custom_id: 'checkout-attempt-123',
     });
+    completeCaptureMock.mockResolvedValueOnce('failed');
 
     const response = await action(actionArgs(captureRequest()));
 
-    expect(updateCheckoutAttemptMock).toHaveBeenCalledWith({
-      id: 'checkout-attempt-123',
-      paymentStatus: 'failed',
-    });
-    expect(finalizePaidCaptureMock).not.toHaveBeenCalled();
     expect(response).toMatchObject({ data: { ok: false, status: 'failed' } });
   });
 

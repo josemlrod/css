@@ -2,10 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   expireCheckoutAttempt,
-  failCheckoutAttempt,
   updateRefundStatusByPayPalRefund,
 } from '~/lib/checkout-attempts';
-import { finalizePaidCapture } from '~/lib/checkout-completion';
+import { completeCapture } from '~/lib/checkout-completion';
 import { sendRefundFailedCommunication } from '~/lib/email';
 import { verifyPayPalWebhook } from '~/lib/paypal';
 
@@ -13,11 +12,10 @@ import { action } from './paypal-webhook';
 
 vi.mock('~/lib/paypal', () => ({ verifyPayPalWebhook: vi.fn() }));
 vi.mock('~/lib/checkout-completion', () => ({
-  finalizePaidCapture: vi.fn(),
+  completeCapture: vi.fn(),
 }));
 vi.mock('~/lib/checkout-attempts', () => ({
   expireCheckoutAttempt: vi.fn(),
-  failCheckoutAttempt: vi.fn(),
   updateRefundStatusByPayPalRefund: vi.fn(),
 }));
 vi.mock('~/lib/email', () => ({
@@ -25,9 +23,8 @@ vi.mock('~/lib/email', () => ({
 }));
 
 const verifyPayPalWebhookMock = vi.mocked(verifyPayPalWebhook);
-const finalizePaidCaptureMock = vi.mocked(finalizePaidCapture);
+const completeCaptureMock = vi.mocked(completeCapture);
 const expireCheckoutAttemptMock = vi.mocked(expireCheckoutAttempt);
-const failCheckoutAttemptMock = vi.mocked(failCheckoutAttempt);
 const updateRefundStatusByPayPalRefundMock = vi.mocked(
   updateRefundStatusByPayPalRefund,
 );
@@ -67,9 +64,8 @@ function actionArgs(request = webhookRequest()) {
 }
 
 function expectNoProcessing() {
-  expect(finalizePaidCaptureMock).not.toHaveBeenCalled();
+  expect(completeCaptureMock).not.toHaveBeenCalled();
   expect(expireCheckoutAttemptMock).not.toHaveBeenCalled();
-  expect(failCheckoutAttemptMock).not.toHaveBeenCalled();
   expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
   expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
 }
@@ -96,12 +92,13 @@ describe('PayPal webhook action', () => {
     expectNoProcessing();
   });
 
-  it('maps completed capture fields to the shared finalizer', async () => {
+  it('hands completed capture fields to Checkout completion', async () => {
     verifyPayPalWebhookMock.mockResolvedValueOnce(completedCapture);
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-    expect(finalizePaidCaptureMock).toHaveBeenCalledWith({
+    expect(completeCaptureMock).toHaveBeenCalledWith({
+      status: 'COMPLETED',
       paypalOrderId: 'ORDER-123',
       paypalCaptureId: 'CAPTURE-123',
       amountValue: '158.00',
@@ -121,12 +118,12 @@ describe('PayPal webhook action', () => {
       data: { ok: false, error: 'Invalid Checkout Session' },
       init: { status: 400 },
     });
-    expect(finalizePaidCaptureMock).not.toHaveBeenCalled();
+    expect(completeCaptureMock).not.toHaveBeenCalled();
   });
 
   it('returns a retryable error when downstream processing throws', async () => {
     verifyPayPalWebhookMock.mockResolvedValueOnce(completedCapture);
-    finalizePaidCaptureMock.mockRejectedValueOnce(new Error('amount mismatch'));
+    completeCaptureMock.mockRejectedValueOnce(new Error('amount mismatch'));
     const consoleErrorMock = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -146,20 +143,17 @@ describe('PayPal webhook action', () => {
 
   it('accepts duplicate completed capture deliveries', async () => {
     verifyPayPalWebhookMock.mockResolvedValue(completedCapture);
-    finalizePaidCaptureMock.mockResolvedValue({
-      status: 'booking_exists',
-      bookingId: 'booking_123',
-    } as never);
+    completeCaptureMock.mockResolvedValue('paid');
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-    expect(finalizePaidCaptureMock).toHaveBeenCalledTimes(2);
+    expect(completeCaptureMock).toHaveBeenCalledTimes(2);
     expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
   });
 
   it.each(['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED'])(
-    'marks %s captures failed without communication',
+    'hands %s captures to Checkout completion as declined',
     async (eventType) => {
       verifyPayPalWebhookMock.mockResolvedValueOnce({
         event_type: eventType,
@@ -170,10 +164,10 @@ describe('PayPal webhook action', () => {
 
       await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-      expect(failCheckoutAttemptMock).toHaveBeenCalledWith({
+      expect(completeCaptureMock).toHaveBeenCalledWith({
+        status: 'DECLINED',
         paypalOrderId: 'ORDER-123',
       });
-      expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
     },
   );
 
@@ -188,9 +182,8 @@ describe('PayPal webhook action', () => {
     expect(expireCheckoutAttemptMock).toHaveBeenCalledWith({
       paypalOrderId: 'ORDER-123',
     });
-    expect(finalizePaidCaptureMock).not.toHaveBeenCalled();
-    expect(failCheckoutAttemptMock).not.toHaveBeenCalled();
-    expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
+    expect(completeCaptureMock).not.toHaveBeenCalled();
+      expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
     expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
   });
 

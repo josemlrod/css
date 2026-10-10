@@ -312,8 +312,8 @@
           <h2>Payment Received</h2>
           <div class="flow">
             <div class="step"><div class="num">1</div><div class="step-body"><h3>Order captured</h3><p>The SDK approval callback posts the private Checkout Attempt token and Order ID to <code>/paypal/capture/:checkoutAttemptId</code>. The server verifies both before calling PayPal.</p></div></div>
-            <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p>A completed capture passes its amount, currency, Order ID, and Capture ID to <code>finalizePaidCapture</code>. <code>completeCheckoutAttempt</code> checks idempotency and current capacity.</p></div></div>
-            <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, the app inserts the Booking with <code>paymentStatus: paid</code> and marks the attempt <code>paid</code>. A pending PayPal capture leaves the attempt pending.</p></div></div>
+            <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p>The capture route and the webhook both hand the capture status and Order ID to <code>completeCapture</code>, the one place that turns a PayPal capture into a Payment Status. <code>COMPLETED</code> also passes amount, currency, and Capture ID, and <code>completeCheckoutAttempt</code> checks idempotency and current capacity. <code>PENDING</code> leaves the attempt pending until the webhook reports its final state. <code>DECLINED</code> or <code>FAILED</code> marks a pending attempt <code>failed</code>. Any other status is an error.</p></div></div>
+            <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, the app inserts the Booking with <code>paymentStatus: paid</code> and marks the attempt <code>paid</code>. The capture route returns the resulting Payment Status to the browser.</p></div></div>
             <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link. Then it emails <code>OPERATOR_EMAIL</code> a "New Booking" notification. If the Booker's email failed, that notification is a "Booking email failed" alert instead, so the operator can reach the Booker.</p></div></div>
           </div>
         </div>
@@ -343,7 +343,7 @@
           <h2>Capacity Race</h2>
           <p>
             Checkout Attempts do not reserve capacity. If payment succeeds after
-            capacity fills, the shared finalizer creates no Booking, marks the attempt
+            capacity fills, Checkout completion creates no Booking, marks the attempt
             <code>refund_pending</code>, creates a full PayPal refund, stores the
             refund ID, and emails the Booker and the operator.
           </p>
@@ -450,6 +450,18 @@
               <td>Capacity refund email to Booker and operator; failure email to both if PayPal fails refund</td>
             </tr>
             <tr>
+              <td>PayPal capture pending</td>
+              <td><code>Checkout Attempt = pending</code> until the webhook reports the final capture</td>
+              <td>Not yet</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td>PayPal capture declined or failed</td>
+              <td><code>Checkout Attempt = failed</code></td>
+              <td><span class="status-bad">No</span></td>
+              <td>None</td>
+            </tr>
+            <tr>
               <td>Scheduled expiry or PayPal approval reversal</td>
               <td><code>Checkout Attempt = expired</code></td>
               <td><span class="status-bad">No</span></td>
@@ -507,11 +519,11 @@
           <div><code>convex/schema.ts</code><p>Tour, Checkout Attempt, Booking fields and payment status vocabulary.</p></div>
           <div><code>app/routes/tour-booking.tsx</code><p>Looks up the tour by slug, validates Booker input, rejects start times that have already passed in <code>America/New_York</code>, rejects blocked dates and dates more than 90 days out, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
           <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, starts payment sessions, captures approved Orders, and handles cancellation.</p></div>
-          <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and routes the result by payment status.</p></div>
-          <div><code>app/lib/checkout-completion.ts</code><p>Creates paid Bookings and Booking Communication, or refunds captures after a capacity race.</p></div>
+          <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and returns the Payment Status from <code>completeCapture</code>.</p></div>
+          <div><code>app/lib/checkout-completion.ts</code><p>Turns a PayPal capture status into a Payment Status: creates paid Bookings and Booking Communication, refunds captures after a capacity race, leaves pending captures pending, and fails declined ones.</p></div>
           <div><code>app/lib/paypal.ts</code><p>Creates and captures PayPal Orders, verifies webhooks, and refunds captures.</p></div>
           <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, schedules pending-attempt expiry, and handles refund status by the persisted PayPal refund ID.</p></div>
-          <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events for payment completion, failure, approval reversal, and refund lifecycle.</p></div>
+          <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events. Completed and denied captures go to <code>completeCapture</code>. It also handles approval reversal and the refund lifecycle.</p></div>
           <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff measured from the tour start in Eastern time, starts cancellation refunds.</p></div>
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation, plus operator Booking list, cancellation, refund retry, and mark-refunded mutations.</p></div>
           <div><code>app/routes/admin/</code><p>Operator console: Recent activity with New markers, Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
