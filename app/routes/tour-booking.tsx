@@ -15,9 +15,22 @@ import {
   saveCheckoutAttempt,
   updateCheckoutAttempt,
 } from '~/lib/checkout-attempts';
+import {
+  loadOperator,
+  optionalOperatorContext,
+} from '~/lib/operator-session.server';
 import { createPayPalOrder } from '~/lib/paypal';
 import { getTourBySlug } from '~/lib/tours';
 import type { Tour as TourType } from '~/lib/types';
+
+export const middleware: Route.MiddlewareFunction[] = [loadOperator];
+
+// The test tour is for Operators testing production. Everyone else gets a 404.
+async function getVisibleTour(slug: string, context: Route.LoaderArgs['context']) {
+  const tour = await getTourBySlug(slug);
+
+  return tour?.test && !context.get(optionalOperatorContext) ? null : tour;
+}
 
 export default function Tour({ loaderData }: Route.ComponentProps) {
   const { tour } = loaderData;
@@ -82,14 +95,14 @@ export default function Tour({ loaderData }: Route.ComponentProps) {
   );
 }
 
-export async function action({ request, params }: Route.ActionArgs) {
+export async function action({ request, params, context }: Route.ActionArgs) {
   const formData = await request.formData();
 
   if (formData.get('intent') !== 'confirm-booking') {
     return data({ ok: false, error: 'Invalid intent' }, { status: 400 });
   }
 
-  const tour = await getTourBySlug(params.slug);
+  const tour = await getVisibleTour(params.slug, context);
 
   if (!tour) {
     return data({ ok: false, error: 'Tour not found' }, { status: 404 });
@@ -181,8 +194,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 }
 
-export async function loader({ params: { slug } }: Route.LoaderArgs) {
-  const tour = await getTourBySlug(slug);
+export async function loader({ params: { slug }, context }: Route.LoaderArgs) {
+  const tour = await getVisibleTour(slug, context);
 
   if (!tour) throw data('Tour not found', { status: 404 });
 

@@ -31,6 +31,8 @@ const activitySeenCookie = createCookie('operator_activity_seen', {
 });
 
 export const operatorContext = createContext<Operator>();
+// Set by loadOperator on pages outside the console. Null when nobody is signed in.
+export const optionalOperatorContext = createContext<Operator | null>(null);
 
 export async function readActivitySeenAt(request: Request) {
   return Number(await activitySeenCookie.parse(request.headers.get('Cookie'))) || 0;
@@ -115,6 +117,24 @@ export const requireOperator: MiddlewareFunction<Response> = async (
 
   const response = await next();
 
+  if (refreshed) response.headers.append('Set-Cookie', await serializeOperatorSession(tokens));
+
+  return response;
+};
+
+// Like requireOperator, but lets everyone through. Skips Convex when there's no session cookie.
+export const loadOperator: MiddlewareFunction<Response> = async (
+  { request, context },
+  next,
+) => {
+  if (!(await readOperatorTokens(request))) return next();
+
+  const { operator, tokens, refreshed } = await getOperatorSession(request);
+  context.set(optionalOperatorContext, operator);
+
+  const response = await next();
+
+  // Refresh tokens are single-use, so a rotated session has to reach the cookie.
   if (refreshed) response.headers.append('Set-Cookie', await serializeOperatorSession(tokens));
 
   return response;
