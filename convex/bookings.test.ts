@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  cancelBookingAsOperator,
   getBookingForOperator,
   getBookingWithTourForAccess,
   listBookingActivity,
   markBookingRefunded,
-  restartBookingRefund,
+  recordBookingRefund,
 } from './bookings';
 
 type Handler = (ctx: never, args: Record<string, unknown>) => Promise<unknown>;
@@ -85,32 +84,30 @@ describe('operator Booking functions', () => {
     ]);
   });
 
-  it('cancels a paid Booking without its access token', async () => {
-    const { ctx, patches } = fakeCtx({ paid, failed });
-    const cancel = (id: string) => handler(cancelBookingAsOperator)(ctx, { id, paypalRefundId: 'R1', serverSecret });
+  it('records a first refund or a retry only when the Booking allows it', async () => {
+    const { ctx, patches } = fakeCtx({ paid, failed, replayed: { ...failed, _id: 'replayed', paypalRefundId: 'R0' } });
+    const record = (id: string, attempt: string, paypalRefundId = 'R1') =>
+      handler(recordBookingRefund)(ctx, { id, attempt, paypalRefundId, serverSecret });
 
-    await cancel('paid');
-    await expect(cancel('failed')).resolves.toBe('failed');
-    await expect(cancel('missing')).rejects.toThrow('Booking not found');
+    await record('paid', 'first');
+    await record('failed', 'retry', 'R2');
+    await expect(record('replayed', 'retry', 'R0')).resolves.toBe('replayed');
+    await expect(record('paid', 'retry')).rejects.toThrow('Booking is not refundable');
+    await expect(record('failed', 'first')).rejects.toThrow('Booking is not refundable');
+    await expect(record('missing', 'first')).rejects.toThrow('Booking not found');
     expect(patches).toEqual([
-      ['paid', expect.objectContaining({ paymentStatus: 'refund_pending', paypalRefundId: 'R1' })],
+      ['paid', expect.objectContaining({ cancelled: expect.any(Number), paymentStatus: 'refund_pending', paypalRefundId: 'R1' })],
+      ['failed', expect.objectContaining({ cancelled: 5, paymentStatus: 'refund_pending', paypalRefundId: 'R2' })],
     ]);
   });
 
-  it('only restarts or settles refunds that failed', async () => {
+  it('only settles refunds that failed', async () => {
     const { ctx, patches } = fakeCtx({ paid, failed });
 
-    await handler(restartBookingRefund)(ctx, { id: 'failed', paypalRefundId: 'R2', serverSecret });
     await handler(markBookingRefunded)(ctx, { id: 'failed', serverSecret });
-    await expect(
-      handler(restartBookingRefund)(ctx, { id: 'paid', paypalRefundId: 'R2', serverSecret }),
-    ).rejects.toThrow('Booking refund has not failed');
     await expect(handler(markBookingRefunded)(ctx, { id: 'paid', serverSecret })).rejects.toThrow(
       'Booking refund has not failed',
     );
-    expect(patches).toEqual([
-      ['failed', expect.objectContaining({ paymentStatus: 'refund_pending', paypalRefundId: 'R2' })],
-      ['failed', expect.objectContaining({ paymentStatus: 'refunded' })],
-    ]);
+    expect(patches).toEqual([['failed', expect.objectContaining({ paymentStatus: 'refunded' })]]);
   });
 });

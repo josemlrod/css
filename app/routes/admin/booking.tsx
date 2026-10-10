@@ -10,15 +10,9 @@ import {
   outlineButtonClass,
   primaryButtonClass,
 } from '~/components/admin/primitives';
-import {
-  cancelBookingAsOperator,
-  getBookingForOperator,
-  markBookingRefunded,
-  restartBookingRefund,
-} from '~/lib/bookings';
-import { sendBookingCancellationRefundRequestedCommunication } from '~/lib/email';
-import { logError, logEvent } from '~/lib/log';
-import { refundPayPalCapture } from '~/lib/paypal';
+import { getBookingForOperator, markBookingRefunded } from '~/lib/bookings';
+import { logEvent } from '~/lib/log';
+import { refundBooking } from '~/lib/refunds';
 import { cn } from '~/lib/utils';
 
 import type { Route } from './+types/booking';
@@ -33,16 +27,6 @@ export async function loader({ params }: Route.LoaderArgs) {
 
 type ActionResult = { ok: true; message: string } | { ok: false; error: string };
 
-async function requestRefund(captureId: string, requestId?: string) {
-  const refund = await refundPayPalCapture(captureId, requestId);
-
-  if (refund.status !== 'COMPLETED' && refund.status !== 'PENDING') {
-    throw new Error(`PayPal refund returned ${refund.status}`);
-  }
-
-  return refund;
-}
-
 export async function action({
   request,
   params,
@@ -53,15 +37,6 @@ export async function action({
   if (!res?.tour) throw data('Booking not found', { status: 404 });
 
   const { booking, tour, total } = res;
-  const communication = {
-    to: booking.bookerEmail,
-    bookerName: booking.bookerName,
-    tourName: tour.name,
-    date: booking.date,
-    time: booking.time,
-    guests: booking.guests,
-    total,
-  };
 
   if (intent === 'mark-refunded') {
     if (booking.paymentStatus !== 'refund_failed') {
@@ -79,56 +54,33 @@ export async function action({
     return { ok: false, error: 'Unknown action.' };
   }
 
-  const refundable = retry
-    ? booking.cancelled && booking.paymentStatus === 'refund_failed'
-    : !booking.cancelled && booking.paymentStatus === 'paid';
-
-  if (!booking.paypalCaptureId || !refundable) {
-    return { ok: false, error: 'This Booking can’t be refunded from here.' };
-  }
-
-  let refund: Awaited<ReturnType<typeof requestRefund>>;
-
-  try {
-    refund = await requestRefund(
-      booking.paypalCaptureId,
-      // A new request ID per failed refund, so PayPal makes a fresh attempt instead of replaying the failure.
-      retry ? `refund-${booking.paypalCaptureId}-${booking.paypalRefundId}` : undefined,
-    );
-  } catch (error) {
-    logError('operator.refund_failed', error, {
-      bookingId: booking._id,
-      intent,
-      paypalCaptureId: booking.paypalCaptureId,
-    });
-    return {
-      ok: false,
-      error: 'PayPal didn’t accept the refund. Nothing changed. Try again or refund in PayPal.',
-    };
-  }
-
-  if (retry) {
-    await restartBookingRefund({ id: booking._id, paypalRefundId: refund.id });
-  } else {
-    await cancelBookingAsOperator({ id: booking._id, paypalRefundId: refund.id });
-  }
-
-  logEvent('operator.refund_requested', {
-    bookingId: booking._id,
-    intent,
-    paypalCaptureId: booking.paypalCaptureId,
-    paypalRefundId: refund.id,
-    refundStatus: refund.status,
+  const outcome = await refundBooking({
+    booking,
+    tour,
+    total,
+    by: 'operator',
+    attempt: retry ? 'retry' : 'first',
   });
 
-  await sendBookingCancellationRefundRequestedCommunication(communication, {
-    bookingId: booking._id,
-  });
-
-  return {
-    ok: true,
-    message: retry ? 'Refund requested again' : `Canceled and refunded ${booking.bookerName}`,
-  };
+  switch (outcome) {
+    case 'refund_requested':
+      return {
+        ok: true,
+        message: retry ? 'Refund requested again' : `Canceled and refunded ${booking.bookerName}`,
+      };
+    case 'not_refundable':
+      return { ok: false, error: 'This Booking can’t be refunded from here.' };
+    case 'refund_failed':
+      return {
+        ok: false,
+        error: 'PayPal didn’t accept the refund. Nothing changed. Try again or refund in PayPal.',
+      };
+    case 'record_failed':
+      return {
+        ok: false,
+        error: 'PayPal accepted the refund, but the Booking didn’t update. Try again. PayPal won’t refund twice.',
+      };
+  }
 }
 
 function formatLongDate(date: string) {

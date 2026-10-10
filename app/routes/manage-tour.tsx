@@ -12,7 +12,7 @@ import {
   Mail,
 } from 'lucide-react';
 
-import { cancelPaidBooking, getBookingWithTourForAccess } from '~/lib/bookings';
+import { getBookingWithTourForAccess } from '~/lib/bookings';
 import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
 import {
   SUPPORT_EMAIL,
@@ -21,13 +21,8 @@ import {
   TOURS_URL,
 } from '~/lib/contact';
 import { getTourStartAt } from '~/lib/dates';
-import {
-  sendBookingCancellationRefundFailedCommunication,
-  sendBookingCancellationRefundRequestedCommunication,
-  sendOperatorNotification,
-} from '~/lib/email';
-import { logError, logEvent } from '~/lib/log';
-import { refundPayPalCapture } from '~/lib/paypal';
+import { logEvent } from '~/lib/log';
+import { refundBooking } from '~/lib/refunds';
 
 import type { Tour } from '~/lib/types';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
@@ -326,10 +321,9 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
   }
 
-  const accessTokenHash = hashCheckoutAccessToken(token);
   const res = await getBookingWithTourForAccess(
     bookingId as Id<'bookings'>,
-    accessTokenHash,
+    hashCheckoutAccessToken(token),
   );
 
   if (!res?.booking || !res.tour) {
@@ -349,82 +343,24 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return { view: View.CUTOFF_BLOCKED };
   }
 
-  if (!booking.paypalCaptureId) {
-    logEvent('cancellation.refund_failed', { bookingId, reason: 'missing_capture' });
-    return { view: View.REFUND_FAILED };
-  }
-
-  let refund: Awaited<ReturnType<typeof refundPayPalCapture>>;
-
-  try {
-    refund = await refundPayPalCapture(booking.paypalCaptureId);
-
-    if (refund.status !== 'COMPLETED' && refund.status !== 'PENDING') {
-      throw new Error(`PayPal refund returned ${refund.status}`);
-    }
-  } catch (error) {
-    logError('cancellation.refund_failed', error, {
-      bookingId,
-      paypalCaptureId: booking.paypalCaptureId,
-      paymentStatus: booking.paymentStatus,
-      cancelled: booking.cancelled !== null,
-    });
-    await sendBookingCancellationRefundFailedCommunication(
-      {
-        to: booking.bookerEmail,
-        bookerName: booking.bookerName,
-        tourName: tour.name,
-        date: booking.date,
-        time: booking.time,
-        guests: booking.guests,
-        total,
-      },
-      { bookingId: booking._id },
-    );
-
-    return { view: View.REFUND_FAILED };
-  }
-
-  try {
-    await cancelPaidBooking({
-      id: booking._id,
-      accessTokenHash,
-      paypalRefundId: refund.id,
-    });
-  } catch (error) {
-    // PayPal already took the refund, so the Booking needs fixing by hand.
-    logError('cancellation.record_failed', error, {
-      bookingId,
-      paypalCaptureId: booking.paypalCaptureId,
-      paypalRefundId: refund.id,
-    });
-    throw error;
-  }
-
-  logEvent('cancellation.completed', {
-    bookingId,
-    paypalCaptureId: booking.paypalCaptureId,
-    paypalRefundId: refund.id,
-    refundStatus: refund.status,
+  const outcome = await refundBooking({
+    booking,
+    tour,
+    total,
+    by: 'booker',
+    attempt: 'first',
   });
 
-  const communication = {
-    to: booking.bookerEmail,
-    bookerName: booking.bookerName,
-    tourName: tour.name,
-    date: booking.date,
-    time: booking.time,
-    guests: booking.guests,
-    total,
-  };
-  const record = { bookingId: booking._id };
-
-  await Promise.all([
-    sendBookingCancellationRefundRequestedCommunication(communication, record),
-    sendOperatorNotification('booker_canceled', communication, record),
-  ]);
-
-  return { view: View.CANCELLED };
+  switch (outcome) {
+    case 'not_refundable':
+      logEvent('cancellation.rejected', { bookingId, reason: 'not_refundable' });
+      return { view: booking.cancelled ? View.CANCELLED : View.REFUND_FAILED };
+    case 'refund_failed':
+      return { view: View.REFUND_FAILED };
+    default:
+      // PayPal took the refund, even if the Booking still needs fixing by hand.
+      return { view: View.CANCELLED };
+  }
 }
 
 function BookingCard({

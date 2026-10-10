@@ -325,7 +325,8 @@ type OperatorEvent =
   | 'booker_canceled'
   | 'cancellation_refund_failed'
   | 'capacity_refund'
-  | 'refund_failed';
+  | 'refund_failed'
+  | 'refund_record_failed';
 
 type OperatorNotification = FailedCapacityRefundCommunication;
 
@@ -363,6 +364,13 @@ const operatorEvents: Record<
       'bookingId' in record
         ? 'PayPal says the refund for this canceled Booking failed. Retry it from the operator console, or refund in PayPal.'
         : "This time slot filled before the payment finished, so no Booking was made, but PayPal didn't accept the refund. Refund the Booker in PayPal and let them know.",
+  },
+  refund_record_failed: {
+    subject: 'Refund not saved',
+    message: (record) =>
+      'bookingId' in record
+        ? "PayPal accepted the refund and we emailed the Booker, but the Booking couldn't be updated, so the console still shows its old status. Open it and run the same cancel or retry again. PayPal returns the same refund instead of a second one."
+        : "This time slot filled before the payment finished, so no Booking was made. PayPal accepted the refund and we emailed the Booker, but the Checkout Attempt couldn't be updated with it. Check the refund in PayPal.",
   },
 };
 
