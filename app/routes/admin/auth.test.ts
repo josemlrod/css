@@ -3,6 +3,7 @@ import { RouterContextProvider } from 'react-router';
 
 import { convexAuthAction, convexQuery } from '~/lib/convex.server';
 import {
+  getOperatorReturnPath,
   operatorContext,
   requireOperator,
   serializeOperatorSession,
@@ -68,7 +69,7 @@ describe('requireOperator', () => {
     const { response } = await runMiddleware(await adminRequest());
 
     expect(response.status).toBe(302);
-    expect(response.headers.get('Location')).toBe('/admin/login');
+    expect(response.headers.get('Location')).toBe('/admin/login?redirectTo=%2Fadmin%2Fbookings');
     expect(query).not.toHaveBeenCalled();
   });
 
@@ -107,27 +108,29 @@ describe('requireOperator', () => {
     );
 
     for (const { response } of [refreshFailed, revoked]) {
-      expect(response.headers.get('Location')).toBe('/admin/login');
+      expect(response.headers.get('Location')).toBe('/admin/login?redirectTo=%2Fadmin%2Fbookings');
       expect(response.headers.get('Set-Cookie')).toContain('Max-Age=0');
     }
   });
 });
 
 describe('login action', () => {
-  it('starts a session when Convex Auth returns tokens', async () => {
+  it('starts a session and returns to the page the Operator asked for', async () => {
     authAction.mockResolvedValueOnce({ tokens: { token: jwt(3600), refreshToken: 'r' } });
     const response = (await login({
       intent: 'sign-in',
       email: ' OPS@example.com ',
       password: 'supersecret',
+      redirectTo: '/admin/bookings/booking_123',
     })) as Response;
 
     expect(authAction).toHaveBeenCalledWith(expect.anything(), {
       provider: 'password',
       params: { flow: 'signIn', email: 'ops@example.com', password: 'supersecret' },
     });
-    expect(response.headers.get('Location')).toBe('/admin');
+    expect(response.headers.get('Location')).toBe('/admin/bookings/booking_123');
     expect(response.headers.get('Set-Cookie')).toContain('operator_session=');
+    expect(getOperatorReturnPath('//evil.example.com')).toBe('/admin');
   });
 
   it('asks for the emailed code when the account still needs verifying', async () => {

@@ -135,6 +135,43 @@ describe('Booking Communication sending', () => {
     delete process.env.OPERATOR_EMAIL;
   });
 
+  it('tells the operator about a new Booking with a console link and no manage link', async () => {
+    process.env.RESEND_API_KEY = 're_test';
+    process.env.RESEND_FROM_EMAIL = 'tours@example.com';
+    process.env.OPERATOR_EMAIL = 'operator@example.com';
+    process.env.APP_ORIGIN = 'https://book.example.com';
+    sendMock.mockResolvedValue({ data: { id: 'email_1' }, error: null });
+
+    await sendBookingCommunication(
+      {
+        to: 'booker@example.com',
+        bookerName: 'Test Booker',
+        tourName: 'Savannah Food Tour',
+        date: '2026-07-04',
+        time: '10:00 AM',
+        guests: 2,
+        total: 158,
+        meetingPoint: 'City Market',
+        editUrl: 'https://example.com/manage/booking_123?token=raw_token',
+        cancelUrl: 'https://example.com/manage/booking_123?token=raw_token',
+      },
+      { bookingId: 'booking_123' },
+    );
+
+    const operatorEmail = sendMock.mock.lastCall?.[0];
+
+    expect(operatorEmail).toMatchObject({
+      to: 'operator@example.com',
+      subject: 'New Booking: Savannah Food Tour on July 4, 2026 at 10:00 AM',
+    });
+    expect(operatorEmail.text).toContain('Booker: Test Booker <booker@example.com>');
+    expect(operatorEmail.text).toContain(
+      'Open in the operator console: https://book.example.com/admin/bookings/booking_123',
+    );
+    expect(JSON.stringify(operatorEmail)).not.toContain('raw_token');
+    delete process.env.APP_ORIGIN;
+  });
+
   it('logs a Resend error result and alerts the operator without the manage link', async () => {
     process.env.RESEND_API_KEY = 're_test';
     process.env.RESEND_FROM_EMAIL = 'tours@example.com';
@@ -170,6 +207,7 @@ describe('Booking Communication sending', () => {
     expect(sendMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         to: 'operator@example.com',
+        subject: expect.stringMatching(/^Booking email failed: /),
         text: expect.stringContaining('Booking ID: booking_123'),
       }),
     );
@@ -186,7 +224,7 @@ describe('Booking Communication sending', () => {
       [
         'Email send failed',
         {
-          type: 'booking_communication_failed_alert',
+          type: 'operator_booking_email_failed',
           bookingId: 'booking_123',
           error: 'Network down',
         },

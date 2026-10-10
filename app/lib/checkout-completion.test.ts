@@ -10,6 +10,7 @@ import { finalizePaidCapture } from './checkout-completion';
 import {
   sendBookingCommunication,
   sendFailedCapacityRefundCommunication,
+  sendOperatorNotification,
   sendRefundFailedCommunication,
 } from './email';
 import { refundPayPalCapture } from './paypal';
@@ -24,6 +25,7 @@ vi.mock('./checkout-attempts', () => ({
 vi.mock('./email', () => ({
   sendBookingCommunication: vi.fn(),
   sendFailedCapacityRefundCommunication: vi.fn(),
+  sendOperatorNotification: vi.fn(),
   sendRefundFailedCommunication: vi.fn(),
 }));
 
@@ -229,6 +231,11 @@ describe('finalizePaidCapture', () => {
       id: 'checkout_attempt_123',
       paymentStatus: 'refund_failed',
     });
+    expect(vi.mocked(sendOperatorNotification)).toHaveBeenCalledWith(
+      'refund_failed',
+      expect.objectContaining({ to: 'booker@example.com', total: 158 }),
+      { checkoutAttemptId: 'checkout_attempt_123' },
+    );
     expect(sendFailedCapacityRefundCommunicationMock).not.toHaveBeenCalled();
     expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
   });

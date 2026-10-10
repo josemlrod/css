@@ -7,6 +7,7 @@ import {
 import {
   sendBookingCommunication,
   sendFailedCapacityRefundCommunication,
+  sendOperatorNotification,
   sendRefundFailedCommunication,
 } from './email';
 import { refundPayPalCapture } from './paypal';
@@ -69,6 +70,16 @@ export async function finalizePaidCapture({
   }
 
   if (result.status === 'capacity_unavailable') {
+    const communication = {
+      to: result.checkoutAttempt.bookerEmail,
+      bookerName: result.checkoutAttempt.bookerName,
+      tourName: result.tour.name,
+      date: result.checkoutAttempt.date,
+      time: result.checkoutAttempt.time,
+      guests: result.checkoutAttempt.guests,
+      total: result.checkoutAttempt.total,
+    };
+    const record = { checkoutAttemptId: result.checkoutAttempt._id };
     let refund: Awaited<ReturnType<typeof refundPayPalCapture>>;
 
     try {
@@ -78,6 +89,7 @@ export async function finalizePaidCapture({
         id: result.checkoutAttempt._id,
         paymentStatus: 'refund_failed',
       });
+      await sendOperatorNotification('refund_failed', communication, record);
       throw refundError;
     }
 
@@ -88,18 +100,6 @@ export async function finalizePaidCapture({
       paymentStatus,
       paypalRefundId: refund.id,
     });
-
-    const communication = {
-      to: result.checkoutAttempt.bookerEmail,
-      bookerName: result.checkoutAttempt.bookerName,
-      tourName: result.tour.name,
-      date: result.checkoutAttempt.date,
-      time: result.checkoutAttempt.time,
-      guests: result.checkoutAttempt.guests,
-      total: result.checkoutAttempt.total,
-    };
-
-    const record = { checkoutAttemptId: result.checkoutAttempt._id };
 
     if (paymentStatus === 'refund_failed') {
       await sendRefundFailedCommunication(communication, record);

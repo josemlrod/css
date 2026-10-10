@@ -23,6 +23,13 @@ const sessionCookie = createCookie('operator_session', {
 
 export const operatorContext = createContext<Operator>();
 
+// Where to go after sign-in. Only console pages, so the login can't bounce anywhere else.
+export function getOperatorReturnPath(redirectTo: unknown) {
+  return typeof redirectTo === 'string' && /^\/admin\/(?!\/)/.test(redirectTo)
+    ? redirectTo
+    : '/admin';
+}
+
 export function serializeOperatorSession(tokens: OperatorTokens | null) {
   return tokens
     ? sessionCookie.serialize(tokens)
@@ -79,7 +86,10 @@ export const requireOperator: MiddlewareFunction<Response> = async (
   const { operator, tokens, refreshed } = await getOperatorSession(request);
 
   if (!operator) {
-    throw redirect('/admin/login', {
+    const { pathname, search } = new URL(request.url);
+    const returnTo = pathname === '/admin' ? '' : `?${new URLSearchParams({ redirectTo: pathname + search })}`;
+
+    throw redirect(`/admin/login${returnTo}`, {
       headers: { 'Set-Cookie': await serializeOperatorSession(null) },
     });
   }

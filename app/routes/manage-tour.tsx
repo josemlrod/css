@@ -24,6 +24,7 @@ import { getTourStartAt } from '~/lib/dates';
 import {
   sendBookingCancellationRefundFailedCommunication,
   sendBookingCancellationRefundRequestedCommunication,
+  sendOperatorNotification,
 } from '~/lib/email';
 import { refundPayPalCapture } from '~/lib/paypal';
 
@@ -351,18 +352,21 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     paypalRefundId: refund.id,
   });
 
-  await sendBookingCancellationRefundRequestedCommunication(
-    {
-      to: booking.bookerEmail,
-      bookerName: booking.bookerName,
-      tourName: tour.name,
-      date: booking.date,
-      time: booking.time,
-      guests: booking.guests,
-      total,
-    },
-    { bookingId: booking._id },
-  );
+  const communication = {
+    to: booking.bookerEmail,
+    bookerName: booking.bookerName,
+    tourName: tour.name,
+    date: booking.date,
+    time: booking.time,
+    guests: booking.guests,
+    total,
+  };
+  const record = { bookingId: booking._id };
+
+  await Promise.all([
+    sendBookingCancellationRefundRequestedCommunication(communication, record),
+    sendOperatorNotification('booker_canceled', communication, record),
+  ]);
 
   return { view: View.CANCELLED };
 }

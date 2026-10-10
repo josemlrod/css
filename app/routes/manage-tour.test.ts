@@ -5,6 +5,7 @@ import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
 import {
   sendBookingCancellationRefundFailedCommunication,
   sendBookingCancellationRefundRequestedCommunication,
+  sendOperatorNotification,
 } from '~/lib/email';
 import { refundPayPalCapture } from '~/lib/paypal';
 
@@ -22,6 +23,7 @@ vi.mock('~/lib/checkout-attempts', () => ({
 vi.mock('~/lib/email', () => ({
   sendBookingCancellationRefundFailedCommunication: vi.fn(),
   sendBookingCancellationRefundRequestedCommunication: vi.fn(),
+  sendOperatorNotification: vi.fn(),
 }));
 
 vi.mock('~/lib/paypal', () => ({
@@ -131,6 +133,11 @@ describe('manage tour cancellation', () => {
         guests: 2,
         total: 158,
       },
+      { bookingId: 'booking_123' },
+    );
+    expect(vi.mocked(sendOperatorNotification)).toHaveBeenCalledWith(
+      'booker_canceled',
+      sendBookingCancellationRefundRequestedCommunicationMock.mock.calls[0][0],
       { bookingId: 'booking_123' },
     );
   });
