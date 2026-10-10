@@ -17,6 +17,7 @@ import {
   restartBookingRefund,
 } from '~/lib/bookings';
 import { sendBookingCancellationRefundRequestedCommunication } from '~/lib/email';
+import { logError, logEvent } from '~/lib/log';
 import { refundPayPalCapture } from '~/lib/paypal';
 import { cn } from '~/lib/utils';
 
@@ -68,6 +69,7 @@ export async function action({
     }
 
     await markBookingRefunded(booking._id);
+    logEvent('operator.marked_refunded', { bookingId: booking._id });
     return { ok: true, message: 'Marked as refunded' };
   }
 
@@ -94,7 +96,11 @@ export async function action({
       retry ? `refund-${booking.paypalCaptureId}-${booking.paypalRefundId}` : undefined,
     );
   } catch (error) {
-    console.error(error);
+    logError('operator.refund_failed', error, {
+      bookingId: booking._id,
+      intent,
+      paypalCaptureId: booking.paypalCaptureId,
+    });
     return {
       ok: false,
       error: 'PayPal didn’t accept the refund. Nothing changed. Try again or refund in PayPal.',
@@ -106,6 +112,14 @@ export async function action({
   } else {
     await cancelBookingAsOperator({ id: booking._id, paypalRefundId: refund.id });
   }
+
+  logEvent('operator.refund_requested', {
+    bookingId: booking._id,
+    intent,
+    paypalCaptureId: booking.paypalCaptureId,
+    paypalRefundId: refund.id,
+    refundStatus: refund.status,
+  });
 
   await sendBookingCancellationRefundRequestedCommunication(communication, {
     bookingId: booking._id,

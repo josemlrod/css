@@ -7,6 +7,7 @@ import {
 } from '~/lib/checkout-attempts';
 import { finalizePaidCapture } from '~/lib/checkout-completion';
 import { sendRefundFailedCommunication } from '~/lib/email';
+import { logError, logEvent } from '~/lib/log';
 import { verifyPayPalWebhook } from '~/lib/paypal';
 
 import type { Route } from './+types/paypal-webhook';
@@ -79,12 +80,22 @@ export async function action({ request }: Route.ActionArgs) {
       rawBody,
     })) as PayPalWebhookEvent;
   } catch (error) {
-    console.error(error);
+    logError('paypal.webhook_rejected', error);
     return data(
       { ok: false, error: 'Invalid PayPal webhook' },
       { status: 400 },
     );
   }
+
+  const eventDetails = {
+    eventType: event.event_type,
+    resourceId: event.resource?.id,
+    paypalOrderId:
+      event.resource?.supplementary_data?.related_ids?.order_id ??
+      event.resource?.order_id,
+  };
+
+  logEvent('paypal.webhook_received', eventDetails);
 
   try {
     switch (event.event_type) {
@@ -97,6 +108,10 @@ export async function action({ request }: Route.ActionArgs) {
         const currency = stringField(event.resource?.amount?.currency_code);
 
         if (!paypalOrderId || !paypalCaptureId || !amountValue || !currency) {
+          logEvent('paypal.webhook_ignored', {
+            ...eventDetails,
+            reason: 'missing_capture_fields',
+          });
           return data(
             { ok: false, error: 'Invalid Checkout Session' },
             { status: 400 },
@@ -146,6 +161,12 @@ export async function action({ request }: Route.ActionArgs) {
           paymentStatus: 'refunded',
         });
 
+        logEvent('refund.reconciled', {
+          paypalRefundId,
+          paymentStatus: 'refunded',
+          result: result.status,
+        });
+
         if (result.status === 'not_found') {
           return data(
             { ok: false, error: 'PayPal refund is not ready for reconciliation' },
@@ -163,6 +184,12 @@ export async function action({ request }: Route.ActionArgs) {
 
         const result = await processRefundFailure(paypalRefundId);
 
+        logEvent('refund.reconciled', {
+          paypalRefundId,
+          paymentStatus: 'refund_failed',
+          result: result.status,
+        });
+
         if (result.status === 'not_found') {
           return data(
             { ok: false, error: 'PayPal refund is not ready for reconciliation' },
@@ -173,7 +200,7 @@ export async function action({ request }: Route.ActionArgs) {
       }
     }
   } catch (error) {
-    console.error(error);
+    logError('paypal.webhook_failed', error, eventDetails);
     return data(
       { ok: false, error: 'Unable to process PayPal event' },
       { status: 400 },

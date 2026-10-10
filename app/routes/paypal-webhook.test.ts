@@ -137,7 +137,11 @@ describe('PayPal webhook action', () => {
       data: { ok: false, error: 'Unable to process PayPal event' },
       init: { status: 400 },
     });
-    expect(consoleErrorMock).toHaveBeenCalledWith(new Error('amount mismatch'));
+    expect(JSON.parse(consoleErrorMock.mock.calls[0][0])).toMatchObject({
+      event: 'paypal.webhook_failed',
+      eventType: 'PAYMENT.CAPTURE.COMPLETED',
+      error: { message: 'amount mismatch' },
+    });
   });
 
   it('accepts duplicate completed capture deliveries', async () => {

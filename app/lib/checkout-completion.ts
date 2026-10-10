@@ -10,6 +10,7 @@ import {
   sendOperatorNotification,
   sendRefundFailedCommunication,
 } from './email';
+import { logError, logEvent } from './log';
 import { refundPayPalCapture } from './paypal';
 
 function manageBookingUrl(bookingId: string, accessToken: string) {
@@ -49,6 +50,19 @@ export async function finalizePaidCapture({
     bookingAccessTokenHash: hashCheckoutAccessToken(bookingAccessToken),
   });
 
+  logEvent(result.status === 'booking_created' ? 'booking.created' : 'checkout.finalized', {
+    paypalOrderId,
+    paypalCaptureId,
+    status: result.status,
+    checkoutAttemptId:
+      'checkoutAttempt' in result
+        ? result.checkoutAttempt?._id
+        : 'checkoutAttemptId' in result
+          ? result.checkoutAttemptId
+          : undefined,
+    bookingId: 'bookingId' in result ? result.bookingId : undefined,
+  });
+
   if (result.status === 'booking_created') {
     const manageUrl = manageBookingUrl(result.bookingId, bookingAccessToken);
 
@@ -85,6 +99,11 @@ export async function finalizePaidCapture({
     try {
       refund = await refundPayPalCapture(paypalCaptureId);
     } catch (refundError) {
+      logError('refund.failed', refundError, {
+        checkoutAttemptId: result.checkoutAttempt._id,
+        paypalCaptureId,
+        reason: 'capacity_unavailable',
+      });
       await updateCheckoutAttemptRefundStatus({
         id: result.checkoutAttempt._id,
         paymentStatus: 'refund_failed',
@@ -94,6 +113,14 @@ export async function finalizePaidCapture({
     }
 
     const paymentStatus = refundPaymentStatus(refund.status);
+
+    logEvent('refund.requested', {
+      checkoutAttemptId: result.checkoutAttempt._id,
+      paypalCaptureId,
+      paypalRefundId: refund.id,
+      refundStatus: refund.status,
+      reason: 'capacity_unavailable',
+    });
 
     await updateCheckoutAttemptRefundStatus({
       id: result.checkoutAttempt._id,

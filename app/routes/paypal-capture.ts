@@ -6,6 +6,7 @@ import {
   verifyCheckoutAccessToken,
 } from '~/lib/checkout-attempts';
 import { finalizePaidCapture } from '~/lib/checkout-completion';
+import { logError, logEvent } from '~/lib/log';
 import { capturePayPalOrder } from '~/lib/paypal';
 import type { CheckoutAttemptId } from '~/lib/types';
 
@@ -38,6 +39,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     !checkoutAttempt ||
     !verifyCheckoutAccessToken(token, checkoutAttempt.accessTokenHash)
   ) {
+    logEvent('checkout.capture_rejected', { checkoutAttemptId, reason: 'not_found' });
     return data({ ok: false, error: 'Checkout not found' }, { status: 404 });
   }
 
@@ -46,10 +48,23 @@ export async function action({ params, request }: Route.ActionArgs) {
   try {
     ({ orderId } = (await request.json()) as { orderId?: unknown });
   } catch {
+    logEvent('checkout.capture_rejected', { checkoutAttemptId, reason: 'invalid_body' });
     return data({ ok: false, error: 'Invalid PayPal order' }, { status: 400 });
   }
 
+  // The Booker approved in PayPal and the browser asked us to take the payment.
+  logEvent('checkout.capture_requested', {
+    checkoutAttemptId,
+    paypalOrderId: orderId,
+    paymentStatus: checkoutAttempt.paymentStatus,
+  });
+
   if (typeof orderId !== 'string' || orderId !== checkoutAttempt.paypalOrderId) {
+    logEvent('checkout.capture_rejected', {
+      checkoutAttemptId,
+      reason: 'order_mismatch',
+      expectedPaypalOrderId: checkoutAttempt.paypalOrderId,
+    });
     return data({ ok: false, error: 'Invalid PayPal order' }, { status: 400 });
   }
 
@@ -62,6 +77,11 @@ export async function action({ params, request }: Route.ActionArgs) {
   }
 
   if (checkoutAttempt.expiresAt <= Date.now()) {
+    logEvent('checkout.capture_rejected', {
+      checkoutAttemptId,
+      reason: 'expired',
+      expiresAt: new Date(checkoutAttempt.expiresAt).toISOString(),
+    });
     return data(
       {
         ok: false,
@@ -75,6 +95,15 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   try {
     const capture = await capturePayPalOrder(orderId);
+
+    logEvent('checkout.captured', {
+      checkoutAttemptId,
+      paypalOrderId: orderId,
+      paypalCaptureId: capture.id,
+      captureStatus: capture.status,
+      amount: capture.amount.value,
+      currency: capture.amount.currency_code,
+    });
 
     if (capture.status === 'COMPLETED') {
       const result = await finalizePaidCapture({
@@ -102,7 +131,10 @@ export async function action({ params, request }: Route.ActionArgs) {
 
     throw new Error(`Unsupported PayPal capture status: ${capture.status}`);
   } catch (error) {
-    console.error(error);
+    logError('checkout.capture_failed', error, {
+      checkoutAttemptId,
+      paypalOrderId: orderId,
+    });
     return data(
       { ok: false, error: 'Unable to complete payment' },
       { status: 500 },

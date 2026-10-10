@@ -246,7 +246,11 @@ describe('tour booking action', () => {
       init: { status: 500 },
     });
     expect(createPayPalOrderMock).toHaveBeenCalledOnce();
-    expect(consoleErrorMock).toHaveBeenCalledWith(error);
+    expect(JSON.parse(consoleErrorMock.mock.calls[0][0])).toMatchObject({
+      event: 'checkout.start_failed',
+      checkoutAttemptId: 'checkout-attempt-123',
+      error: { message: 'boom' },
+    });
   });
 
   it('returns an error when PayPal omits the order ID', async () => {
