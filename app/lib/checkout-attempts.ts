@@ -1,10 +1,7 @@
-import { createHash, randomBytes } from 'node:crypto';
-
 import { api } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
-import { convexMutation, convexQuery } from './convex.server';
-import type { CheckoutAttemptId, NormalizedCheckoutAttempt } from './types';
-import { tryCatch } from './utils';
+import { generateAccessToken, hashAccessToken } from './access-tokens';
+import { convexMutation } from './convex.server';
+import type { NormalizedCheckoutAttempt } from './types';
 
 export const CHECKOUT_ATTEMPT_TTL_MS = 30 * 60 * 1000;
 
@@ -18,48 +15,8 @@ type CheckoutAttemptInput = Omit<
   | 'paypalRefundId'
 >;
 
-export function generateCheckoutAccessToken() {
-  return randomBytes(32).toString('base64url');
-}
-
-export function hashCheckoutAccessToken(token: string) {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-export function verifyCheckoutAccessToken(token: string, hash: string) {
-  return hashCheckoutAccessToken(token) === hash;
-}
-
-export async function getCheckoutAttempt(
-  checkoutAttemptId: CheckoutAttemptId,
-) {
-  const [checkoutAttempt, err] = await tryCatch(
-    convexQuery(api.checkoutAttempts.getCheckoutAttemptById, {
-      checkoutAttemptId,
-    }),
-  );
-
-  if (err) throw new Error('Something went wrong');
-
-  return checkoutAttempt;
-}
-
-export async function getCheckoutAttemptWithTour(
-  checkoutAttemptId: CheckoutAttemptId,
-) {
-  const [res, err] = await tryCatch(
-    convexQuery(api.checkoutAttempts.getCheckoutAttemptWithTour, {
-      checkoutAttemptId,
-    }),
-  );
-
-  if (err) throw new Error('Something went wrong');
-
-  return res;
-}
-
 export async function saveCheckoutAttempt(input: CheckoutAttemptInput) {
-  const accessToken = generateCheckoutAccessToken();
+  const accessToken = generateAccessToken();
   const expiresAt = Date.now() + CHECKOUT_ATTEMPT_TTL_MS;
   const checkoutAttemptId = await convexMutation(
     api.checkoutAttempts.createCheckoutAttempt,
@@ -68,77 +25,9 @@ export async function saveCheckoutAttempt(input: CheckoutAttemptInput) {
       paypalOrderId: null,
       paymentStatus: 'pending',
       expiresAt,
-      accessTokenHash: hashCheckoutAccessToken(accessToken),
+      accessTokenHash: hashAccessToken(accessToken),
     },
   );
 
   return { checkoutAttemptId, accessToken, expiresAt };
-}
-
-export async function updateCheckoutAttempt(
-  updates: Partial<
-    Pick<
-      NormalizedCheckoutAttempt,
-      'paypalOrderId' | 'paymentStatus' | 'expiresAt'
-    >
-  > & { id: Id<'checkoutAttempts'> },
-) {
-  const checkoutAttemptId = await convexMutation(
-    api.checkoutAttempts.updateCheckoutAttempt,
-    updates,
-  );
-  return checkoutAttemptId;
-}
-
-export async function completeCheckoutAttempt(input: {
-  paypalOrderId: string;
-  amountValue: string;
-  currency: string;
-  paypalCaptureId: string;
-  bookingAccessTokenHash: string;
-}) {
-  const result = await convexMutation(
-    api.checkoutAttempts.completeCheckoutAttempt,
-    input,
-  );
-  return result;
-}
-
-export async function updateCheckoutAttemptRefundStatus(input: {
-  id: Id<'checkoutAttempts'>;
-  paymentStatus: 'refund_pending' | 'refunded' | 'refund_failed';
-  paypalRefundId?: string;
-}) {
-  const checkoutAttemptId = await convexMutation(
-    api.checkoutAttempts.updateCheckoutAttemptRefundStatus,
-    input,
-  );
-  return checkoutAttemptId;
-}
-
-export async function updateRefundStatusByPayPalRefund(input: {
-  paypalRefundId: string;
-  paymentStatus: 'refunded' | 'refund_failed';
-}) {
-  const result = await convexMutation(
-    api.checkoutAttempts.updateRefundStatusByPayPalRefund,
-    input,
-  );
-  return result;
-}
-
-export async function expireCheckoutAttempt(input: { paypalOrderId: string }) {
-  const checkoutAttemptId = await convexMutation(
-    api.checkoutAttempts.expireCheckoutAttempt,
-    input,
-  );
-  return checkoutAttemptId;
-}
-
-export async function failCheckoutAttempt(input: { paypalOrderId: string }) {
-  const checkoutAttemptId = await convexMutation(
-    api.checkoutAttempts.failCheckoutAttempt,
-    input,
-  );
-  return checkoutAttemptId;
 }

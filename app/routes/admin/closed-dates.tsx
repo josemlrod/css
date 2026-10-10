@@ -10,16 +10,16 @@ import {
   outlineButtonClass,
   primaryButtonClass,
 } from '~/components/admin/primitives';
-import { listBookingsForOperator } from '~/lib/bookings';
+import { convexMutation, convexQuery } from '~/lib/convex.server';
 import { getTodayInBookingTimeZone } from '~/lib/dates';
 import {
   BlockedDateValidation,
   countActiveBookingsByDate,
   groupUpcomingClosedDates,
 } from '~/lib/operator';
-import { getTours, setTourDateBlocked } from '~/lib/tours';
 import type { TourId } from '~/lib/types';
 
+import { api } from '../../../convex/_generated/api';
 import type { Route } from './+types/closed-dates';
 import { formatShortDate } from './bookings';
 
@@ -28,7 +28,10 @@ const FETCHER_KEY = 'closed-dates';
 
 export async function loader() {
   const today = getTodayInBookingTimeZone();
-  const [tours, bookings] = await Promise.all([getTours(), listBookingsForOperator()]);
+  const [tours, bookings] = await Promise.all([
+    convexQuery(api.tours.getTours, {}),
+    convexQuery(api.bookings.listBookingsForOperator, {}),
+  ]);
 
   return {
     today,
@@ -51,7 +54,7 @@ export async function action({ request }: Route.ActionArgs) {
     return { ok: false as const, error: 'Pick today or a future date and at least one tour.' };
   }
 
-  await setTourDateBlocked({
+  await convexMutation(api.tours.setTourDateBlocked, {
     ...input.data,
     tourIds: input.data.tourIds as TourId[],
   });

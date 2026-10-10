@@ -1,29 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  completeCheckoutAttempt,
-  failCheckoutAttempt,
-  generateCheckoutAccessToken,
-  hashCheckoutAccessToken,
-} from './checkout-attempts';
+import { generateAccessToken, hashAccessToken } from './access-tokens';
 import { completeCapture } from './checkout-completion';
+import { convexMutation } from './convex.server';
+import { convexCalls } from './convex.test-helpers';
 import { sendBookingCommunication } from './email';
 import { refundCheckoutAttempt } from './refunds';
 
-vi.mock('./checkout-attempts', () => ({
-  completeCheckoutAttempt: vi.fn(),
-  failCheckoutAttempt: vi.fn(),
-  generateCheckoutAccessToken: vi.fn(() => 'raw_booking_token'),
-  hashCheckoutAccessToken: vi.fn(() => 'hashed_booking_token'),
+vi.mock('./access-tokens', () => ({
+  generateAccessToken: vi.fn(() => 'raw_booking_token'),
+  hashAccessToken: vi.fn(() => 'hashed_booking_token'),
 }));
+
+vi.mock('./convex.server', () => ({ convexMutation: vi.fn() }));
 
 vi.mock('./email', () => ({ sendBookingCommunication: vi.fn() }));
 
 vi.mock('./refunds', () => ({ refundCheckoutAttempt: vi.fn() }));
 
-const completeCheckoutAttemptMock = vi.mocked(completeCheckoutAttempt);
-const generateCheckoutAccessTokenMock = vi.mocked(generateCheckoutAccessToken);
-const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
+const mutation = vi.mocked(convexMutation);
+const generateAccessTokenMock = vi.mocked(generateAccessToken);
+const hashAccessTokenMock = vi.mocked(hashAccessToken);
 const sendBookingCommunicationMock = vi.mocked(sendBookingCommunication);
 const refundCheckoutAttemptMock = vi.mocked(refundCheckoutAttempt);
 
@@ -58,7 +55,7 @@ describe('completeCapture', () => {
 
   it('creates a Booking and sends its Booking Communication', async () => {
     process.env.APP_ORIGIN = 'https://example.com';
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'booking_created',
       bookingId: 'booking_123',
       checkoutAttempt,
@@ -66,15 +63,20 @@ describe('completeCapture', () => {
     } as never);
 
     await expect(completeCapture(capture)).resolves.toBe('paid');
-    expect(completeCheckoutAttemptMock).toHaveBeenCalledWith({
-      paypalOrderId: 'ORDER123',
-      paypalCaptureId: 'CAPTURE123',
-      amountValue: '158.00',
-      currency: 'USD',
-      bookingAccessTokenHash: 'hashed_booking_token',
-    });
-    expect(generateCheckoutAccessTokenMock).toHaveBeenCalledOnce();
-    expect(hashCheckoutAccessTokenMock).toHaveBeenCalledWith('raw_booking_token');
+    expect(convexCalls(mutation)).toEqual([
+      [
+        'checkoutAttempts:completeCheckoutAttempt',
+        {
+          paypalOrderId: 'ORDER123',
+          paypalCaptureId: 'CAPTURE123',
+          amountValue: '158.00',
+          currency: 'USD',
+          bookingAccessTokenHash: 'hashed_booking_token',
+        },
+      ],
+    ]);
+    expect(generateAccessTokenMock).toHaveBeenCalledOnce();
+    expect(hashAccessTokenMock).toHaveBeenCalledWith('raw_booking_token');
     expect(sendBookingCommunicationMock).toHaveBeenCalledWith('booking_communication', {
       checkoutAttempt,
       tour,
@@ -84,7 +86,7 @@ describe('completeCapture', () => {
   });
 
   it('does not repeat side effects when the Booking already exists', async () => {
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'booking_exists',
       bookingId: 'booking_123',
     } as never);
@@ -95,7 +97,7 @@ describe('completeCapture', () => {
   });
 
   it('refunds the capture when capacity is unavailable', async () => {
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'capacity_unavailable',
       checkoutAttempt,
       tour,
@@ -113,7 +115,7 @@ describe('completeCapture', () => {
 
   it('propagates completion mutation failures', async () => {
     const mutationError = new Error('Checkout amount mismatch');
-    completeCheckoutAttemptMock.mockRejectedValueOnce(mutationError);
+    mutation.mockRejectedValueOnce(mutationError);
 
     await expect(completeCapture(capture)).rejects.toThrow(mutationError);
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
@@ -121,7 +123,7 @@ describe('completeCapture', () => {
   });
 
   it('returns the Payment Status of an attempt that is already settled', async () => {
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'refunded',
       checkoutAttemptId: 'checkout_attempt_123',
     } as never);
@@ -135,8 +137,7 @@ describe('completeCapture', () => {
     await expect(
       completeCapture({ status: 'PENDING', paypalOrderId: 'ORDER123' }),
     ).resolves.toBe('pending');
-    expect(completeCheckoutAttemptMock).not.toHaveBeenCalled();
-    expect(vi.mocked(failCheckoutAttempt)).not.toHaveBeenCalled();
+    expect(mutation).not.toHaveBeenCalled();
   });
 
   it.each(['DECLINED', 'FAILED'])(
@@ -145,10 +146,9 @@ describe('completeCapture', () => {
       await expect(
         completeCapture({ status, paypalOrderId: 'ORDER123' }),
       ).resolves.toBe('failed');
-      expect(vi.mocked(failCheckoutAttempt)).toHaveBeenCalledWith({
-        paypalOrderId: 'ORDER123',
-      });
-      expect(completeCheckoutAttemptMock).not.toHaveBeenCalled();
+      expect(convexCalls(mutation)).toEqual([
+        ['checkoutAttempts:failCheckoutAttempt', { paypalOrderId: 'ORDER123' }],
+      ]);
     },
   );
 
@@ -156,6 +156,6 @@ describe('completeCapture', () => {
     await expect(
       completeCapture({ status: 'REFUNDED', paypalOrderId: 'ORDER123' }),
     ).rejects.toThrow('Unsupported PayPal capture status: REFUNDED');
-    expect(completeCheckoutAttemptMock).not.toHaveBeenCalled();
+    expect(mutation).not.toHaveBeenCalled();
   });
 });

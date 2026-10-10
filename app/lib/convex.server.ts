@@ -10,6 +10,9 @@ type ServerArgs<Fn extends FunctionReference<'query' | 'mutation'>> = Omit<
   'serverSecret'
 >;
 
+// Callers use convexQuery and convexMutation directly, and Convex errors reach them
+// unchanged. A caller that has a fallback catches; anything else goes to the error boundary.
+
 // `token` is an Operator's Convex Auth JWT, for functions that read ctx.auth.
 function getConvex(token?: string) {
   const client = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL);
