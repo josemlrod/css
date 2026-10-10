@@ -13,3 +13,15 @@ export async function getBookingTotal(
 
   return checkoutAttempt?.total ?? tourPrice * booking.guests;
 }
+
+// A paid Booking gets its first refund when it's canceled. A canceled Booking whose refund
+// failed can have it retried. Anything else has nothing to refund.
+export function bookingRefundAttempt(
+  booking: Pick<Doc<'bookings'>, 'cancelled' | 'paymentStatus' | 'paypalCaptureId'>,
+) {
+  if (!booking.paypalCaptureId) return null;
+  if (!booking.cancelled && booking.paymentStatus === 'paid') return 'first' as const;
+  if (booking.cancelled && booking.paymentStatus === 'refund_failed') return 'retry' as const;
+
+  return null;
+}

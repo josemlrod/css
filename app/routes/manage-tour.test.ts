@@ -1,18 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { cancelPaidBooking, getBookingWithTourForAccess } from '~/lib/bookings';
+import { getBookingWithTourForAccess } from '~/lib/bookings';
 import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
-import {
-  sendBookingCancellationRefundFailedCommunication,
-  sendBookingCancellationRefundRequestedCommunication,
-  sendOperatorNotification,
-} from '~/lib/email';
-import { refundPayPalCapture } from '~/lib/paypal';
+import { refundBooking } from '~/lib/refunds';
 
 import { action, loader } from './manage-tour';
 
 vi.mock('~/lib/bookings', () => ({
-  cancelPaidBooking: vi.fn(),
   getBookingWithTourForAccess: vi.fn(),
 }));
 
@@ -20,14 +14,8 @@ vi.mock('~/lib/checkout-attempts', () => ({
   hashCheckoutAccessToken: vi.fn(() => 'hashed_token'),
 }));
 
-vi.mock('~/lib/email', () => ({
-  sendBookingCancellationRefundFailedCommunication: vi.fn(),
-  sendBookingCancellationRefundRequestedCommunication: vi.fn(),
-  sendOperatorNotification: vi.fn(),
-}));
-
-vi.mock('~/lib/paypal', () => ({
-  refundPayPalCapture: vi.fn(),
+vi.mock('~/lib/refunds', () => ({
+  refundBooking: vi.fn(),
 }));
 
 const booking = {
@@ -52,15 +40,8 @@ const tour = {
 const total = 150;
 
 const getBookingWithTourForAccessMock = vi.mocked(getBookingWithTourForAccess);
-const cancelPaidBookingMock = vi.mocked(cancelPaidBooking);
 const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
-const refundPayPalCaptureMock = vi.mocked(refundPayPalCapture);
-const sendBookingCancellationRefundFailedCommunicationMock = vi.mocked(
-  sendBookingCancellationRefundFailedCommunication,
-);
-const sendBookingCancellationRefundRequestedCommunicationMock = vi.mocked(
-  sendBookingCancellationRefundRequestedCommunication,
-);
+const refundBookingMock = vi.mocked(refundBooking);
 
 function request(
   url = 'https://example.com/manage/booking_123?token=raw_token',
@@ -96,8 +77,7 @@ describe('manage tour cancellation', () => {
     } as never);
 
     await expect(action(args())).resolves.toEqual({ view: 'cutoff_blocked' });
-    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
-    expect(cancelPaidBookingMock).not.toHaveBeenCalled();
+    expect(refundBookingMock).not.toHaveBeenCalled();
   });
 
   it('rejects invalid token without refunding', async () => {
@@ -106,98 +86,48 @@ describe('manage tour cancellation', () => {
     const response = await action(args());
 
     expect(response).toMatchObject({ init: { status: 403 } });
-    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
-    expect(cancelPaidBookingMock).not.toHaveBeenCalled();
+    expect(refundBookingMock).not.toHaveBeenCalled();
   });
 
-  it('creates refund before canceling Booking', async () => {
+  it('refunds as the Booker and logs the cancel reason', async () => {
     getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour, total } as never);
-    refundPayPalCaptureMock.mockResolvedValueOnce({
-      id: 'REFUND123',
-      status: 'COMPLETED',
-    });
+    refundBookingMock.mockResolvedValueOnce('refund_requested');
     const consoleLogMock = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     await expect(
       action(args(request(undefined, JSON.stringify({ reason: 'Weather concerns' })))),
     ).resolves.toEqual({ view: 'cancelled' });
 
-    expect(consoleLogMock.mock.calls.map(([line]) => JSON.parse(line))).toMatchObject([
-      { event: 'cancellation.requested', cancelReason: 'Weather concerns' },
-      { event: 'cancellation.completed', paypalRefundId: 'REFUND123' },
-    ]);
-
+    expect(JSON.parse(consoleLogMock.mock.calls[0][0])).toMatchObject({
+      event: 'cancellation.requested',
+      cancelReason: 'Weather concerns',
+    });
     expect(hashCheckoutAccessTokenMock).toHaveBeenCalledWith('raw_token');
-    expect(refundPayPalCaptureMock).toHaveBeenCalledWith('CAPTURE123');
-    expect(cancelPaidBookingMock).toHaveBeenCalledWith({
-      id: 'booking_123',
-      accessTokenHash: 'hashed_token',
-      paypalRefundId: 'REFUND123',
+    expect(refundBookingMock).toHaveBeenCalledWith({
+      booking,
+      tour,
+      total,
+      by: 'booker',
+      attempt: 'first',
     });
-    expect(refundPayPalCaptureMock.mock.invocationCallOrder[0]).toBeLessThan(
-      cancelPaidBookingMock.mock.invocationCallOrder[0],
-    );
-    expect(sendBookingCancellationRefundRequestedCommunicationMock).toHaveBeenCalledWith(
-      {
-        to: 'booker@example.com',
-        bookerName: 'Test Booker',
-        tourName: 'Savannah Food Tour',
-        date: '2099-07-04',
-        time: '10:00 AM',
-        guests: 2,
-        total: 150,
-      },
-      { bookingId: 'booking_123' },
-    );
-    expect(vi.mocked(sendOperatorNotification)).toHaveBeenCalledWith(
-      'booker_canceled',
-      sendBookingCancellationRefundRequestedCommunicationMock.mock.calls[0][0],
-      { bookingId: 'booking_123' },
-    );
   });
 
-  it('keeps Booking active when refund creation fails', async () => {
-    getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour, total } as never);
-    refundPayPalCaptureMock.mockRejectedValueOnce(new Error('refund failed'));
-    const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it.each([
+    ['refund_requested', booking, 'cancelled'],
+    ['record_failed', booking, 'cancelled'],
+    ['refund_failed', booking, 'refund_failed'],
+    ['not_refundable', booking, 'refund_failed'],
+    ['not_refundable', { ...booking, cancelled: 1 }, 'cancelled'],
+  ] as const)('shows a %s refund as the %s view', async (outcome, current, view) => {
+    getBookingWithTourForAccessMock.mockResolvedValueOnce({
+      booking: current,
+      tour,
+      total,
+    } as never);
+    refundBookingMock.mockResolvedValueOnce(outcome);
 
-    await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
-
-    expect(JSON.parse(consoleErrorMock.mock.calls[0][0])).toMatchObject({
-      event: 'cancellation.refund_failed',
-      bookingId: 'booking_123',
-      paypalCaptureId: 'CAPTURE123',
-      error: { message: 'refund failed' },
-    });
-
-    expect(cancelPaidBookingMock).not.toHaveBeenCalled();
-    expect(sendBookingCancellationRefundFailedCommunicationMock).toHaveBeenCalledWith(
-      {
-        to: 'booker@example.com',
-        bookerName: 'Test Booker',
-        tourName: 'Savannah Food Tour',
-        date: '2099-07-04',
-        time: '10:00 AM',
-        guests: 2,
-        total: 150,
-      },
-      { bookingId: 'booking_123' },
-    );
+    await expect(action(args())).resolves.toEqual({ view });
   });
-
-  it.each(['FAILED', 'CANCELLED'])(
-    'keeps Booking active when PayPal returns %s',
-    async (status) => {
-      getBookingWithTourForAccessMock.mockResolvedValueOnce({ booking, tour, total } as never);
-      refundPayPalCaptureMock.mockResolvedValueOnce({ id: 'REFUND123', status });
-
-      await expect(action(args())).resolves.toEqual({ view: 'refund_failed' });
-
-      expect(cancelPaidBookingMock).not.toHaveBeenCalled();
-      expect(sendBookingCancellationRefundFailedCommunicationMock).toHaveBeenCalledOnce();
-      expect(sendBookingCancellationRefundRequestedCommunicationMock).not.toHaveBeenCalled();
-    },
-  );
 });
 
 describe.each(['UTC', 'America/New_York'])(
@@ -210,10 +140,7 @@ describe.each(['UTC', 'America/New_York'])(
     beforeEach(() => {
       process.env.TZ = tz;
       vi.useFakeTimers({ toFake: ['Date'] });
-      refundPayPalCaptureMock.mockResolvedValue({
-        id: 'REFUND123',
-        status: 'COMPLETED',
-      });
+      refundBookingMock.mockResolvedValue('refund_requested');
     });
 
     afterEach(() => {

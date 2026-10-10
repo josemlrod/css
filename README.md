@@ -100,8 +100,9 @@ The server writes one JSON line per step of the Booker's journey (`app/lib/log.t
 | Booking | `booking.created`, or `checkout.finalized` for any other outcome (duplicate, capacity race), then `checkout.success_viewed` |
 | Webhooks | `paypal.webhook_received`, `refund.reconciled`, `paypal.webhook_failed` |
 | Manage page | `manage.viewed` or `manage.rejected` |
-| Cancel | `cancellation.requested` (with the Booker's reason), then `cancellation.completed`, `cancellation.rejected`, `cancellation.refund_failed`, or `cancellation.record_failed` (refunded in PayPal but the Booking wasn't updated) |
-| Operator | `operator.refund_requested`, `operator.refund_failed`, `operator.marked_refunded` |
+| Cancel | `cancellation.requested` (with the Booker's reason), then `cancellation.rejected` or a refund event |
+| Refund | `refund.requested`, `refund.failed`, or `refund.record_failed` (refunded in PayPal but not saved), with `requestedBy` (`booker` or `operator`) for a Booking or `reason: capacity_unavailable` for a Checkout Attempt |
+| Operator | `operator.marked_refunded` |
 | Email | `email.sent` or `email.failed` |
 
 Logs never include access tokens, emails, or names.

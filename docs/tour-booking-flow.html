@@ -344,8 +344,11 @@
           <p>
             Checkout Attempts do not reserve capacity. If payment succeeds after
             capacity fills, Checkout completion creates no Booking, marks the attempt
-            <code>refund_pending</code>, creates a full PayPal refund, stores the
-            refund ID, and emails the Booker and the operator.
+            <code>refund_pending</code>, and hands the capture to
+            <code>refundCheckoutAttempt</code>. It creates a full PayPal refund,
+            stores the refund ID and its Payment Status, and emails the Booker and
+            the operator. A refund PayPal won't take, by error or by status, is
+            stored as <code>refund_failed</code> and both get the failure email.
           </p>
         </div>
       </section>
@@ -383,9 +386,10 @@
           <h2>Self-Service Cancellation</h2>
           <p>
             Manage route requires Booking ID plus raw token. Before the 24-hour
-            cutoff, refund creation must succeed first. Then Booking becomes
-            canceled, capacity releases, and Payment Status becomes
-            <code>refund_pending</code>.
+            cutoff, the route hands the Booking to <code>refundBooking</code> as a
+            Booker's first refund. Refund creation must succeed first. Then
+            Booking becomes canceled, capacity releases, and Payment Status
+            becomes <code>refund_pending</code>.
           </p>
         </div>
 
@@ -394,8 +398,8 @@
           <p>
             <code>/admin/bookings/:bookingId</code> lets the operator cancel a
             paid Booking without the Booker's token and inside the 24-hour
-            cutoff. It follows the same order as self-service: PayPal must
-            accept the refund first, then the Booking becomes canceled with
+            cutoff. It calls the same <code>refundBooking</code> as an Operator's
+            first refund or retry, so PayPal must accept the refund first, then the Booking becomes canceled with
             <code>refund_pending</code>, and the Booker gets the cancellation
             email. If PayPal rejects the refund, nothing changes and no email
             is sent. For a <code>refund_failed</code> Booking the operator can
@@ -413,9 +417,22 @@
             the synchronous response is <code>COMPLETED</code>. Verified
             <code>PAYMENT.CAPTURE.REFUNDED</code> and
             <code>PAYMENT.REFUND.FAILED</code> events finalize Payment Status by
-            that refund ID. An unexpected synchronous status keeps the Booking
-            active and sends failure communication. If an event arrives before
-            its refund ID is stored, the webhook returns a retryable response.
+            that refund ID. Every refund goes through <code>app/lib/refunds.ts</code>,
+            which reads PayPal's answer the same way for Booker, Operator, and
+            capacity refunds: <code>COMPLETED</code> and <code>PENDING</code> are
+            accepted, while <code>FAILED</code>, <code>CANCELLED</code>, or an
+            error mean the refund failed. A failed Booking refund keeps the Booking
+            unchanged and sends failure communication to a Booker, not an Operator.
+            If an event arrives before its refund ID is stored, the webhook
+            returns a retryable response.
+          </p>
+          <p>
+            If PayPal accepts the refund but saving it fails, the money is already
+            on its way back. The Booker still gets their refund email, the operator
+            gets a Refund not saved email, and the error is logged as
+            <code>refund.record_failed</code>. The Booker sees the canceled view and
+            the Operator sees an error. Running the same cancel or retry again
+            makes PayPal return the same refund, which saves it.
           </p>
         </div>
       </section>
@@ -448,6 +465,12 @@
               <td><code>Checkout Attempt = refund_pending</code>, then <code>refunded</code> or <code>refund_failed</code></td>
               <td><span class="status-bad">No</span></td>
               <td>Capacity refund email to Booker and operator; failure email to both if PayPal fails refund</td>
+            </tr>
+            <tr>
+              <td>PayPal accepts a refund, saving it fails</td>
+              <td>Unchanged until the cancel or retry runs again</td>
+              <td>Unchanged</td>
+              <td>The usual refund email to the Booker; operator Refund not saved email</td>
             </tr>
             <tr>
               <td>PayPal capture pending</td>
@@ -520,12 +543,13 @@
           <div><code>app/routes/tour-booking.tsx</code><p>Looks up the tour by slug, validates Booker input, rejects start times that have already passed in <code>America/New_York</code>, rejects blocked dates and dates more than 90 days out, creates a Checkout Attempt and PayPal Order, then returns the Order ID to SDK v6.</p></div>
           <div><code>app/components/stepper/paypal-buttons.tsx</code><p>Loads SDK v6, starts payment sessions, captures approved Orders, and handles cancellation.</p></div>
           <div><code>app/routes/paypal-capture.ts</code><p>Verifies the private token and Order ID, captures through PayPal, and returns the Payment Status from <code>completeCapture</code>.</p></div>
-          <div><code>app/lib/checkout-completion.ts</code><p>Turns a PayPal capture status into a Payment Status: creates paid Bookings and Booking Communication, refunds captures after a capacity race, leaves pending captures pending, and fails declined ones.</p></div>
+          <div><code>app/lib/checkout-completion.ts</code><p>Turns a PayPal capture status into a Payment Status: creates paid Bookings and Booking Communication, hands captures from a capacity race to the refund module, leaves pending captures pending, and fails declined ones.</p></div>
+          <div><code>app/lib/refunds.ts</code><p>The one place a Booking or Checkout Attempt is refunded: calls PayPal, turns its refund status into a Payment Status, saves it, logs it, and sends Booking Communication. Callers say who is canceling and whether it's a first refund or a retry, and get back an outcome.</p></div>
           <div><code>app/lib/paypal.ts</code><p>Creates and captures PayPal Orders, verifies webhooks, and refunds captures.</p></div>
           <div><code>convex/checkoutAttempts.ts</code><p>Completes attempts, schedules pending-attempt expiry, and handles refund status by the persisted PayPal refund ID.</p></div>
           <div><code>app/routes/paypal-webhook.ts</code><p>Handles verified PayPal events. Completed and denied captures go to <code>completeCapture</code>. It also handles approval reversal and the refund lifecycle.</p></div>
-          <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff measured from the tour start in Eastern time, starts cancellation refunds.</p></div>
-          <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup and cancellation mutation, plus operator Booking list, cancellation, refund retry, and mark-refunded mutations.</p></div>
+          <div><code>app/routes/manage-tour.tsx</code><p>Validates private token, enforces 24-hour cutoff measured from the tour start in Eastern time, starts cancellation refunds, and shows the refund outcome.</p></div>
+          <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup, operator Booking list, one mutation that saves a first refund or a retry, and mark-refunded. Which Bookings can be refunded lives in <code>convex/lib/bookings.ts</code>, shared with the refund module.</p></div>
           <div><code>app/routes/admin/</code><p>Operator console: Recent activity with New markers, Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
           <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>

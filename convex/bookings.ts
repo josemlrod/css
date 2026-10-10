@@ -1,37 +1,11 @@
 import { v } from 'convex/values';
 
 import type { Doc } from './_generated/dataModel';
-import type { MutationCtx } from './_generated/server';
-import { getBookingTotal } from './lib/bookings';
+import { bookingRefundAttempt, getBookingTotal } from './lib/bookings';
 import { serverMutation, serverQuery } from './lib/serverFunctions';
 
 function withoutAccessToken({ accessTokenHash: _, ...booking }: Doc<'bookings'>) {
   return booking;
-}
-
-async function cancelRefundableBooking(
-  ctx: MutationCtx,
-  existing: Doc<'bookings'>,
-  paypalRefundId: string,
-) {
-  if (existing.cancelled) {
-    return existing._id;
-  }
-
-  if (!existing.paypalCaptureId || existing.paymentStatus !== 'paid') {
-    throw new Error('Booking is not refundable');
-  }
-
-  const now = new Date().getTime();
-
-  await ctx.db.patch(existing._id, {
-    cancelled: now,
-    paymentStatus: 'refund_pending',
-    paypalRefundId,
-    updatedAt: now,
-  });
-
-  return existing._id;
 }
 
 export const getBookingWithTourForAccess = serverQuery({
@@ -44,23 +18,6 @@ export const getBookingWithTourForAccess = serverQuery({
     const tour = await ctx.db.get('tours', booking.tourId);
 
     return { booking, tour, total: await getBookingTotal(ctx, booking, tour?.price ?? 0) };
-  },
-});
-
-export const cancelPaidBooking = serverMutation({
-  args: {
-    id: v.id('bookings'),
-    accessTokenHash: v.string(),
-    paypalRefundId: v.string(),
-  },
-  handler: async (ctx, { id, accessTokenHash, paypalRefundId }) => {
-    const existing = await ctx.db.get('bookings', id);
-
-    if (!existing || existing.accessTokenHash !== accessTokenHash) {
-      throw new Error('Booking not found');
-    }
-
-    return cancelRefundableBooking(ctx, existing, paypalRefundId);
   },
 });
 
@@ -146,31 +103,30 @@ export const countRefundFailedBookings = serverQuery({
   },
 });
 
-export const cancelBookingAsOperator = serverMutation({
-  args: { id: v.id('bookings'), paypalRefundId: v.string() },
-  handler: async (ctx, { id, paypalRefundId }) => {
+// Saves a refund PayPal accepted. A first refund cancels the Booking; a retry keeps it canceled.
+// The same refund ID again is PayPal replaying a refund that's already saved.
+export const recordBookingRefund = serverMutation({
+  args: {
+    id: v.id('bookings'),
+    attempt: v.union(v.literal('first'), v.literal('retry')),
+    paypalRefundId: v.string(),
+  },
+  handler: async (ctx, { id, attempt, paypalRefundId }) => {
     const existing = await ctx.db.get('bookings', id);
 
     if (!existing) throw new Error('Booking not found');
-
-    return cancelRefundableBooking(ctx, existing, paypalRefundId);
-  },
-});
-
-// A canceled Booking whose refund PayPal rejected gets a fresh refund attempt.
-export const restartBookingRefund = serverMutation({
-  args: { id: v.id('bookings'), paypalRefundId: v.string() },
-  handler: async (ctx, { id, paypalRefundId }) => {
-    const existing = await ctx.db.get('bookings', id);
-
-    if (!existing?.cancelled || existing.paymentStatus !== 'refund_failed') {
-      throw new Error('Booking refund has not failed');
+    if (existing.paypalRefundId === paypalRefundId) return id;
+    if (bookingRefundAttempt(existing) !== attempt) {
+      throw new Error('Booking is not refundable');
     }
 
+    const now = new Date().getTime();
+
     await ctx.db.patch(id, {
+      cancelled: existing.cancelled ?? now,
       paymentStatus: 'refund_pending',
       paypalRefundId,
-      updatedAt: new Date().getTime(),
+      updatedAt: now,
     });
 
     return id;

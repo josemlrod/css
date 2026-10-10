@@ -20,15 +20,6 @@ export async function getBookingWithTourForAccess(
   return res;
 }
 
-export async function cancelPaidBooking(input: {
-  id: Id<'bookings'>;
-  accessTokenHash: string;
-  paypalRefundId: string;
-}) {
-  const bookingId = await convexMutation(api.bookings.cancelPaidBooking, input);
-  return bookingId;
-}
-
 export async function listBookingsForOperator() {
   const [bookings, err] = await tryCatch(
     convexQuery(api.bookings.listBookingsForOperator, {}),
@@ -69,18 +60,12 @@ export async function countRefundFailedBookings() {
   return count;
 }
 
-export async function cancelBookingAsOperator(input: {
+export async function recordBookingRefund(input: {
   id: Id<'bookings'>;
+  attempt: 'first' | 'retry';
   paypalRefundId: string;
 }) {
-  return convexMutation(api.bookings.cancelBookingAsOperator, input);
-}
-
-export async function restartBookingRefund(input: {
-  id: Id<'bookings'>;
-  paypalRefundId: string;
-}) {
-  return convexMutation(api.bookings.restartBookingRefund, input);
+  return convexMutation(api.bookings.recordBookingRefund, input);
 }
 
 export async function markBookingRefunded(id: Id<'bookings'>) {

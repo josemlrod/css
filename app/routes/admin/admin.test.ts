@@ -1,13 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  cancelBookingAsOperator,
-  getBookingForOperator,
-  markBookingRefunded,
-  restartBookingRefund,
-} from '~/lib/bookings';
-import { sendBookingCancellationRefundRequestedCommunication } from '~/lib/email';
-import { refundPayPalCapture } from '~/lib/paypal';
+import { getBookingForOperator, markBookingRefunded } from '~/lib/bookings';
+import { refundBooking } from '~/lib/refunds';
 import { setTourDateBlocked, updateTourSettings } from '~/lib/tours';
 
 import { action as bookingAction, loader as bookingLoader } from './booking';
@@ -16,16 +10,11 @@ import { action as closedDatesAction } from './closed-dates';
 import { action as toursAction } from './tours';
 
 vi.mock('~/lib/bookings', () => ({
-  cancelBookingAsOperator: vi.fn(),
   getBookingForOperator: vi.fn(),
   listBookingsForOperator: vi.fn(),
   markBookingRefunded: vi.fn(),
-  restartBookingRefund: vi.fn(),
 }));
-vi.mock('~/lib/email', () => ({
-  sendBookingCancellationRefundRequestedCommunication: vi.fn(),
-}));
-vi.mock('~/lib/paypal', () => ({ refundPayPalCapture: vi.fn() }));
+vi.mock('~/lib/refunds', () => ({ refundBooking: vi.fn() }));
 vi.mock('~/lib/tours', () => ({
   getTours: vi.fn(),
   setTourDateBlocked: vi.fn(),
@@ -84,41 +73,42 @@ describe('admin Booking actions', () => {
     });
   });
 
-  it('cancels and refunds a paid Booking, then emails the Booker', async () => {
+  it.each([
+    ['cancel', 'first'],
+    ['retry-refund', 'retry'],
+  ])('sends %s to the refund module as a %s Operator refund', async (intent, attempt) => {
     withBooking(paid);
-    vi.mocked(refundPayPalCapture).mockResolvedValue({ id: 'REFUND1', status: 'PENDING' });
+    vi.mocked(refundBooking).mockResolvedValue('refund_requested');
 
-    await expect(bookingAction(post({ intent: 'cancel' }))).resolves.toMatchObject({ ok: true });
-    expect(refundPayPalCapture).toHaveBeenCalledWith('CAPTURE1', undefined);
-    expect(cancelBookingAsOperator).toHaveBeenCalledWith({ id: 'booking_1', paypalRefundId: 'REFUND1' });
-    expect(sendBookingCancellationRefundRequestedCommunication).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'ana@example.com', total: 96 }),
-      { bookingId: 'booking_1' },
-    );
+    await expect(bookingAction(post({ intent }))).resolves.toMatchObject({ ok: true });
+    expect(refundBooking).toHaveBeenCalledWith({
+      booking: paid,
+      tour,
+      total: 96,
+      by: 'operator',
+      attempt,
+    });
   });
 
-  it('retries a failed refund with a new PayPal request ID', async () => {
-    withBooking(failed);
-    vi.mocked(refundPayPalCapture).mockResolvedValue({ id: 'REFUND2', status: 'COMPLETED' });
+  it.each(['not_refundable', 'refund_failed', 'record_failed'] as const)(
+    'shows a %s refund as an error',
+    async (outcome) => {
+      withBooking(paid);
+      vi.mocked(refundBooking).mockResolvedValue(outcome);
 
-    await expect(bookingAction(post({ intent: 'retry-refund' }))).resolves.toMatchObject({ ok: true });
-    expect(refundPayPalCapture).toHaveBeenCalledWith('CAPTURE1', 'refund-CAPTURE1-REFUND_OLD');
-    expect(restartBookingRefund).toHaveBeenCalledWith({ id: 'booking_1', paypalRefundId: 'REFUND2' });
-  });
+      await expect(bookingAction(post({ intent: 'cancel' }))).resolves.toMatchObject({
+        ok: false,
+      });
+    },
+  );
 
-  it('changes nothing when PayPal rejects the refund or the Booking is not refundable', async () => {
+  it('rejects unknown intents and marking a refund that has not failed', async () => {
     withBooking(paid);
-    vi.mocked(refundPayPalCapture).mockResolvedValue({ id: 'REFUND1', status: 'FAILED' });
-    vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(bookingAction(post({ intent: 'cancel' }))).resolves.toMatchObject({ ok: false });
-    await expect(bookingAction(post({ intent: 'retry-refund' }))).resolves.toMatchObject({ ok: false });
     await expect(bookingAction(post({ intent: 'mark-refunded' }))).resolves.toMatchObject({ ok: false });
     await expect(bookingAction(post({ intent: 'nope' }))).resolves.toMatchObject({ ok: false });
-    expect(refundPayPalCapture).toHaveBeenCalledTimes(1);
-    expect(cancelBookingAsOperator).not.toHaveBeenCalled();
     expect(markBookingRefunded).not.toHaveBeenCalled();
-    expect(sendBookingCancellationRefundRequestedCommunication).not.toHaveBeenCalled();
+    expect(refundBooking).not.toHaveBeenCalled();
   });
 
   it('marks a failed refund as refunded outside the app', async () => {

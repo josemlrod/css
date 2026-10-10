@@ -5,48 +5,27 @@ import {
   failCheckoutAttempt,
   generateCheckoutAccessToken,
   hashCheckoutAccessToken,
-  updateCheckoutAttemptRefundStatus,
 } from './checkout-attempts';
 import { completeCapture } from './checkout-completion';
-import {
-  sendBookingCommunication,
-  sendFailedCapacityRefundCommunication,
-  sendOperatorNotification,
-  sendRefundFailedCommunication,
-} from './email';
-import { refundPayPalCapture } from './paypal';
+import { sendBookingCommunication } from './email';
+import { refundCheckoutAttempt } from './refunds';
 
 vi.mock('./checkout-attempts', () => ({
   completeCheckoutAttempt: vi.fn(),
   failCheckoutAttempt: vi.fn(),
   generateCheckoutAccessToken: vi.fn(() => 'raw_booking_token'),
   hashCheckoutAccessToken: vi.fn(() => 'hashed_booking_token'),
-  updateCheckoutAttemptRefundStatus: vi.fn(),
 }));
 
-vi.mock('./email', () => ({
-  sendBookingCommunication: vi.fn(),
-  sendFailedCapacityRefundCommunication: vi.fn(),
-  sendOperatorNotification: vi.fn(),
-  sendRefundFailedCommunication: vi.fn(),
-}));
+vi.mock('./email', () => ({ sendBookingCommunication: vi.fn() }));
 
-vi.mock('./paypal', () => ({ refundPayPalCapture: vi.fn() }));
+vi.mock('./refunds', () => ({ refundCheckoutAttempt: vi.fn() }));
 
 const completeCheckoutAttemptMock = vi.mocked(completeCheckoutAttempt);
 const generateCheckoutAccessTokenMock = vi.mocked(generateCheckoutAccessToken);
 const hashCheckoutAccessTokenMock = vi.mocked(hashCheckoutAccessToken);
-const updateCheckoutAttemptRefundStatusMock = vi.mocked(
-  updateCheckoutAttemptRefundStatus,
-);
 const sendBookingCommunicationMock = vi.mocked(sendBookingCommunication);
-const sendFailedCapacityRefundCommunicationMock = vi.mocked(
-  sendFailedCapacityRefundCommunication,
-);
-const sendRefundFailedCommunicationMock = vi.mocked(
-  sendRefundFailedCommunication,
-);
-const refundPayPalCaptureMock = vi.mocked(refundPayPalCapture);
+const refundCheckoutAttemptMock = vi.mocked(refundCheckoutAttempt);
 
 const checkoutAttempt = {
   _id: 'checkout_attempt_123',
@@ -121,138 +100,24 @@ describe('completeCapture', () => {
 
     await expect(completeCapture(capture)).resolves.toBe('paid');
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
-    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
+    expect(refundCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 
-  it('refunds a capture and emails the Booker when capacity is unavailable', async () => {
+  it('refunds the capture when capacity is unavailable', async () => {
     completeCheckoutAttemptMock.mockResolvedValueOnce({
       status: 'capacity_unavailable',
       checkoutAttempt,
       tour,
     } as never);
-    refundPayPalCaptureMock.mockResolvedValueOnce({
-      id: 'REFUND123',
-      status: 'PENDING',
-    });
+    refundCheckoutAttemptMock.mockResolvedValueOnce('refund_pending');
 
     await expect(completeCapture(capture)).resolves.toBe('refund_pending');
-    expect(refundPayPalCaptureMock).toHaveBeenCalledWith('CAPTURE123');
-    expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledWith({
-      id: 'checkout_attempt_123',
-      paymentStatus: 'refund_pending',
-      paypalRefundId: 'REFUND123',
-    });
-    expect(sendFailedCapacityRefundCommunicationMock).toHaveBeenCalledWith(
-      {
-        to: 'booker@example.com',
-        bookerName: 'Test Booker',
-        tourName: 'Savannah Food Tour',
-        date: '2026-07-04',
-        time: '10:00 AM',
-        guests: 2,
-        total: 158,
-      },
-      { checkoutAttemptId: 'checkout_attempt_123' },
-    );
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
-  });
-
-  it('records an immediately completed capacity refund', async () => {
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
-      status: 'capacity_unavailable',
+    expect(refundCheckoutAttemptMock).toHaveBeenCalledWith({
       checkoutAttempt,
       tour,
-    } as never);
-    refundPayPalCaptureMock.mockResolvedValueOnce({
-      id: 'REFUND123',
-      status: 'COMPLETED',
+      paypalCaptureId: 'CAPTURE123',
     });
-
-    await expect(completeCapture(capture)).resolves.toBe('refunded');
-    expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledWith({
-      id: 'checkout_attempt_123',
-      paymentStatus: 'refunded',
-      paypalRefundId: 'REFUND123',
-    });
-    expect(sendFailedCapacityRefundCommunicationMock).toHaveBeenCalledOnce();
-  });
-
-  it('records and communicates a failed capacity refund response', async () => {
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
-      status: 'capacity_unavailable',
-      checkoutAttempt,
-      tour,
-    } as never);
-    refundPayPalCaptureMock.mockResolvedValueOnce({
-      id: 'REFUND123',
-      status: 'FAILED',
-    });
-
-    await expect(completeCapture(capture)).resolves.toBe('refund_failed');
-    expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledWith({
-      id: 'checkout_attempt_123',
-      paymentStatus: 'refund_failed',
-      paypalRefundId: 'REFUND123',
-    });
-    expect(sendRefundFailedCommunicationMock).toHaveBeenCalledWith(
-      {
-        to: 'booker@example.com',
-        bookerName: 'Test Booker',
-        tourName: 'Savannah Food Tour',
-        date: '2026-07-04',
-        time: '10:00 AM',
-        guests: 2,
-        total: 158,
-      },
-      { checkoutAttemptId: 'checkout_attempt_123' },
-    );
-    expect(sendFailedCapacityRefundCommunicationMock).not.toHaveBeenCalled();
-  });
-
-  it('marks a failed refund and rethrows the PayPal error', async () => {
-    const refundError = new Error('PayPal refund failed');
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
-      status: 'capacity_unavailable',
-      checkoutAttempt,
-      tour,
-    } as never);
-    refundPayPalCaptureMock.mockRejectedValueOnce(refundError);
-
-    await expect(completeCapture(capture)).rejects.toThrow(refundError);
-    expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledWith({
-      id: 'checkout_attempt_123',
-      paymentStatus: 'refund_failed',
-    });
-    expect(vi.mocked(sendOperatorNotification)).toHaveBeenCalledWith(
-      'refund_failed',
-      expect.objectContaining({ to: 'booker@example.com', total: 158 }),
-      { checkoutAttemptId: 'checkout_attempt_123' },
-    );
-    expect(sendFailedCapacityRefundCommunicationMock).not.toHaveBeenCalled();
-    expect(sendRefundFailedCommunicationMock).not.toHaveBeenCalled();
-  });
-
-  it('propagates a refund status mutation failure without marking the refund failed', async () => {
-    const mutationError = new Error('Convex unavailable');
-    completeCheckoutAttemptMock.mockResolvedValueOnce({
-      status: 'capacity_unavailable',
-      checkoutAttempt,
-      tour,
-    } as never);
-    refundPayPalCaptureMock.mockResolvedValueOnce({
-      id: 'REFUND123',
-      status: 'PENDING',
-    });
-    updateCheckoutAttemptRefundStatusMock.mockRejectedValueOnce(mutationError);
-
-    await expect(completeCapture(capture)).rejects.toThrow(mutationError);
-    expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledOnce();
-    expect(updateCheckoutAttemptRefundStatusMock).toHaveBeenCalledWith({
-      id: 'checkout_attempt_123',
-      paymentStatus: 'refund_pending',
-      paypalRefundId: 'REFUND123',
-    });
-    expect(sendFailedCapacityRefundCommunicationMock).not.toHaveBeenCalled();
+    expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
   it('propagates completion mutation failures', async () => {
@@ -261,7 +126,7 @@ describe('completeCapture', () => {
 
     await expect(completeCapture(capture)).rejects.toThrow(mutationError);
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
-    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
+    expect(refundCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 
   it('returns the Payment Status of an attempt that is already settled', async () => {
@@ -272,7 +137,7 @@ describe('completeCapture', () => {
 
     await expect(completeCapture(capture)).resolves.toBe('refunded');
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
-    expect(refundPayPalCaptureMock).not.toHaveBeenCalled();
+    expect(refundCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 
   it('leaves a pending capture pending for the webhook', async () => {
