@@ -9,7 +9,7 @@ import {
   outlineButtonClass,
   primaryButtonClass,
 } from '~/components/admin/primitives';
-import { convexAuthAction } from '~/lib/convex.server';
+import { convexAuthAction, convexQuery } from '~/lib/convex.server';
 import {
   getOperatorReturnPath,
   getOperatorSession,
@@ -106,12 +106,21 @@ export async function action({ request }: Route.ActionArgs) {
       () => null,
     );
 
-    if (!result)
+    // Signing up again with an existing account's password signs in, with no code sent.
+    if (result?.tokens) return startSession(result.tokens, redirectTo);
+
+    if (!result) {
+      const exists = await convexQuery(api.operators.hasPasswordAccount, { email }).catch(
+        () => false,
+      );
+
       return {
         mode: 'sign-up' as const,
-        error:
-          "Couldn't create that account. Only emails on the operator list can sign up, and each email gets one account.",
+        error: exists
+          ? 'An account already exists for this email. Sign in instead.'
+          : "Couldn't create that account. Only emails on the operator list can sign up.",
       };
+    }
 
     // A new password account gets a session only after its email code is entered.
     return { step: 'code' as const, email };
