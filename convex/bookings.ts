@@ -1,21 +1,9 @@
 import { v } from 'convex/values';
 
 import type { Doc } from './_generated/dataModel';
-import type { MutationCtx, QueryCtx } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
+import { getBookingTotal } from './lib/bookings';
 import { serverMutation, serverQuery } from './lib/serverFunctions';
-
-// The amount actually charged lives on the Checkout Attempt, so later price edits don't rewrite history.
-async function getBookingTotal(
-  ctx: QueryCtx,
-  booking: Doc<'bookings'>,
-  tourPrice: number,
-) {
-  const checkoutAttempt = booking.checkoutAttemptId
-    ? await ctx.db.get('checkoutAttempts', booking.checkoutAttemptId)
-    : null;
-
-  return checkoutAttempt?.total ?? tourPrice * booking.guests;
-}
 
 function withoutAccessToken({ accessTokenHash: _, ...booking }: Doc<'bookings'>) {
   return booking;
@@ -55,7 +43,7 @@ export const getBookingWithTourForAccess = serverQuery({
 
     const tour = await ctx.db.get('tours', booking.tourId);
 
-    return { booking, tour };
+    return { booking, tour, total: await getBookingTotal(ctx, booking, tour?.price ?? 0) };
   },
 });
 

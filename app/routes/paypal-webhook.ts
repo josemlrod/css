@@ -46,7 +46,7 @@ async function processRefundFailure(paypalRefundId: string) {
         date: result.booking.date,
         time: result.booking.time,
         guests: result.booking.guests,
-        total: result.tour.price * result.booking.guests,
+        total: result.total,
       },
       { bookingId: result.booking._id },
     );
