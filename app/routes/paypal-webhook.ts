@@ -1,14 +1,12 @@
 import { data } from 'react-router';
 
-import {
-  expireCheckoutAttempt,
-  updateRefundStatusByPayPalRefund,
-} from '~/lib/checkout-attempts';
 import { completeCapture } from '~/lib/checkout-completion';
+import { convexMutation } from '~/lib/convex.server';
 import { sendBookingCommunication } from '~/lib/email';
 import { logError, logEvent } from '~/lib/log';
 import { verifyPayPalWebhook } from '~/lib/paypal';
 
+import { api } from '../../convex/_generated/api';
 import type { Route } from './+types/paypal-webhook';
 
 type PayPalWebhookEvent = {
@@ -31,7 +29,7 @@ function stringField(value: unknown) {
 }
 
 async function processRefundFailure(paypalRefundId: string) {
-  const result = await updateRefundStatusByPayPalRefund({
+  const result = await convexMutation(api.checkoutAttempts.updateRefundStatusByPayPalRefund, {
     paypalRefundId,
     paymentStatus: 'refund_failed',
   });
@@ -128,7 +126,7 @@ export async function action({ request }: Route.ActionArgs) {
           throw new Error('Reversed approval is missing its Order ID');
         }
 
-        await expireCheckoutAttempt({ paypalOrderId });
+        await convexMutation(api.checkoutAttempts.expireCheckoutAttempt, { paypalOrderId });
         break;
       }
       case 'PAYMENT.CAPTURE.REFUNDED': {
@@ -138,10 +136,10 @@ export async function action({ request }: Route.ActionArgs) {
           throw new Error('PayPal refund is missing its Refund ID');
         }
 
-        const result = await updateRefundStatusByPayPalRefund({
-          paypalRefundId,
-          paymentStatus: 'refunded',
-        });
+        const result = await convexMutation(
+          api.checkoutAttempts.updateRefundStatusByPayPalRefund,
+          { paypalRefundId, paymentStatus: 'refunded' },
+        );
 
         logEvent('refund.reconciled', {
           paypalRefundId,

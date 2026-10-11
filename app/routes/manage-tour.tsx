@@ -12,19 +12,20 @@ import {
   Mail,
 } from 'lucide-react';
 
-import { getBookingWithTourForAccess } from '~/lib/bookings';
-import { hashCheckoutAccessToken } from '~/lib/checkout-attempts';
+import { hashAccessToken } from '~/lib/access-tokens';
 import {
   SUPPORT_EMAIL,
   SUPPORT_PHONE,
   SUPPORT_PHONE_HREF,
   TOURS_URL,
 } from '~/lib/contact';
+import { convexQuery } from '~/lib/convex.server';
 import { getTourStartAt } from '~/lib/dates';
 import { logEvent } from '~/lib/log';
 import { refundBooking } from '~/lib/refunds';
 
 import type { Tour } from '~/lib/types';
+import { api } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { Route } from './+types/manage-tour';
 
@@ -283,10 +284,10 @@ export async function loader({ request, params: { bookingId } }: Route.LoaderArg
     throw redirect('/');
   }
 
-  const res = await getBookingWithTourForAccess(
-    bookingId as Id<'bookings'>,
-    hashCheckoutAccessToken(token),
-  );
+  const res = await convexQuery(api.bookings.getBookingWithTourForAccess, {
+    bookingId: bookingId as Id<'bookings'>,
+    accessTokenHash: hashAccessToken(token),
+  });
 
   if (!res?.booking || !res.tour) {
     logEvent('manage.rejected', { bookingId, reason: 'not_found' });
@@ -321,10 +322,10 @@ export async function action({ request, params: { bookingId } }: Route.ActionArg
     return data({ view: View.CUTOFF_BLOCKED }, { status: 403 });
   }
 
-  const res = await getBookingWithTourForAccess(
-    bookingId as Id<'bookings'>,
-    hashCheckoutAccessToken(token),
-  );
+  const res = await convexQuery(api.bookings.getBookingWithTourForAccess, {
+    bookingId: bookingId as Id<'bookings'>,
+    accessTokenHash: hashAccessToken(token),
+  });
 
   if (!res?.booking || !res.tour) {
     logEvent('cancellation.rejected', { bookingId, reason: 'not_found' });

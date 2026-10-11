@@ -1,24 +1,25 @@
 import { data } from 'react-router';
 
-import {
-  getCheckoutAttemptWithTour,
-  verifyCheckoutAccessToken,
-} from '~/lib/checkout-attempts';
+import { verifyAccessToken } from '~/lib/access-tokens';
+import { convexQuery } from '~/lib/convex.server';
 import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
 import { logEvent } from '~/lib/log';
 import type { CheckoutAttempt, CheckoutAttemptId, Tour } from '~/lib/types';
 
+import { api } from '../../convex/_generated/api';
 import type { Route } from './+types/checkout-success';
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const checkoutAttemptId = params.checkoutAttemptId as CheckoutAttemptId;
   const token = new URL(request.url).searchParams.get('token') ?? '';
-  const res = await getCheckoutAttemptWithTour(checkoutAttemptId);
+  const res = await convexQuery(api.checkoutAttempts.getCheckoutAttemptWithTour, {
+    checkoutAttemptId,
+  });
 
   if (
     !res?.checkoutAttempt ||
     !res.tour ||
-    !verifyCheckoutAccessToken(token, res.checkoutAttempt.accessTokenHash)
+    !verifyAccessToken(token, res.checkoutAttempt.accessTokenHash)
   ) {
     logEvent('checkout.page_not_found', { page: 'success', checkoutAttemptId });
     throw data('Checkout not found', { status: 404 });

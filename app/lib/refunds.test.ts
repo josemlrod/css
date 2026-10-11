@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { recordBookingRefund } from './bookings';
-import { updateCheckoutAttemptRefundStatus } from './checkout-attempts';
+import { convexMutation } from './convex.server';
+import { convexCalls } from './convex.test-helpers';
 import { sendBookingCommunication, sendOperatorNotification } from './email';
 import { refundPayPalCapture } from './paypal';
 import { refundBooking, refundCheckoutAttempt } from './refunds';
 
-vi.mock('./bookings', () => ({ recordBookingRefund: vi.fn() }));
-vi.mock('./checkout-attempts', () => ({ updateCheckoutAttemptRefundStatus: vi.fn() }));
+vi.mock('./convex.server', () => ({ convexMutation: vi.fn() }));
 vi.mock('./email', () => ({
   sendBookingCommunication: vi.fn(),
   sendOperatorNotification: vi.fn(),
 }));
 vi.mock('./paypal', () => ({ refundPayPalCapture: vi.fn() }));
 
+const mutation = vi.mocked(convexMutation);
 const paypal = vi.mocked(refundPayPalCapture);
 const notifyBooker = vi.mocked(sendBookingCommunication);
 const notifyOperator = vi.mocked(sendOperatorNotification);
@@ -67,11 +67,9 @@ describe('refundBooking', () => {
 
     await expect(refund(paid)).resolves.toBe('refund_requested');
     expect(paypal).toHaveBeenCalledWith('CAPTURE1', undefined);
-    expect(recordBookingRefund).toHaveBeenCalledWith({
-      id: 'booking_1',
-      attempt: 'first',
-      paypalRefundId: 'REFUND1',
-    });
+    expect(convexCalls(mutation)).toEqual([
+      ['bookings:recordBookingRefund', { id: 'booking_1', attempt: 'first', paypalRefundId: 'REFUND1' }],
+    ]);
     const records = { booking: paid, tour, total: 150 };
     expect(notifyBooker).toHaveBeenCalledWith('cancellation_refund_requested', records);
     expect(notifyOperator).toHaveBeenCalledOnce();
@@ -84,7 +82,8 @@ describe('refundBooking', () => {
 
     await expect(refund(failed, 'operator', 'retry')).resolves.toBe('refund_requested');
     expect(paypal).toHaveBeenCalledWith('CAPTURE1', 'refund-CAPTURE1-REFUND_OLD');
-    expect(recordBookingRefund).toHaveBeenCalledWith(
+    expect(mutation).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({ attempt: 'retry', paypalRefundId: 'REFUND2' }),
     );
     expect(notifyBooker).toHaveBeenCalledWith('cancellation_refund_requested', expect.anything());
@@ -107,7 +106,7 @@ describe('refundBooking', () => {
         bookingId: 'booking_1',
         requestedBy: by,
       });
-      expect(recordBookingRefund).not.toHaveBeenCalled();
+      expect(mutation).not.toHaveBeenCalled();
       expect(notifyBooker.mock.calls).toEqual(
         failureEmails
           ? [['cancellation_refund_failed', { booking: paid, tour, total: 150 }]]
@@ -120,7 +119,7 @@ describe('refundBooking', () => {
     'tells the operator when PayPal took a %s refund but the Booking did not save',
     async (by) => {
       paypal.mockResolvedValueOnce({ id: 'REFUND1', status: 'PENDING' });
-      vi.mocked(recordBookingRefund).mockRejectedValueOnce(new Error('Convex down'));
+      mutation.mockRejectedValueOnce(new Error('Convex down'));
       vi.spyOn(console, 'log').mockImplementation(() => {});
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -163,11 +162,9 @@ describe('refundCheckoutAttempt', () => {
 
     await expect(refundAttempt()).resolves.toBe(paymentStatus);
     expect(paypal).toHaveBeenCalledWith('CAPTURE1', undefined);
-    expect(updateCheckoutAttemptRefundStatus).toHaveBeenCalledWith({
-      id: 'attempt_1',
-      paymentStatus,
-      paypalRefundId,
-    });
+    expect(convexCalls(mutation)).toEqual([
+      ['checkoutAttempts:updateCheckoutAttemptRefundStatus', { id: 'attempt_1', paymentStatus, paypalRefundId }],
+    ]);
     expect(notifyBooker.mock.calls).toEqual([
       [paymentStatus === 'refund_failed' ? 'refund_failed' : 'capacity_refund', records],
     ]);
@@ -176,7 +173,7 @@ describe('refundCheckoutAttempt', () => {
 
   it('still tells the Booker and alerts the operator when the refund does not save', async () => {
     paypal.mockResolvedValueOnce({ id: 'REFUND1', status: 'PENDING' });
-    vi.mocked(updateCheckoutAttemptRefundStatus).mockRejectedValueOnce(new Error('Convex down'));
+    mutation.mockRejectedValueOnce(new Error('Convex down'));
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 

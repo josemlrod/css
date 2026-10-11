@@ -1,23 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  getCheckoutAttemptWithTour,
-  hashCheckoutAccessToken,
-} from '~/lib/checkout-attempts';
+import { hashAccessToken } from '~/lib/access-tokens';
+import { convexQuery } from '~/lib/convex.server';
 
 import { loader as cancelLoader } from './checkout-cancel';
 import { loader as successLoader } from './checkout-success';
 
-vi.mock('~/lib/checkout-attempts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~/lib/checkout-attempts')>();
+vi.mock('~/lib/convex.server', () => ({ convexQuery: vi.fn() }));
 
-  return {
-    ...actual,
-    getCheckoutAttemptWithTour: vi.fn(),
-  };
-});
-
-const getCheckoutAttemptWithTourMock = vi.mocked(getCheckoutAttemptWithTour);
+const getCheckoutAttemptWithTourMock = vi.mocked(convexQuery);
 
 const checkoutAttempt = {
   _id: 'checkout-attempt-123',
@@ -34,7 +25,7 @@ const checkoutAttempt = {
   paypalOrderId: 'ORDER123',
   paymentStatus: 'pending',
   expiresAt: Date.now() + 30 * 60 * 1000,
-  accessTokenHash: hashCheckoutAccessToken('raw-token'),
+  accessTokenHash: hashAccessToken('raw-token'),
   updatedAt: 0,
 };
 

@@ -1,9 +1,6 @@
-import {
-  completeCheckoutAttempt,
-  failCheckoutAttempt,
-  generateCheckoutAccessToken,
-  hashCheckoutAccessToken,
-} from './checkout-attempts';
+import { api } from '../../convex/_generated/api';
+import { generateAccessToken, hashAccessToken } from './access-tokens';
+import { convexMutation } from './convex.server';
 import { sendBookingCommunication } from './email';
 import { logEvent } from './log';
 import { refundCheckoutAttempt } from './refunds';
@@ -44,13 +41,13 @@ async function finalizePaidCapture({
   amountValue,
   currency,
 }: CompletedPayPalCapture): Promise<PaymentStatus> {
-  const bookingAccessToken = generateCheckoutAccessToken();
-  const result = await completeCheckoutAttempt({
+  const bookingAccessToken = generateAccessToken();
+  const result = await convexMutation(api.checkoutAttempts.completeCheckoutAttempt, {
     paypalOrderId,
     amountValue,
     currency,
     paypalCaptureId,
-    bookingAccessTokenHash: hashCheckoutAccessToken(bookingAccessToken),
+    bookingAccessTokenHash: hashAccessToken(bookingAccessToken),
   });
   const logFields = { paypalOrderId, paypalCaptureId, status: result.status };
 
@@ -103,7 +100,9 @@ export async function completeCapture(capture: PayPalCapture): Promise<PaymentSt
       return 'pending';
     case 'DECLINED':
     case 'FAILED':
-      await failCheckoutAttempt({ paypalOrderId: capture.paypalOrderId });
+      await convexMutation(api.checkoutAttempts.failCheckoutAttempt, {
+        paypalOrderId: capture.paypalOrderId,
+      });
       return 'failed';
     default:
       throw new Error(`Unsupported PayPal capture status: ${capture.status}`);

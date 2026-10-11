@@ -552,7 +552,8 @@
           <div><code>convex/bookings.ts</code><p>Token-scoped Booking lookup, operator Booking list, one mutation that saves a first refund or a retry, and mark-refunded. Which Bookings can be refunded lives in <code>convex/lib/bookings.ts</code>, shared with the refund module.</p></div>
           <div><code>app/routes/admin/</code><p>Operator console: Recent activity with New markers, Bookings list and detail with cancel/refund actions, tour price, capacity, start time, and meeting point edits, and closed dates.</p></div>
           <div><code>convex/lib/serverFunctions.ts</code><p>Wraps every public Convex function so it rejects calls without <code>CONVEX_SERVER_SECRET</code>. Only the app server can read or write Checkout Attempts and Bookings.</p></div>
-          <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call.</p></div>
+          <div><code>app/lib/convex.server.ts</code><p>Builds the server-side Convex client and adds the server secret to every call. Routes and modules call Convex functions through it directly, and Convex errors reach them unchanged.</p></div>
+          <div><code>app/lib/access-tokens.ts</code><p>Generates, hashes, and verifies the private access tokens in Checkout Attempt and Booking links. Only the hash is stored.</p></div>
           <div><code>app/lib/email.ts</code><p>Booking Communication content and one send function. Callers pass the kind of communication and the Booking or Checkout Attempt with its tour, and this module works out the Booker, tour, and total fields in one place. Operator notifications for new Bookings, self-cancellations, capacity refunds, and refund failures. Logs failed sends and alerts the operator when a new Booking's email fails.</p></div>
         </div>
       </section>

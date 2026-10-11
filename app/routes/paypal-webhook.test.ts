@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  expireCheckoutAttempt,
-  updateRefundStatusByPayPalRefund,
-} from '~/lib/checkout-attempts';
 import { completeCapture } from '~/lib/checkout-completion';
+import { convexMutation } from '~/lib/convex.server';
+import { convexCalls } from '~/lib/convex.test-helpers';
 import { sendBookingCommunication } from '~/lib/email';
 import { verifyPayPalWebhook } from '~/lib/paypal';
 
@@ -14,20 +12,14 @@ vi.mock('~/lib/paypal', () => ({ verifyPayPalWebhook: vi.fn() }));
 vi.mock('~/lib/checkout-completion', () => ({
   completeCapture: vi.fn(),
 }));
-vi.mock('~/lib/checkout-attempts', () => ({
-  expireCheckoutAttempt: vi.fn(),
-  updateRefundStatusByPayPalRefund: vi.fn(),
-}));
+vi.mock('~/lib/convex.server', () => ({ convexMutation: vi.fn() }));
 vi.mock('~/lib/email', () => ({
   sendBookingCommunication: vi.fn(),
 }));
 
 const verifyPayPalWebhookMock = vi.mocked(verifyPayPalWebhook);
 const completeCaptureMock = vi.mocked(completeCapture);
-const expireCheckoutAttemptMock = vi.mocked(expireCheckoutAttempt);
-const updateRefundStatusByPayPalRefundMock = vi.mocked(
-  updateRefundStatusByPayPalRefund,
-);
+const mutation = vi.mocked(convexMutation);
 const sendBookingCommunicationMock = vi.mocked(sendBookingCommunication);
 
 const completedCapture = {
@@ -63,8 +55,7 @@ function actionArgs(request = webhookRequest()) {
 
 function expectNoProcessing() {
   expect(completeCaptureMock).not.toHaveBeenCalled();
-  expect(expireCheckoutAttemptMock).not.toHaveBeenCalled();
-  expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
+  expect(mutation).not.toHaveBeenCalled();
   expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
 }
 
@@ -177,11 +168,10 @@ describe('PayPal webhook action', () => {
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-    expect(expireCheckoutAttemptMock).toHaveBeenCalledWith({
-      paypalOrderId: 'ORDER-123',
-    });
+    expect(convexCalls(mutation)).toEqual([
+      ['checkoutAttempts:expireCheckoutAttempt', { paypalOrderId: 'ORDER-123' }],
+    ]);
     expect(completeCaptureMock).not.toHaveBeenCalled();
-      expect(updateRefundStatusByPayPalRefundMock).not.toHaveBeenCalled();
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
@@ -190,16 +180,15 @@ describe('PayPal webhook action', () => {
       event_type: 'PAYMENT.CAPTURE.REFUNDED',
       resource: { id: 'REFUND-123' },
     });
-    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'updated_booking',
     } as never);
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-    expect(updateRefundStatusByPayPalRefundMock).toHaveBeenCalledWith({
-      paypalRefundId: 'REFUND-123',
-      paymentStatus: 'refunded',
-    });
+    expect(convexCalls(mutation)).toEqual([
+      ['checkoutAttempts:updateRefundStatusByPayPalRefund', { paypalRefundId: 'REFUND-123', paymentStatus: 'refunded' }],
+    ]);
     expect(sendBookingCommunicationMock).not.toHaveBeenCalled();
   });
 
@@ -209,7 +198,7 @@ describe('PayPal webhook action', () => {
       resource: { id: 'REFUND-123' },
     });
     const booking = { ...checkoutAttempt, _id: 'booking_123' };
-    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'updated_booking',
       booking,
       tour,
@@ -218,10 +207,9 @@ describe('PayPal webhook action', () => {
 
     await expect(action(actionArgs())).resolves.toEqual({ ok: true });
 
-    expect(updateRefundStatusByPayPalRefundMock).toHaveBeenCalledWith({
-      paypalRefundId: 'REFUND-123',
-      paymentStatus: 'refund_failed',
-    });
+    expect(convexCalls(mutation)).toEqual([
+      ['checkoutAttempts:updateRefundStatusByPayPalRefund', { paypalRefundId: 'REFUND-123', paymentStatus: 'refund_failed' }],
+    ]);
     expect(sendBookingCommunicationMock).toHaveBeenCalledWith('refund_failed', {
       booking,
       tour,
@@ -235,7 +223,7 @@ describe('PayPal webhook action', () => {
       resource: { id: 'REFUND-123' },
     });
     const attempt = { ...checkoutAttempt, _id: 'checkout_attempt_123', total: 150 };
-    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'updated_checkout_attempt',
       checkoutAttempt: attempt,
       tour,
@@ -254,7 +242,7 @@ describe('PayPal webhook action', () => {
       event_type: 'PAYMENT.REFUND.FAILED',
       resource: { id: 'REFUND-123' },
     });
-    updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
+    mutation.mockResolvedValueOnce({
       status: 'already_updated',
     } as never);
 
@@ -270,7 +258,7 @@ describe('PayPal webhook action', () => {
         event_type: eventType,
         resource: { id: 'REFUND-UNKNOWN' },
       });
-      updateRefundStatusByPayPalRefundMock.mockResolvedValueOnce({
+      mutation.mockResolvedValueOnce({
         status: 'not_found',
       } as never);
 

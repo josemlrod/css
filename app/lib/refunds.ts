@@ -1,6 +1,6 @@
+import { api } from '../../convex/_generated/api';
 import { bookingRefundAttempt } from '../../convex/lib/bookings';
-import { recordBookingRefund } from './bookings';
-import { updateCheckoutAttemptRefundStatus } from './checkout-attempts';
+import { convexMutation } from './convex.server';
 import { sendBookingCommunication, sendOperatorNotification } from './email';
 import { logError, logEvent } from './log';
 import { refundPayPalCapture } from './paypal';
@@ -100,7 +100,12 @@ export async function refundBooking({
 
   const { paypalRefundId } = refund;
   const saved = await saveRefund(
-    () => recordBookingRefund({ id: booking._id, attempt, paypalRefundId }),
+    () =>
+      convexMutation(api.bookings.recordBookingRefund, {
+        id: booking._id,
+        attempt,
+        paypalRefundId,
+      }),
     { ...details, paypalRefundId },
   );
 
@@ -136,7 +141,7 @@ export async function refundCheckoutAttempt({
   );
   const saved = await saveRefund(
     () =>
-      updateCheckoutAttemptRefundStatus({
+      convexMutation(api.checkoutAttempts.updateCheckoutAttemptRefundStatus, {
         id: checkoutAttempt._id,
         paymentStatus,
         paypalRefundId,

@@ -17,14 +17,15 @@ import {
   timeToMinutes,
   toTourStartTime,
 } from '~/lib/operator';
-import { getTours, updateTourSettings } from '~/lib/tours';
+import { convexMutation, convexQuery } from '~/lib/convex.server';
 import type { Tour, TourId } from '~/lib/types';
 import { cn } from '~/lib/utils';
 
+import { api } from '../../../convex/_generated/api';
 import type { Route } from './+types/tours';
 
 export async function loader() {
-  return { tours: await getTours() };
+  return { tours: await convexQuery(api.tours.getTours, {}) };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -40,7 +41,10 @@ export async function action({ request }: Route.ActionArgs) {
     return { ok: false as const, error: 'Check the price, capacity, start times, and meeting point.' };
   }
 
-  await updateTourSettings({ id: String(formData.get('id')) as TourId, ...settings.data });
+  await convexMutation(api.tours.updateTourSettings, {
+    id: String(formData.get('id')) as TourId,
+    ...settings.data,
+  });
 
   return { ok: true as const, message: `Saved ${formData.get('name')}` };
 }

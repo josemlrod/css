@@ -17,7 +17,7 @@ import {
   StatusPill,
   fieldClass,
 } from '~/components/admin/primitives';
-import { listBookingActivity, listBookingsForOperator } from '~/lib/bookings';
+import { convexQuery } from '~/lib/convex.server';
 import { getTodayInBookingTimeZone } from '~/lib/dates';
 import {
   ACTIVITY_WINDOW_MS,
@@ -31,9 +31,9 @@ import {
   readActivitySeenAt,
   serializeActivitySeenAt,
 } from '~/lib/operator-session.server';
-import { getTours } from '~/lib/tours';
 import { cn } from '~/lib/utils';
 
+import { api } from '../../../convex/_generated/api';
 import type { Route } from './+types/bookings';
 
 const PAGE_SIZE = 100;
@@ -58,9 +58,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const today = getTodayInBookingTimeZone();
   const now = Date.now();
   const [bookings, tours, activity, seenAt] = await Promise.all([
-    listBookingsForOperator(),
-    getTours(),
-    listBookingActivity(now - ACTIVITY_WINDOW_MS),
+    convexQuery(api.bookings.listBookingsForOperator, {}),
+    convexQuery(api.tours.getTours, {}),
+    convexQuery(api.bookings.listBookingActivity, { since: now - ACTIVITY_WINDOW_MS }),
     readActivitySeenAt(request),
   ]);
   const rows = filterOperatorBookings(bookings, filters, today);

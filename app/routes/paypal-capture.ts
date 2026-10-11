@@ -1,14 +1,13 @@
 import { data } from 'react-router';
 
-import {
-  getCheckoutAttempt,
-  verifyCheckoutAccessToken,
-} from '~/lib/checkout-attempts';
+import { verifyAccessToken } from '~/lib/access-tokens';
 import { completeCapture } from '~/lib/checkout-completion';
+import { convexQuery } from '~/lib/convex.server';
 import { logError, logEvent } from '~/lib/log';
 import { capturePayPalOrder } from '~/lib/paypal';
 import type { CheckoutAttemptId } from '~/lib/types';
 
+import { api } from '../../convex/_generated/api';
 import type { Route } from './+types/paypal-capture';
 
 export async function action({ params, request }: Route.ActionArgs) {
@@ -21,11 +20,13 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   const checkoutAttemptId = params.checkoutAttemptId as CheckoutAttemptId;
   const token = new URL(request.url).searchParams.get('token') ?? '';
-  const checkoutAttempt = await getCheckoutAttempt(checkoutAttemptId);
+  const checkoutAttempt = await convexQuery(api.checkoutAttempts.getCheckoutAttemptById, {
+    checkoutAttemptId,
+  });
 
   if (
     !checkoutAttempt ||
-    !verifyCheckoutAccessToken(token, checkoutAttempt.accessTokenHash)
+    !verifyAccessToken(token, checkoutAttempt.accessTokenHash)
   ) {
     logEvent('checkout.capture_rejected', { checkoutAttemptId, reason: 'not_found' });
     return data({ ok: false, error: 'Checkout not found' }, { status: 404 });

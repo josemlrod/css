@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  CHECKOUT_ATTEMPT_TTL_MS,
-  generateCheckoutAccessToken,
-  hashCheckoutAccessToken,
-  saveCheckoutAttempt,
-  verifyCheckoutAccessToken,
-} from './checkout-attempts';
+import { hashAccessToken } from './access-tokens';
+import { CHECKOUT_ATTEMPT_TTL_MS, saveCheckoutAttempt } from './checkout-attempts';
 
 const { mutationMock } = vi.hoisted(() => ({
   mutationMock: vi.fn().mockResolvedValue('checkout-attempt-123'),
@@ -19,16 +14,6 @@ vi.mock('convex/browser', () => ({
 }));
 
 describe('checkout attempts', () => {
-  it('hashes and verifies access tokens', () => {
-    const token = generateCheckoutAccessToken();
-    const hash = hashCheckoutAccessToken(token);
-
-    expect(token).toHaveLength(43);
-    expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(verifyCheckoutAccessToken(token, hash)).toBe(true);
-    expect(verifyCheckoutAccessToken('wrong-token', hash)).toBe(false);
-  });
-
   it('persists default pending shape with 30 minute expiration', async () => {
     process.env.CONVEX_SERVER_SECRET = 'test-server-secret';
     vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
@@ -61,7 +46,7 @@ describe('checkout attempts', () => {
       paypalOrderId: null,
       paymentStatus: 'pending',
       expiresAt: Date.now() + CHECKOUT_ATTEMPT_TTL_MS,
-      accessTokenHash: hashCheckoutAccessToken(result.accessToken),
+      accessTokenHash: hashAccessToken(result.accessToken),
       serverSecret: 'test-server-secret',
     });
 
