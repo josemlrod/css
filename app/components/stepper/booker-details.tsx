@@ -79,6 +79,7 @@ export function BookerDetails() {
               <Input
                 id={`guest-name-${index}`}
                 autoComplete='off'
+                maxLength={100}
                 aria-invalid={errors.guestNames}
                 className='min-h-11 text-base md:text-sm'
                 value={guestNames[index] ?? ''}
