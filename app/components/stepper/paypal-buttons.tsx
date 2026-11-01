@@ -338,14 +338,14 @@ export function PayPalButtons() {
   }
 
   return (
-    <div className='grid min-w-0 w-full gap-1.5 sm:w-56'>
+    <div className='grid min-w-0 w-full gap-1.5 sm:w-auto'>
       <Button
         type='button'
         variant='cta'
         size='cta'
         onClick={() => void startPayment()}
         disabled={loading || creatingOrder || capturing || !eligible}
-        className='w-full whitespace-normal text-center disabled:cursor-not-allowed'
+        className='w-full whitespace-normal text-center disabled:cursor-not-allowed md:text-xl'
       >
         {creatingOrder
           ? 'Starting checkout...'
@@ -355,7 +355,7 @@ export function PayPalButtons() {
       </Button>
 
       {error && (
-        <p role='alert' className='text-sm text-destructive break-words'>
+        <p role='alert' className='text-sm text-destructive break-words sm:max-w-80'>
           {error}
         </p>
       )}
