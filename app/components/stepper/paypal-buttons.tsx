@@ -345,7 +345,7 @@ export function PayPalButtons() {
         size='cta'
         onClick={() => void startPayment()}
         disabled={loading || creatingOrder || capturing || !eligible}
-        className='w-full whitespace-normal text-center disabled:cursor-not-allowed md:text-xl'
+        className='w-full whitespace-normal text-center disabled:cursor-not-allowed md:text-xl lg:text-lg xl:text-xl'
       >
         {creatingOrder
           ? 'Starting checkout...'
