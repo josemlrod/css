@@ -341,10 +341,11 @@ export function PayPalButtons() {
     <div className='grid min-w-0 w-full gap-1.5 sm:w-56'>
       <Button
         type='button'
-        variant='default'
+        variant='cta'
+        size='cta'
         onClick={() => void startPayment()}
         disabled={loading || creatingOrder || capturing || !eligible}
-        className='min-h-10 w-full whitespace-normal text-center text-sm disabled:cursor-not-allowed md:text-base'
+        className='w-full whitespace-normal text-center disabled:cursor-not-allowed'
       >
         {creatingOrder
           ? 'Starting checkout...'

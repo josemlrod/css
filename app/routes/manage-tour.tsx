@@ -12,6 +12,7 @@ import {
   Mail,
 } from 'lucide-react';
 
+import { buttonVariants } from '~/components/ui/button';
 import { hashAccessToken } from '~/lib/access-tokens';
 import {
   SUPPORT_EMAIL,
@@ -23,6 +24,7 @@ import { convexQuery } from '~/lib/convex.server';
 import { getTourStartAt } from '~/lib/dates';
 import { logEvent } from '~/lib/log';
 import { refundBooking } from '~/lib/refunds';
+import { cn } from '~/lib/utils';
 
 import type { Tour } from '~/lib/types';
 import { api } from '../../convex/_generated/api';
@@ -264,7 +266,10 @@ export default function ManageTour({ loaderData }: Route.ComponentProps) {
               </div>
               <a
                 href={TOURS_URL}
-                className='mt-6 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black md:text-2xl'
+                className={cn(
+                  buttonVariants({ variant: 'cta', size: 'cta' }),
+                  'mt-6 w-full gap-1.5 text-center',
+                )}
               >
                 Browse tours
               </a>

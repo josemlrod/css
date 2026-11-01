@@ -90,7 +90,8 @@ export function Stepper() {
               <PayPalButtons />
             ) : (
               <Button
-                variant='default'
+                variant='cta'
+                size='cta'
                 onClick={() => {
                   if (!validate()) return;
 

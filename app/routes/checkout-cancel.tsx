@@ -1,9 +1,11 @@
 import { data, Link } from 'react-router';
 
+import { buttonVariants } from '~/components/ui/button';
 import { verifyAccessToken } from '~/lib/access-tokens';
 import { convexQuery } from '~/lib/convex.server';
 import { logEvent } from '~/lib/log';
 import type { CheckoutAttempt, CheckoutAttemptId, Tour } from '~/lib/types';
+import { cn } from '~/lib/utils';
 
 import { api } from '../../convex/_generated/api';
 import type { Route } from './+types/checkout-cancel';
@@ -70,7 +72,10 @@ export default function CheckoutCancel({ loaderData }: Route.ComponentProps) {
 
         <Link
           to={`/tour/${tour.slug}`}
-          className='mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#bababa] bg-accent px-5 py-1.5 text-center font-heading text-xl font-semibold tracking-wide text-white transition-[color,background-color] duration-300 hover:bg-brand-teal hover:text-black sm:w-auto md:text-2xl'
+          className={cn(
+            buttonVariants({ variant: 'cta', size: 'cta' }),
+            'mt-6 w-full text-center sm:w-auto',
+          )}
         >
           Try booking again
         </Link>
