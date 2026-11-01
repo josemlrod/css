@@ -42,6 +42,8 @@ bun run dev
 
 App available at `http://localhost:5173`.
 
+Set the optional app variable `BUSINESS_EMAIL=cinematicsitesofsavannah@gmail.com` to receive blind copies of Booker confirmation and cancellation emails. The confirmation copy includes the private manage link, so anyone with access to this trusted inbox can cancel the Booking. Leaving it unset sends no business copy. Existing summaries to `OPERATOR_EMAIL` are unchanged and never include that link.
+
 ### Operator sign-in
 
 The operator console at `/admin` uses [Convex Auth](https://labs.convex.dev/auth). Set these on each Convex deployment (`npx convex env set <NAME> <value>`, add `--prod` for production):

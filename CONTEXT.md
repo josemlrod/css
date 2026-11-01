@@ -41,6 +41,7 @@ _Avoid_: Admin, User
 - **Booking Status** describes whether a paid Booking should count as active.
 - **Payment Status** describes payment and refund progress separately from Booking Status.
 - **Booking Communication** is sent to the **Booker** email address for relevant Checkout Attempt and Booking outcomes.
+- The business inbox at `BUSINESS_EMAIL` gets a blind copy of Booker confirmation and cancellation emails when configured.
 
 ## Example dialogue
 
