@@ -296,24 +296,25 @@ export function PayPalButtons() {
 
     setCreatingOrder(true);
 
+    const body = new URLSearchParams({
+      intent: 'confirm-booking',
+      date,
+      time,
+      guests: String(guests),
+      name: booker.name,
+      email: booker.email,
+    });
+    for (const name of guestNames
+      .slice(0, guests - 1)
+      .map((name) => name.trim())
+      .filter(Boolean)) {
+      body.append('guestName', name);
+    }
+
     return new Promise<{ orderId: string }>((resolve, reject) => {
       pendingOrder.current = { resolve, reject };
       void fetcher
-        .submit(
-          {
-            intent: 'confirm-booking',
-            date,
-            time,
-            guests: String(guests),
-            name: booker.name,
-            email: booker.email,
-            guestName: guestNames
-              .slice(0, guests - 1)
-              .map((name) => name.trim())
-              .filter(Boolean),
-          },
-          { method: 'post' },
-        )
+        .submit(body, { method: 'post' })
         .catch((submissionError: unknown) => {
           if (pendingOrder.current?.reject !== reject) return;
 
