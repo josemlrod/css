@@ -29,9 +29,21 @@ describe('BookingValidation', () => {
     ['guests', { guests: 0 }],
     ['booker name', { bookerName: '   ' }],
     ['booker email', { bookerEmail: 'not-an-email' }],
+    ['too many guest names', { guestNames: ['Ana Ruiz', 'Sam Lee'] }],
+    ['guest name over 100 characters', { guestNames: ['a'.repeat(101)] }],
   ])('rejects invalid %s', (_, override) => {
     expect(
       BookingValidation.safeParse({ ...validBooking, ...override }).success,
     ).toBe(false);
+  });
+
+  it.each([
+    [undefined, []],
+    [[], []],
+    [['', '   '], []],
+    [['', ' Ana Ruiz ', '   '], ['Ana Ruiz']],
+    [['a'.repeat(100)], ['a'.repeat(100)]],
+  ])('normalizes optional guest names %j', (guestNames, expected) => {
+    expect(BookingValidation.parse({ ...validBooking, guestNames }).guestNames).toEqual(expected);
   });
 });

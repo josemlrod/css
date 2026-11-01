@@ -124,6 +124,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     guests: Number(formData.get('guests')),
     bookerName: String(formData.get('name') ?? ''),
     bookerEmail: String(formData.get('email') ?? ''),
+    guestNames: formData.getAll('guestName'),
   });
 
   if (
@@ -143,7 +144,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     );
   }
 
-  const { date, time, guests, bookerName, bookerEmail } = booking.data;
+  const { date, time, guests, bookerName, bookerEmail, guestNames } = booking.data;
 
   if (isDateBlocked(tour, date)) {
     logEvent('checkout.rejected', { ...selection, reason: 'date_unavailable' });
@@ -172,6 +173,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       guests,
       bookerName,
       bookerEmail,
+      guestNames,
       tourId: tour._id,
       unitPrice: tour.price,
       total: guests * tour.price,

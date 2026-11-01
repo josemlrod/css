@@ -121,7 +121,7 @@ function loadPayPalSdk(src: string) {
 export function PayPalButtons() {
   const navigate = useNavigate();
   const fetcher = useFetcher<ConfirmBookingResponse>();
-  const { date, time, guests, booker, validate } = useStepper();
+  const { date, time, guests, booker, guestNames, validate } = useStepper();
   const session = useRef<PaymentSession | null>(null);
   const checkoutAttempt = useRef<{
     id: string;
@@ -307,6 +307,10 @@ export function PayPalButtons() {
             guests: String(guests),
             name: booker.name,
             email: booker.email,
+            guestName: guestNames
+              .slice(0, guests - 1)
+              .map((name) => name.trim())
+              .filter(Boolean),
           },
           { method: 'post' },
         )

@@ -5,6 +5,8 @@ import { useStepper } from './stepper-context';
 export function BookerDetails() {
   const {
     booker: { name, email },
+    guests,
+    guestNames,
     setStepper,
     errors,
   } = useStepper();
@@ -61,6 +63,49 @@ export function BookerDetails() {
           </FieldDescription>
         ) : null}
       </Field>
+      {guests > 1 && (
+        <div className='space-y-4'>
+          <FieldDescription>
+            Optional. Add the names of the people joining you.
+          </FieldDescription>
+          {Array.from({ length: guests - 1 }, (_, index) => (
+            <Field key={index} data-invalid={errors.guestNames}>
+              <FieldLabel
+                htmlFor={`guest-name-${index}`}
+                className='text-base font-medium text-foreground'
+              >
+                Guest {index + 2} name
+              </FieldLabel>
+              <Input
+                id={`guest-name-${index}`}
+                autoComplete='off'
+                aria-invalid={errors.guestNames}
+                className='min-h-11 text-base md:text-sm'
+                value={guestNames[index] ?? ''}
+                onChange={(e) =>
+                  setStepper((prev) => {
+                    const names = Array.from(
+                      { length: prev.guests - 1 },
+                      (_, i) => prev.guestNames[i] ?? '',
+                    );
+                    names[index] = e.target.value;
+                    return {
+                      ...prev,
+                      guestNames: names,
+                      errors: { ...prev.errors, guestNames: false },
+                    };
+                  })
+                }
+              />
+            </Field>
+          ))}
+          {errors.guestNames && (
+            <FieldDescription className='text-destructive/80'>
+              Each guest name must be 100 characters or fewer
+            </FieldDescription>
+          )}
+        </div>
+      )}
     </div>
   );
 }

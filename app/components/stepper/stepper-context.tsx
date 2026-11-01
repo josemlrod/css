@@ -21,6 +21,7 @@ export type Stepper = {
   step: number;
   errors: Record<string, boolean>;
   booker: Booker;
+  guestNames: string[];
 } & BookingDetails;
 
 type SetStepper = React.Dispatch<React.SetStateAction<Stepper>>;
@@ -49,6 +50,7 @@ export function StepperProvider({ children }: PropsWithChildren) {
     date: '',
     time: '',
     guests: 1,
+    guestNames: [],
     booker: {
       name: '',
       email: '',
@@ -122,6 +124,7 @@ export function StepperProvider({ children }: PropsWithChildren) {
       const res = BookerValidation.safeParse({
         bookerName: stepper.booker.name,
         bookerEmail: stepper.booker.email,
+        guestNames: stepper.guestNames.slice(0, stepper.guests - 1),
       });
 
       if (res.success) return true;
