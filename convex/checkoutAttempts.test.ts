@@ -43,7 +43,7 @@ describe('completeCheckoutAttempt', () => {
     );
   });
 
-  it('reconciles a completed capture after scheduled expiry', async () => {
+  it.each([undefined, ['Ana Ruiz']])('reconciles an expired capture with guest names %j', async (guestNames) => {
     const checkoutAttempt = {
       _id: 'checkout_attempt_123',
       _creationTime: 1,
@@ -53,6 +53,7 @@ describe('completeCheckoutAttempt', () => {
       guests: 2,
       bookerName: 'Test Booker',
       bookerEmail: 'booker@example.com',
+      guestNames,
       unitPrice: 79,
       total: 158,
       currency: 'USD',
@@ -97,6 +98,7 @@ describe('completeCheckoutAttempt', () => {
         checkoutAttemptId: 'checkout_attempt_123',
         paypalCaptureId: 'CAPTURE-123',
         paymentStatus: 'paid',
+        guestNames,
       }),
     );
     expect(patch).toHaveBeenCalledWith(

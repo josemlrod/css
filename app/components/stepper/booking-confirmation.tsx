@@ -10,8 +10,13 @@ export function BookingConfirmation() {
     date,
     time,
     guests,
+    guestNames,
     booker: { name, email },
   } = useStepper();
+  const joiningYou = guestNames
+    .slice(0, guests - 1)
+    .map((name) => name.trim())
+    .filter(Boolean);
 
   return (
     <div className='space-y-4'>
@@ -49,13 +54,21 @@ export function BookingConfirmation() {
           <dd className='min-w-0 break-words font-medium sm:text-right'>{guests}</dd>
         </div>
         <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
-          <dt className='text-muted-foreground'>Guest</dt>
+          <dt className='text-muted-foreground'>Your name</dt>
           <dd className='min-w-0 break-words font-medium sm:text-right'>{name || '—'}</dd>
         </div>
         <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
           <dt className='text-muted-foreground'>Email</dt>
           <dd className='min-w-0 break-words font-medium sm:text-right'>{email || '—'}</dd>
         </div>
+        {joiningYou.length > 0 && (
+          <div className='grid gap-1 sm:grid-cols-[auto_1fr] sm:gap-4'>
+            <dt className='text-muted-foreground'>Joining you</dt>
+            <dd className='min-w-0 break-words font-medium sm:text-right'>
+              {joiningYou.join(', ')}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

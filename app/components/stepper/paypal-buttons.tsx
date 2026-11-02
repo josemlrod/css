@@ -121,7 +121,7 @@ function loadPayPalSdk(src: string) {
 export function PayPalButtons() {
   const navigate = useNavigate();
   const fetcher = useFetcher<ConfirmBookingResponse>();
-  const { date, time, guests, booker, validate } = useStepper();
+  const { date, time, guests, booker, guestNames, validate } = useStepper();
   const session = useRef<PaymentSession | null>(null);
   const checkoutAttempt = useRef<{
     id: string;
@@ -296,20 +296,25 @@ export function PayPalButtons() {
 
     setCreatingOrder(true);
 
+    const body = new URLSearchParams({
+      intent: 'confirm-booking',
+      date,
+      time,
+      guests: String(guests),
+      name: booker.name,
+      email: booker.email,
+    });
+    for (const name of guestNames
+      .slice(0, guests - 1)
+      .map((name) => name.trim())
+      .filter(Boolean)) {
+      body.append('guestName', name);
+    }
+
     return new Promise<{ orderId: string }>((resolve, reject) => {
       pendingOrder.current = { resolve, reject };
       void fetcher
-        .submit(
-          {
-            intent: 'confirm-booking',
-            date,
-            time,
-            guests: String(guests),
-            name: booker.name,
-            email: booker.email,
-          },
-          { method: 'post' },
-        )
+        .submit(body, { method: 'post' })
         .catch((submissionError: unknown) => {
           if (pendingOrder.current?.reject !== reject) return;
 

@@ -54,7 +54,7 @@ const tour = {
   updatedAt: 0,
 };
 
-function bookingRequest(overrides: Record<string, string> = {}) {
+function bookingRequest(overrides: Record<string, string> = {}, guestNames: string[] = []) {
   const body = new URLSearchParams({
     intent: 'confirm-booking',
     date: getTodayInBookingTimeZone(),
@@ -64,6 +64,8 @@ function bookingRequest(overrides: Record<string, string> = {}) {
     email: 'ada@example.com',
     ...overrides,
   });
+
+  for (const name of guestNames) body.append('guestName', name);
 
   return new Request('https://example.com/tour/southern-flavors-food', {
     method: 'POST',
@@ -102,12 +104,16 @@ describe('tour booking action', () => {
     expect(saveCheckoutAttemptMock).not.toHaveBeenCalled();
   });
 
-  it('rejects invalid input without sending booking communication', async () => {
+  it.each([
+    [{ email: 'not-an-email' }, []],
+    [{}, ['Ana Ruiz', 'Sam Lee']],
+    [{}, ['a'.repeat(101)]],
+  ])('rejects invalid input %j %j without sending booking communication', async (overrides, names) => {
     vi.stubEnv('APP_ORIGIN', 'https://example.com');
     getTourBySlugMock.mockResolvedValueOnce(tour as never);
 
     const response = await action({
-      request: bookingRequest({ email: 'not-an-email' }),
+      request: bookingRequest(overrides, names),
       params: { slug: 'southern-flavors-food' },
       context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
@@ -173,7 +179,7 @@ describe('tour booking action', () => {
     createPayPalOrderMock.mockResolvedValueOnce({ id: 'ORDER123' });
 
     const response = await action({
-      request: bookingRequest(),
+      request: bookingRequest({}, ['', ' Ana Ruiz ', '   ']),
       params: { slug: 'southern-flavors-food' },
       context: new RouterContextProvider(),
       url: new URL('https://example.com/tour/southern-flavors-food'),
@@ -195,6 +201,7 @@ describe('tour booking action', () => {
       guests: 2,
       bookerName: 'Ada Lovelace',
       bookerEmail: 'ada@example.com',
+      guestNames: ['Ana Ruiz'],
       tourId: 'tour_123',
       unitPrice: 79,
       total: 158,
