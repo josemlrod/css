@@ -89,7 +89,7 @@ export function BookerDetails() {
           <FieldDescription>
             Optional. Add the names of the people joining you.
           </FieldDescription>
-          {/* Three fields: snug label + gap-2 + min-h-11, plus two space-y-4 gaps. */}
+          {/* 18rem: three 4.75rem fields + three 1rem gaps + a 0.75rem label peek. */}
           <div
             ref={guestFieldsRef}
             onScroll={(event) => {
@@ -99,8 +99,8 @@ export function BookerDetails() {
               );
             }}
             className={cn(
-              '-mx-1 max-h-[calc(3*(1.375rem+0.5rem+2.75rem)+2*1rem)] space-y-4 overflow-y-auto overscroll-contain px-1',
-              hasMoreBelow && '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1rem),transparent)]',
+              '-mx-1 max-h-72 space-y-4 overflow-y-auto overscroll-contain px-1',
+              hasMoreBelow && '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1.75rem),transparent)]',
             )}
           >
             {Array.from({ length: guests - 1 }, (_, index) => (
