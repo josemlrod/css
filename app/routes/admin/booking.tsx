@@ -156,6 +156,7 @@ export default function AdminBooking({ loaderData }: Route.ComponentProps) {
               ['Date', formatLongDate(booking.date)],
               ['Time', booking.time],
               ['Guests', String(booking.guests)],
+              ['Other guests', booking.guestNames?.join(', ') || 'None'],
               ['Total paid', `$${total}`],
             ].map(([label, value]) => (
               <div key={label}>

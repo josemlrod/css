@@ -77,6 +77,23 @@ const newBooking = { checkoutAttempt, tour, bookingId: booking._id, manageUrl };
 const paidBooking = { booking, tour, total: checkoutAttempt.total };
 
 describe('Booking Communication email content', () => {
+  it.each([undefined, [], ['<b>Ana</b>', 'Sam Lee']])('renders optional confirmation guest names %j', (guestNames) => {
+    const email = createBookingCommunicationEmail('booking_communication', {
+      ...newBooking,
+      checkoutAttempt: { ...checkoutAttempt, guestNames },
+    });
+
+    if (guestNames?.length) {
+      expect(email.text).toContain('Joining you: <b>Ana</b>, Sam Lee');
+      expect(email.html).toContain('Joining you');
+      expect(email.html).toContain('&lt;b&gt;Ana&lt;/b&gt;, Sam Lee');
+      expect(email.html).not.toContain('<b>Ana</b>');
+    } else {
+      expect(email.text).not.toContain('Joining you');
+      expect(email.html).not.toContain('Joining you');
+    }
+  });
+
   it('includes paid Booking details and private manage/cancel link', () => {
     const email = createBookingCommunicationEmail('booking_communication', newBooking);
 
@@ -197,6 +214,26 @@ describe('Booking Communication sending', () => {
 
     expect(sendMock.mock.calls[0][0]).not.toHaveProperty('bcc');
     expect(consoleErrorMock).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, [], ['<b>Ana</b>', 'Sam Lee']])('renders optional operator guest names %j', async (guestNames) => {
+    configure();
+    sendMock.mockResolvedValue({ data: { id: 'email_1' }, error: null });
+    await sendBookingCommunication('booking_communication', {
+      ...newBooking,
+      checkoutAttempt: { ...checkoutAttempt, guestNames },
+    });
+    const email = sendMock.mock.calls[1][0];
+
+    if (guestNames?.length) {
+      expect(email.text).toContain('Other guests: <b>Ana</b>, Sam Lee');
+      expect(email.html).toContain('Other guests');
+      expect(email.html).toContain('&lt;b&gt;Ana&lt;/b&gt;, Sam Lee');
+      expect(email.html).not.toContain('<b>Ana</b>');
+    } else {
+      expect(email.text).not.toContain('Other guests');
+      expect(email.html).not.toContain('Other guests');
+    }
   });
 
   it('tells the operator about a new Booking with a console link and no manage link', async () => {

@@ -4,7 +4,10 @@ import { SUPPORT_EMAIL, SUPPORT_PHONE } from '~/lib/contact';
 import { logError, logEvent } from '~/lib/log';
 import type { Booking, CheckoutAttempt, Tour } from '~/lib/types';
 
-type BookerDetails = Pick<Booking, 'bookerName' | 'bookerEmail' | 'date' | 'time' | 'guests'>;
+type BookerDetails = Pick<
+  Booking,
+  'bookerName' | 'bookerEmail' | 'date' | 'time' | 'guests' | 'guestNames'
+>;
 
 // A Booking doesn't store what the Booker paid, so it travels with the total Convex reads
 // for it (getBookingTotal). A Checkout Attempt carries its own.
@@ -45,6 +48,7 @@ type Communication = {
   date: string;
   time: string;
   guests: number;
+  guestNames: string[];
   total: number;
 };
 
@@ -79,6 +83,7 @@ function fromRecords(records: CommunicationRecords | NewBookingRecords): {
       date: details.date,
       time: details.time,
       guests: details.guests,
+      guestNames: details.guestNames ?? [],
       total,
     },
     record,
@@ -127,7 +132,7 @@ Your tour is all set, and we can't wait to share Savannah's most iconic film loc
 Tour: ${booking.tourName}
 Date: ${formatDate(booking.date)}
 Time: ${booking.time}
-Party size: ${booking.guests}
+Party size: ${booking.guests}${booking.guestNames.length ? `\nJoining you: ${booking.guestNames.join(', ')}` : ''}
 Total: ${currency.format(booking.total)}
 Meeting point: ${booking.meetingPoint}
 
@@ -198,7 +203,11 @@ function newBookingHtml(booking: NewBookingCommunication) {
                   <tr>
                     <td style="padding:16px;border-bottom:1px solid #e5e5e5;color:#737373;font-size:14px;">Party size</td>
                     <td align="right" style="padding:16px;border-bottom:1px solid #e5e5e5;font-weight:600;font-size:14px;color:#171717;">${guests}</td>
-                  </tr>
+                  </tr>${booking.guestNames.length ? `
+                  <tr>
+                    <td style="padding:16px;border-bottom:1px solid #e5e5e5;color:#737373;font-size:14px;">Joining you</td>
+                    <td align="right" style="padding:16px;border-bottom:1px solid #e5e5e5;font-weight:600;font-size:14px;color:#171717;">${booking.guestNames.map(escapeHtml).join(', ')}</td>
+                  </tr>` : ''}
                   <tr>
                     <td style="padding:16px;color:#737373;font-size:14px;">Total</td>
                     <td align="right" style="padding:16px;font-size:20px;font-weight:700;color:#171717;">${total}</td>
@@ -442,6 +451,9 @@ function createOperatorNotificationEmail(
     ['Date', formatDate(booking.date)],
     ['Time', booking.time],
     ['Party size', String(booking.guests)],
+    ...((event === 'new_booking' || event === 'booking_email_failed') && booking.guestNames.length
+      ? [['Other guests', booking.guestNames.join(', ')] as [string, string]]
+      : []),
     ['Total', currency.format(booking.total)],
   ];
   const fullSubject = `${subject}: ${booking.tourName} on ${formatDate(booking.date)} at ${booking.time}`;

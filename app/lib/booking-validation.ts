@@ -29,11 +29,19 @@ export const BookingDetailsValidation = z.object({
 export const BookerValidation = z.object({
   bookerName: z.string().trim().min(1),
   bookerEmail: z.string().trim().email(),
+  guestNames: z
+    .array(z.string())
+    .transform((names) => names.map((name) => name.trim()).filter(Boolean))
+    .pipe(z.array(z.string().min(1).max(100)))
+    .default([]),
 });
 
 export const BookingValidation = BookingDetailsValidation.extend(
   BookerValidation.shape,
-);
+).refine(({ guests, guestNames }) => guestNames.length <= guests - 1, {
+  message: 'Too many guest names for this party size',
+  path: ['guestNames'],
+});
 
 export type BookingDetailsValidation = z.infer<typeof BookingDetailsValidation>;
 export type BookerValidation = z.infer<typeof BookerValidation>;

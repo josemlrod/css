@@ -8,6 +8,9 @@ CSS Tours handles tour booking flows for people reserving guided tours.
 A person who provides contact information and receives booking communication.
 _Avoid_: User
 
+**Guest name**:
+An optional name of a person in the Booker's party other than the Booker. The Booker counts as guest 1. Guest names do not change party size or pricing.
+
 **Checkout Attempt**:
 A temporary record of selected tour details and payment state before a **Booking** exists.
 _Avoid_: Booking
