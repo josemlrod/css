@@ -186,6 +186,7 @@ Tracked in #79.
 - [ ] Send test emails to Gmail and Outlook and confirm they don't land in spam.
 - [ ] Set `APP_ORIGIN` in Fly secrets.
 - [ ] Set `OPERATOR_EMAIL` in Fly secrets once #58 names the recipient. Without it, operator notifications are only logged.
+- [ ] Set `BUSINESS_EMAIL=cinematicsitesofsavannah@gmail.com` in Fly secrets for blind copies of Booker confirmation and cancellation emails. The confirmation copy includes the private manage link, so this inbox must be trusted. Leaving it unset sends no business copy.
 - [ ] Run one real live-mode purchase at a low test price, then self-cancel it for a refund. Check webhook deliveries in the PayPal dashboard.
 - [ ] Update the WordPress tour links to the production slugs from item 2.
 - [ ] Add a privacy policy link to the footer. The app collects names, emails, and payments.

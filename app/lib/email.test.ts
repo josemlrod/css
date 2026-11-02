@@ -168,6 +168,7 @@ describe('Booking Communication sending', () => {
     delete process.env.RESEND_API_KEY;
     delete process.env.RESEND_FROM_EMAIL;
     delete process.env.OPERATOR_EMAIL;
+    delete process.env.BUSINESS_EMAIL;
     delete process.env.APP_ORIGIN;
   });
 
@@ -177,6 +178,43 @@ describe('Booking Communication sending', () => {
     process.env.OPERATOR_EMAIL = 'operator@example.com';
     vi.spyOn(console, 'log').mockImplementation(() => {});
   }
+
+  it.each([
+    ['booking_communication', newBooking, true],
+    ['cancellation_refund_requested', paidBooking, true],
+    ['capacity_refund', { checkoutAttempt, tour }, false],
+    ['cancellation_refund_failed', paidBooking, false],
+    ['refund_failed', paidBooking, false],
+  ] as const)('only BCCs the business on eligible Booker emails: %s', async (kind, records, bcc) => {
+    configure();
+    process.env.BUSINESS_EMAIL = 'cinematicsitesofsavannah@gmail.com';
+    sendMock.mockResolvedValue({ data: { id: 'email_1' }, error: null });
+
+    await sendBookingCommunication(kind, records as never);
+
+    const [bookerEmail, ...operatorEmails] = sendMock.mock.calls.map(([email]) => email);
+    expect(bookerEmail.to).toBe('booker@example.com');
+    if (bcc) {
+      expect(bookerEmail.bcc).toBe('cinematicsitesofsavannah@gmail.com');
+    } else {
+      expect(bookerEmail).not.toHaveProperty('bcc');
+    }
+    for (const operatorEmail of operatorEmails) {
+      expect(operatorEmail).not.toHaveProperty('bcc');
+    }
+  });
+
+  it('sends without a BCC or error when BUSINESS_EMAIL is unset', async () => {
+    configure();
+    delete process.env.BUSINESS_EMAIL;
+    const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {});
+    sendMock.mockResolvedValue({ data: { id: 'email_1' }, error: null });
+
+    await sendBookingCommunication('booking_communication', newBooking);
+
+    expect(sendMock.mock.calls[0][0]).not.toHaveProperty('bcc');
+    expect(consoleErrorMock).not.toHaveBeenCalled();
+  });
 
   it.each([undefined, [], ['<b>Ana</b>', 'Sam Lee']])('renders optional operator guest names %j', async (guestNames) => {
     configure();

@@ -278,7 +278,7 @@
           </div>
           <div class="entity">
             <h3>Booking Communication</h3>
-            <p>The app sends a welcome confirmation with tour details, meeting point, optional guest names supplied by the Booker, and a private cancellation link. It also sends refund notices, cancellation results, and refund failures. PayPal receipts stay separate. A failed send never changes the payment or cancellation response. It is logged with the email type and the Booking or Checkout Attempt ID, never the manage link. Totals in these emails and on the manage page are what the Booker paid, read from the Checkout Attempt, so a later tour price change doesn't alter them.</p>
+            <p>The app sends a welcome confirmation with tour details, meeting point, optional guest names supplied by the Booker, and a private cancellation link. It also sends refund notices, cancellation results, and refund failures. When configured, <code>BUSINESS_EMAIL</code> gets a blind copy of Booker confirmation and accepted cancellation/refund emails, but not capacity refunds or refund failures. The confirmation copy includes the private manage link. Anyone with access to this trusted business inbox can cancel that Booking. Leaving the variable unset sends no business copy and logs no error. PayPal receipts stay separate. A failed send never changes the payment or cancellation response. It is logged with the email type and the Booking or Checkout Attempt ID, never the manage link. Totals in these emails and on the manage page are what the Booker paid, read from the Checkout Attempt, so a later tour price change doesn't alter them.</p>
           </div>
         </div>
       </section>
@@ -314,7 +314,7 @@
             <div class="step"><div class="num">1</div><div class="step-body"><h3>Order captured</h3><p>The SDK approval callback posts the private Checkout Attempt token and Order ID to <code>/paypal/capture/:checkoutAttemptId</code>. The server verifies both before calling PayPal.</p></div></div>
             <div class="step"><div class="num">2</div><div class="step-body"><h3>Attempt reconciled</h3><p>The capture route and the webhook both hand the capture status and Order ID to <code>completeCapture</code>, the one place that turns a PayPal capture into a Payment Status. <code>COMPLETED</code> also passes amount, currency, and Capture ID, and <code>completeCheckoutAttempt</code> checks idempotency and current capacity. <code>PENDING</code> leaves the attempt pending until the webhook reports its final state. <code>DECLINED</code> or <code>FAILED</code> marks a pending attempt <code>failed</code>. Any other status is an error.</p></div></div>
             <div class="step"><div class="num">3</div><div class="step-body"><h3>Booking created</h3><p>If capacity exists, the app inserts the Booking with <code>paymentStatus: paid</code> and marks the attempt <code>paid</code>. The capture route returns the resulting Payment Status to the browser.</p></div></div>
-            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link. Then it emails <code>OPERATOR_EMAIL</code> a "New Booking" notification. If the Booker's email failed, that notification is a "Booking email failed" alert instead, so the operator can reach the Booker.</p></div></div>
+            <div class="step"><div class="num">4</div><div class="step-body"><h3>Email sent</h3><p>App sends Booking details and private <code>/manage/:bookingId?token=...</code> link, BCC'd to <code>BUSINESS_EMAIL</code> when configured. Then it emails <code>OPERATOR_EMAIL</code> a "New Booking" notification. If the Booker's email failed, that notification is a "Booking email failed" alert instead, so the operator can reach the Booker.</p></div></div>
           </div>
         </div>
       </section>
@@ -362,8 +362,10 @@
           time, party size, Booker name and email, total, and the Booking or
           Checkout Attempt ID. New-Booking emails and failed-confirmation alerts also include guest names when the Booker supplied any. The operator Booking detail page shows those names, or None for an empty list. Guest names are not added to refund or cancellation emails or the Booker's manage page. Booking emails link to
           <code>/admin/bookings/:bookingId</code>. A signed-out Operator signs in
-          and lands back on that Booking. Operator emails never include the
-          manage link, because it carries the Booker's access token. A failed
+          and lands back on that Booking. These <code>OPERATOR_EMAIL</code>
+          summaries never include the manage link, because it carries the Booker's
+          access token. The separate confirmation copy to <code>BUSINESS_EMAIL</code>
+          does include it. A failed
           or unconfigured operator send is only logged, so it never changes a
           payment or cancellation response. Cancellations the operator starts
           from <code>/admin</code> don't send one. The <code>/admin/bookings</code>
@@ -389,7 +391,8 @@
             cutoff, the route hands the Booking to <code>refundBooking</code> as a
             Booker's first refund. Refund creation must succeed first. Then
             Booking becomes canceled, capacity releases, and Payment Status
-            becomes <code>refund_pending</code>.
+            becomes <code>refund_pending</code>. The Booker gets the cancellation
+            email, BCC'd to <code>BUSINESS_EMAIL</code> when configured.
           </p>
         </div>
 
@@ -401,7 +404,7 @@
             cutoff. It calls the same <code>refundBooking</code> as an Operator's
             first refund or retry, so PayPal must accept the refund first, then the Booking becomes canceled with
             <code>refund_pending</code>, and the Booker gets the cancellation
-            email. If PayPal rejects the refund, nothing changes and no email
+            email, BCC'd to <code>BUSINESS_EMAIL</code> when configured. If PayPal rejects the refund, nothing changes and no email
             is sent. For a <code>refund_failed</code> Booking the operator can
             retry the refund, which uses a new PayPal request ID and stores the
             new refund ID, or mark it <code>refunded</code> after refunding in
@@ -458,7 +461,7 @@
               <td>Payment succeeds, capacity available</td>
               <td><code>Checkout Attempt = paid</code>, <code>Booking = paid</code></td>
               <td><span class="status-ok">Yes</span></td>
-              <td>Booking details email with manage link; operator New Booking email, or an alert if the Booker's email fails</td>
+              <td>Booking details email with manage link, BCC'd to configured BUSINESS_EMAIL; operator New Booking email, or an alert if the Booker's email fails</td>
             </tr>
             <tr>
               <td>Payment succeeds, capacity full</td>
@@ -470,7 +473,7 @@
               <td>PayPal accepts a refund, saving it fails</td>
               <td>Unchanged until the cancel or retry runs again</td>
               <td>Unchanged</td>
-              <td>The usual refund email to the Booker; operator Refund not saved email</td>
+              <td>The usual refund email to the Booker, BCC'd to configured BUSINESS_EMAIL for Booking cancellations only; operator Refund not saved email</td>
             </tr>
             <tr>
               <td>PayPal capture pending</td>
@@ -494,7 +497,7 @@
               <td>Booker cancels before cutoff</td>
               <td><code>Booking.cancelled != null</code>, <code>Booking.paymentStatus = refund_pending</code></td>
               <td><span class="status-warn">Canceled</span></td>
-              <td>Cancellation/refund requested email; operator Booking canceled email</td>
+              <td>Cancellation/refund requested email, BCC'd to configured BUSINESS_EMAIL; operator Booking canceled email</td>
             </tr>
             <tr>
               <td>Booker cancels, PayPal rejects the refund</td>
@@ -506,13 +509,13 @@
               <td>Operator cancels from <code>/admin</code></td>
               <td><code>Booking.cancelled != null</code>, <code>Booking.paymentStatus = refund_pending</code></td>
               <td><span class="status-warn">Canceled</span></td>
-              <td>Cancellation/refund requested email</td>
+              <td>Cancellation/refund requested email, BCC'd to configured BUSINESS_EMAIL</td>
             </tr>
             <tr>
               <td>Operator retries a failed refund</td>
               <td><code>refund_failed</code> → <code>refund_pending</code> with a new <code>paypalRefundId</code></td>
               <td>Unchanged</td>
-              <td>Cancellation/refund requested email</td>
+              <td>Cancellation/refund requested email, BCC'd to configured BUSINESS_EMAIL</td>
             </tr>
             <tr>
               <td>Operator marks a failed refund as refunded</td>

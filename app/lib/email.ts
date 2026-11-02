@@ -510,12 +510,14 @@ async function sendEmail(
   record: EmailRecord,
   to: string,
   email: Email,
+  bcc?: string,
 ) {
   try {
     const resend = new Resend(requireEnv('RESEND_API_KEY'));
     const { error } = await resend.emails.send({
       from: requireEnv('RESEND_FROM_EMAIL'),
       to,
+      ...(bcc ? { bcc } : {}),
       ...email,
     });
 
@@ -589,6 +591,11 @@ const operatorAlerts: Partial<Record<CommunicationKind, OperatorEvent>> = {
   refund_failed: 'refund_failed',
 };
 
+const businessBccKinds: readonly CommunicationKind[] = [
+  'booking_communication',
+  'cancellation_refund_requested',
+];
+
 export function createBookingCommunicationEmail<K extends CommunicationKind>(
   kind: K,
   records: RecordsByKind[K],
@@ -607,6 +614,7 @@ export async function sendBookingCommunication<K extends CommunicationKind>(
     record,
     communication.to,
     bookerEmails[kind](communication, records),
+    businessBccKinds.includes(kind) ? process.env.BUSINESS_EMAIL : undefined,
   );
   const alert = operatorAlerts[kind];
 
